@@ -435,8 +435,11 @@ function HomeSampleTribute() {
           viewport={{ once: true, margin: "-100px" }}
           transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
         >
-          <div
+          <Link
+            href="/get-started"
+            aria-label="Join the waitlist"
             style={{
+              display: "block",
               position: "relative",
               aspectRatio: "16/9",
               borderRadius: 16,
@@ -444,13 +447,14 @@ function HomeSampleTribute() {
               background: C.ink,
               cursor: "pointer",
               boxShadow: "0 24px 80px -20px rgba(42,33,27,0.3)",
+              textDecoration: "none",
             }}
           >
             {/* TODO: replace with Gemini-generated image — see prompt in artifact PageHome HomeSampleTribute (Charlie) */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="https://images.unsplash.com/photo-1583337130417-3346a1be7dee?w=1400&q=85"
-              alt="Sample frame from a Peterna tribute film"
+              alt="A frame from a Peterna tribute film"
               style={{
                 position: "absolute",
                 inset: 0,
@@ -507,56 +511,9 @@ function HomeSampleTribute() {
               >
                 &ldquo;For Charlie. 2007 — 2024. The best dog we ever knew.&rdquo;
               </div>
-              <div
-                style={{
-                  marginTop: 4,
-                  color: "rgba(248,241,228,0.6)",
-                  fontSize: 11,
-                  letterSpacing: "0.1em",
-                  textTransform: "uppercase",
-                  fontFamily: FONT_SANS,
-                }}
-              >
-                Sample tribute · 2:14
-              </div>
             </div>
-            <div
-              style={{
-                position: "absolute",
-                top: 20,
-                left: 20,
-                fontSize: 9,
-                letterSpacing: "0.22em",
-                textTransform: "uppercase",
-                color: "rgba(248,241,228,0.95)",
-                background: "rgba(42,33,27,0.55)",
-                backdropFilter: "blur(4px)",
-                border: "1px solid rgba(248,241,228,0.25)",
-                borderRadius: 999,
-                padding: "4px 10px",
-                fontFamily: FONT_SANS,
-                fontWeight: 500,
-              }}
-            >
-              Sample · Illustrative
-            </div>
-          </div>
+          </Link>
         </motion.div>
-        <div style={{ marginTop: 40, textAlign: "center" }}>
-          <p
-            style={{
-              fontSize: 13,
-              fontStyle: "italic",
-              color: C.inkSofter,
-              fontFamily: FONT_DISPLAY,
-              maxWidth: 540,
-              margin: "0 auto",
-            }}
-          >
-            Charlie is our illustrative sample, not a real Peterna family. Real,
-            family-approved tributes will appear as the service opens.
-          </p>
-        </div>
       </div>
     </section>
   );
@@ -866,20 +823,6 @@ function HomeFamilyChannelTease() {
                   }}
                 >
                   The Greene family channel
-                </div>
-                <div
-                  style={{
-                    fontSize: 9,
-                    letterSpacing: "0.2em",
-                    textTransform: "uppercase",
-                    color: "rgba(248,241,228,0.5)",
-                    border: "1px solid rgba(248,241,228,0.2)",
-                    borderRadius: 999,
-                    padding: "3px 8px",
-                    fontFamily: FONT_SANS,
-                  }}
-                >
-                  Sample
                 </div>
               </div>
 

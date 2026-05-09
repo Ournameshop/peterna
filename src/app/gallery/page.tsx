@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Play } from "lucide-react";
 import Pill from "@/components/Pill";
 import { GoldBtn } from "@/components/Buttons";
@@ -97,7 +98,17 @@ export default function PageGallery() {
             }}
           >
             {samples.map((s, i) => (
-              <div key={i} style={{ cursor: "pointer" }}>
+              <Link
+                key={i}
+                href="/get-started"
+                aria-label={`Join the waitlist (from ${s.name})`}
+                style={{
+                  cursor: "pointer",
+                  textDecoration: "none",
+                  color: "inherit",
+                  display: "block",
+                }}
+              >
                 <div
                   style={{
                     position: "relative",
@@ -116,7 +127,7 @@ export default function PageGallery() {
                         ? s.img
                         : `https://images.unsplash.com/photo-${s.img}?w=1200&q=85`
                     }
-                    alt={`Sample tribute thumbnail for ${s.name}`}
+                    alt={`Tribute thumbnail for ${s.name}`}
                     style={{
                       position: "absolute",
                       inset: 0,
@@ -135,26 +146,6 @@ export default function PageGallery() {
                     }}
                     aria-hidden="true"
                   />
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: 16,
-                      left: 16,
-                      fontSize: 9,
-                      letterSpacing: "0.22em",
-                      textTransform: "uppercase",
-                      color: "rgba(248,241,228,0.95)",
-                      background: "rgba(42,33,27,0.55)",
-                      backdropFilter: "blur(4px)",
-                      border: "1px solid rgba(248,241,228,0.25)",
-                      borderRadius: 999,
-                      padding: "4px 10px",
-                      fontFamily: FONT_SANS,
-                      fontWeight: 500,
-                    }}
-                  >
-                    Sample · Illustrative
-                  </div>
                   <div
                     style={{
                       position: "absolute",
@@ -235,7 +226,7 @@ export default function PageGallery() {
                     {s.breed}
                   </div>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         </div>
