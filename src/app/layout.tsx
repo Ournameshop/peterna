@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
-import { Lora, Inter } from "next/font/google";
+import { Cormorant_Garamond, Inter } from "next/font/google";
+import Nav from "@/components/Nav";
+import Footer from "@/components/Footer";
+import { C, FONT_SANS } from "@/lib/peterna-tokens";
 import "./globals.css";
 
-const lora = Lora({
+const cormorant = Cormorant_Garamond({
   subsets: ["latin"],
-  weight: ["400", "500"],
+  weight: ["300", "400", "500", "600"],
   style: ["normal", "italic"],
   variable: "--font-display",
   display: "swap",
@@ -12,19 +15,15 @@ const lora = Lora({
 
 const inter = Inter({
   subsets: ["latin"],
-  weight: ["300", "400", "500"],
+  weight: ["300", "400", "500", "600"],
   variable: "--font-sans",
   display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "peterna — a gentle place to remember",
+  title: "Peterna — a beautiful tribute for the pet you loved",
   description:
-    "peterna is a quiet space to celebrate, remember, and share the lives of the pets we've loved. Coming soon.",
-  robots: {
-    index: false,
-    follow: false,
-  },
+    "Peterna turns your photos and memories into a cinematic tribute film, a permanent memorial page, and a family channel for every pet you've ever loved.",
 };
 
 export default function RootLayout({
@@ -33,8 +32,20 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${lora.variable} ${inter.variable}`}>
-      <body className="antialiased">{children}</body>
+    <html lang="en" className={`${cormorant.variable} ${inter.variable}`}>
+      <body
+        className="antialiased"
+        style={{
+          background: C.cream,
+          color: C.ink,
+          minHeight: "100vh",
+          fontFamily: FONT_SANS,
+        }}
+      >
+        <Nav />
+        {children}
+        <Footer />
+      </body>
     </html>
   );
 }
