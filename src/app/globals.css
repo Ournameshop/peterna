@@ -1,26 +1,70 @@
 @import "tailwindcss";
 
+@theme {
+  --color-cream: #faf7f2;
+  --color-cream-warm: #f5efe6;
+  --color-charcoal: #2a2522;
+  --color-charcoal-soft: #5a534e;
+  --color-charcoal-faint: #8a8278;
+  --color-sage: #7b8b6f;
+  --color-sage-deep: #5e6e54;
+  --color-sage-soft: #b9c4ad;
+
+  --font-display: var(--font-display), ui-serif, Georgia, "Times New Roman", serif;
+  --font-sans: var(--font-sans), ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+html,
+body {
+  background: var(--color-cream);
+  color: var(--color-charcoal);
+  font-family: var(--font-sans);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* A whisper of warmth at the top of the page — barely there. */
+body {
+  background-image:
+    radial-gradient(
+      ellipse 80% 40% at 50% -10%,
+      rgba(123, 139, 111, 0.08),
+      transparent 70%
+    ),
+    radial-gradient(
+      ellipse 60% 30% at 50% 100%,
+      rgba(212, 195, 165, 0.10),
+      transparent 70%
+    );
+  background-attachment: fixed;
+}
+
+/* Gentle breathing pulse for the "coming soon" dot. */
+@keyframes gentle-pulse {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50%      { opacity: 1;    transform: scale(1.35); }
+}
+
+.gentle-pulse { animation: gentle-pulse 3.2s ease-in-out infinite; }
+
+/* Slow, quiet fade-in for the hero — calm, not flashy. */
+@keyframes soft-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.soft-rise { animation: soft-rise 1.2s ease-out both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .gentle-pulse,
+  .soft-rise {
+    animation: none;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+::selection {
+  background: var(--color-sage-soft);
+  color: var(--color-charcoal);
 }
