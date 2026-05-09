@@ -18,6 +18,9 @@ import {
 */
 
 export default function PageGallery() {
+  // 6 illustrative tributes — candid, natural-environment direction.
+  // TODO: replace each `img` with a Gemini-generated still per the prompts in
+  // /tmp/peterna/peterna-gallery-prompts.md (regenerated 2026-05-10 for natural-life moments).
   const samples = [
     {
       name: "Charlie",
@@ -25,7 +28,15 @@ export default function PageGallery() {
       breed: "Yellow Lab · 17 years",
       excerpt:
         "The good boy. The first dog of a young marriage. The dog the kids grew up with.",
-      img: "1583337130417-3346a1be7dee",
+      img: "1601758228041-f3b2795255f1",
+    },
+    {
+      name: "Biscuit",
+      years: "2009 — 2023",
+      breed: "Golden Retriever · 14 years",
+      excerpt:
+        "The golden one. Knew every neighbor by name. Followed the kids to the school bus every morning until he couldn't anymore.",
+      img: "1552053831-71594a27632d",
     },
     {
       name: "Mango",
@@ -33,14 +44,22 @@ export default function PageGallery() {
       breed: "Tabby cat · 9 years",
       excerpt:
         "The sunlight tabby. Slept on every laptop. Owned every windowsill in the house.",
-      img: "1574144611937-0df059b5ef3e",
+      img: "1573865526739-10659fec78a5",
     },
     {
       name: "Pepper",
       years: "1998 — 2011",
       breed: "Border Collie mix · 13 years",
       excerpt: "The first family dog. Outsmarted everyone. Loved deeply, loved long.",
-      img: "1592194996308-7b43878e84a6",
+      img: "1551717743-49959800b1f6",
+    },
+    {
+      name: "Kiwi",
+      years: "1998 — 2024",
+      breed: "Green-cheeked conure · 26 years",
+      excerpt:
+        "The talker. Said good morning before the coffee was made. Whistled the same four notes for twenty-six years.",
+      img: "1555169062-013468b47731",
     },
     {
       name: "Toby",
@@ -48,7 +67,7 @@ export default function PageGallery() {
       breed: "Beagle · 14 years",
       excerpt:
         "Mom's heart dog. The dog she still talks about. The one who started everything.",
-      img: "1586671267731-da2cf3ceeb80",
+      img: "1505628346881-b72b27e84530",
     },
   ];
   return (
@@ -80,7 +99,7 @@ export default function PageGallery() {
               fontFamily: FONT_SANS,
             }}
           >
-            Below are four illustrative examples in our production style — gentle
+            Below are six illustrative examples in our production style — gentle
             restoration, cinematic pacing, music and rhythm matched to the story being told.
             They&rsquo;re sample pets, not real Peterna families yet (we haven&rsquo;t
             launched). They show what the production process is designed to produce.
@@ -93,8 +112,11 @@ export default function PageGallery() {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))",
+              gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
               gap: 32,
+              maxWidth: 1200,
+              marginLeft: "auto",
+              marginRight: "auto",
             }}
           >
             {samples.map((s, i) => (
@@ -260,7 +282,7 @@ export default function PageGallery() {
             }}
           >
             <p>
-              The four shown above are illustrative samples in our production style — sample
+              The six shown above are illustrative samples in our production style — sample
               pets with sample names. They&rsquo;re here to show how a Peterna tribute is
               composed: the pacing, the framing, the way the photography sits with the music.
             </p>
@@ -269,7 +291,7 @@ export default function PageGallery() {
               anything as a testimonial unless it&rsquo;s a real family who chose to share
               their tribute publicly with documented consent. As real tributes start coming
               in, we&rsquo;ll add them here — slowly, deliberately, family by family — and
-              the four samples above will move out.
+              the six samples above will move out.
             </p>
             <p>
               Every tribute Peterna creates will belong to the family that commissioned it.
