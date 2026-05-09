@@ -58,6 +58,7 @@ jobs:
         with:
           name: build-${{ steps.slot.outputs.slot }}
           path: artifact
+          include-hidden-files: true
           retention-days: 7
 
   deploy:
