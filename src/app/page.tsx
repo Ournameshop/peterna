@@ -18,6 +18,7 @@ import {
 import Pill from "@/components/Pill";
 import { GoldBtn, GhostBtn } from "@/components/Buttons";
 import QuietLine from "@/components/QuietLine";
+import HeroCarousel from "@/components/HeroCarousel";
 import {
   C,
   FONT_DISPLAY,
@@ -25,6 +26,7 @@ import {
   sectionMaxStyle,
   NARROW_MAX,
 } from "@/lib/peterna-tokens";
+import { HERO_SLIDES } from "@/lib/hero-slides";
 
 function HomeHero() {
   const ref = useRef<HTMLDivElement>(null);
@@ -48,47 +50,10 @@ function HomeHero() {
       ref={ref}
       style={{ position: "relative", background: "#1A1410", overflow: "hidden", isolation: "isolate" }}
     >
-      {/* Ambient hero video — muted, looping, autoplays. Reduced-motion users see the poster image. */}
-      <video
-        className="peterna-hero-video"
-        autoPlay
-        loop
-        muted
-        playsInline
-        preload="metadata"
-        poster="/hero/peterna-hero-poster.jpg"
-        aria-hidden="true"
-        style={{
-          position: "absolute",
-          inset: 0,
-          width: "100%",
-          height: "100%",
-          objectFit: "cover",
-          zIndex: -2,
-          pointerEvents: "none",
-        }}
-      >
-        <source src="/hero/peterna-hero.webm" type="video/webm" />
-        <source src="/hero/peterna-hero.mp4" type="video/mp4" />
-      </video>
-      {/* Reduced-motion fallback: show poster only */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        className="peterna-hero-poster-fallback"
-        src="/hero/peterna-hero-poster.jpg"
-        alt=""
-        aria-hidden="true"
-        style={{
-          position: "absolute",
-          inset: 0,
-          width: "100%",
-          height: "100%",
-          objectFit: "cover",
-          zIndex: -2,
-          pointerEvents: "none",
-          display: "none",
-        }}
-      />
+      {/* Hero carousel — 6 candid pet-life stills, 6s each, 1.2s crossfade,
+          ken-burns 1.00 → 1.06. Replaces the original ambient video bg.
+          prefers-reduced-motion: shows first slide as a still. */}
+      <HeroCarousel slides={HERO_SLIDES} />
       {/* Dark warm overlay for text legibility */}
       <div
         style={{
@@ -254,10 +219,6 @@ function HomeHero() {
       </div>
       <style>{`
         @media (min-width: 1024px) { .peterna-hero-grid { grid-template-columns: 7fr 5fr !important; } }
-        @media (prefers-reduced-motion: reduce) {
-          .peterna-hero-video { display: none !important; }
-          .peterna-hero-poster-fallback { display: block !important; }
-        }
       `}</style>
     </section>
   );
