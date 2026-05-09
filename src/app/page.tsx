@@ -1,3 +1,4 @@
+import PartnerForm from "@/components/PartnerForm";
 import PawMark from "@/components/PawMark";
 import SignupForm from "@/components/SignupForm";
 
@@ -61,6 +62,49 @@ export default function Home() {
             </span>
             Opening soon
           </p>
+
+          <p className="mt-12 text-xs tracking-wide text-[color:var(--color-charcoal-faint)]">
+            Caring for pets in your work?{" "}
+            <a
+              href="#partner"
+              className="underline decoration-[color:var(--color-sage)]/40 underline-offset-4 transition hover:text-[color:var(--color-sage-deep)] hover:decoration-[color:var(--color-sage)]"
+            >
+              Partner with us
+            </a>
+            .
+          </p>
+        </div>
+      </section>
+
+      {/* Partner */}
+      <section
+        id="partner"
+        aria-labelledby="partner-heading"
+        className="z-10 scroll-mt-16 px-6 pb-20 pt-8 sm:px-10 sm:pb-28 sm:pt-12"
+      >
+        <div className="mx-auto w-full max-w-3xl">
+          <div className="mb-10 text-center">
+            <p className="mb-4 text-[0.7rem] uppercase tracking-[0.28em] text-[color:var(--color-charcoal-faint)]">
+              Partner with us
+            </p>
+            <h2
+              id="partner-heading"
+              className="font-display text-2xl font-normal leading-[1.25] tracking-tight text-[color:var(--color-charcoal)] sm:text-3xl"
+            >
+              If you walk beside pet families,{" "}
+              <em className="not-italic font-normal text-[color:var(--color-sage-deep)] sm:italic">
+                we&rsquo;d love to know you
+              </em>
+              .
+            </h2>
+            <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-[color:var(--color-charcoal-soft)] sm:text-base">
+              Veterinary clinics, crematoriums, shelters, memorial-makers — if
+              your work touches the goodbye, share a few details and we&rsquo;ll
+              be in touch.
+            </p>
+          </div>
+
+          <PartnerForm />
         </div>
       </section>
 
