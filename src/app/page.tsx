@@ -46,13 +46,67 @@ function HomeHero() {
   return (
     <section
       ref={ref}
-      style={{ position: "relative", background: C.cream, overflow: "hidden" }}
+      style={{ position: "relative", background: "#1A1410", overflow: "hidden", isolation: "isolate" }}
     >
+      {/* Ambient hero video — muted, looping, autoplays. Reduced-motion users see the poster image. */}
+      <video
+        className="peterna-hero-video"
+        autoPlay
+        loop
+        muted
+        playsInline
+        preload="metadata"
+        poster="/hero/peterna-hero-poster.jpg"
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          zIndex: -2,
+          pointerEvents: "none",
+        }}
+      >
+        <source src="/hero/peterna-hero.webm" type="video/webm" />
+        <source src="/hero/peterna-hero.mp4" type="video/mp4" />
+      </video>
+      {/* Reduced-motion fallback: show poster only */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        className="peterna-hero-poster-fallback"
+        src="/hero/peterna-hero-poster.jpg"
+        alt=""
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          zIndex: -2,
+          pointerEvents: "none",
+          display: "none",
+        }}
+      />
+      {/* Dark warm overlay for text legibility */}
       <div
         style={{
           position: "absolute",
           inset: 0,
           pointerEvents: "none",
+          zIndex: -1,
+          background:
+            "linear-gradient(180deg, rgba(20,15,10,0.62) 0%, rgba(20,15,10,0.55) 40%, rgba(20,15,10,0.72) 100%)",
+        }}
+        aria-hidden="true"
+      />
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          pointerEvents: "none",
+          zIndex: -1,
           background:
             "radial-gradient(ellipse 90% 70% at 80% -10%, rgba(201,169,97,0.18), transparent 65%)",
         }}
@@ -79,10 +133,11 @@ function HomeHero() {
                 fontSize: "clamp(48px, 7vw, 96px)",
                 lineHeight: 1.0,
                 letterSpacing: "-0.015em",
-                color: C.ink,
+                color: C.cream,
+                textShadow: "0 2px 30px rgba(0,0,0,0.35)",
               }}
             >
-              The ones we loved <em style={{ color: C.goldDeep }}>deserve</em> to be
+              The ones we loved <em style={{ color: C.gold }}>deserve</em> to be
               remembered beautifully.
             </motion.h1>
             <motion.p
@@ -92,8 +147,9 @@ function HomeHero() {
                 maxWidth: 560,
                 fontSize: 18,
                 lineHeight: 1.65,
-                color: C.inkSoft,
+                color: "rgba(248,241,228,0.85)",
                 fontFamily: FONT_SANS,
+                textShadow: "0 1px 20px rgba(0,0,0,0.3)",
               }}
             >
               Peterna turns your photos and memories into a cinematic tribute film, a
@@ -120,21 +176,21 @@ function HomeHero() {
                 fontSize: 11,
                 letterSpacing: "0.05em",
                 textTransform: "uppercase",
-                color: C.inkSofter,
+                color: "rgba(248,241,228,0.6)",
                 fontFamily: FONT_SANS,
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <Heart size={14} color={C.goldDeep} aria-hidden="true" /> Designed for
+                <Heart size={14} color={C.gold} aria-hidden="true" /> Designed for
                 24-hour delivery
               </div>
               <div
-                style={{ width: 1, height: 16, background: C.line }}
+                style={{ width: 1, height: 16, background: "rgba(248,241,228,0.2)" }}
                 aria-hidden="true"
               />
               <div>Multi-pet families welcome</div>
               <div
-                style={{ width: 1, height: 16, background: C.line }}
+                style={{ width: 1, height: 16, background: "rgba(248,241,228,0.2)" }}
                 aria-hidden="true"
               />
               <div>Launching 2026</div>
@@ -147,10 +203,11 @@ function HomeHero() {
                 aspectRatio: "4/5",
                 borderRadius: 16,
                 overflow: "hidden",
-                background: C.blush,
-                border: `1px solid ${C.line}`,
+                background: "rgba(233,213,195,0.1)",
+                border: "1px solid rgba(248,241,228,0.18)",
                 maxWidth: 460,
                 marginLeft: "auto",
+                boxShadow: "0 30px 80px -20px rgba(0,0,0,0.5)",
               }}
             >
               {/* TODO: replace with Gemini-generated image — see prompt in artifact PageHome HomeHero */}
@@ -183,7 +240,7 @@ function HomeHero() {
                 textAlign: "center",
                 fontSize: 14,
                 fontStyle: "italic",
-                color: C.inkSofter,
+                color: "rgba(248,241,228,0.7)",
                 fontFamily: FONT_DISPLAY,
               }}
             >
@@ -192,10 +249,16 @@ function HomeHero() {
           </motion.div>
         </motion.div>
         <div style={{ marginTop: 96 }}>
-          <QuietLine animated label="Tribute · Memorial · Family Channel" />
+          <QuietLine animated label="Tribute · Memorial · Family Channel" tone="light" />
         </div>
       </div>
-      <style>{`@media (min-width: 1024px) { .peterna-hero-grid { grid-template-columns: 7fr 5fr !important; } }`}</style>
+      <style>{`
+        @media (min-width: 1024px) { .peterna-hero-grid { grid-template-columns: 7fr 5fr !important; } }
+        @media (prefers-reduced-motion: reduce) {
+          .peterna-hero-video { display: none !important; }
+          .peterna-hero-poster-fallback { display: block !important; }
+        }
+      `}</style>
     </section>
   );
 }
