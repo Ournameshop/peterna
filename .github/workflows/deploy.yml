@@ -1,0 +1,118 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+      - staging
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    outputs:
+      slot: ${{ steps.slot.outputs.slot }}
+      port: ${{ steps.slot.outputs.port }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Determine slot
+        id: slot
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "slot=prod" >> "$GITHUB_OUTPUT"
+            echo "port=3009" >> "$GITHUB_OUTPUT"
+          else
+            echo "slot=staging" >> "$GITHUB_OUTPUT"
+            echo "port=3008" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Stage artifact
+        run: |
+          mkdir -p artifact
+          cp -r .next artifact/
+          if [ -d public ]; then cp -r public artifact/; fi
+          cp package.json package-lock.json artifact/
+          if ls next.config.* >/dev/null 2>&1; then cp next.config.* artifact/; fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ steps.slot.outputs.slot }}
+          path: artifact
+          retention-days: 7
+
+  deploy:
+    name: deploy
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    env:
+      SLOT: ${{ needs.build.outputs.slot }}
+      PORT: ${{ needs.build.outputs.port }}
+      APP_NAME: peterna-${{ needs.build.outputs.slot }}
+      APP_DIR: /home/${{ secrets.EC2_USER }}/apps/peterna-${{ needs.build.outputs.slot }}
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: build-${{ needs.build.outputs.slot }}
+          path: artifact
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Ensure remote dir
+        run: |
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no \
+            "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}" \
+            "mkdir -p '${APP_DIR}'"
+
+      - name: Rsync artifact
+        run: |
+          rsync -az --delete \
+            -e "ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no" \
+            artifact/ \
+            "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:${APP_DIR}/"
+
+      - name: Install + (re)start PM2
+        run: |
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no \
+            "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}" bash -s <<EOF
+          set -e
+          export PATH="\$HOME/.nvm/versions/node/\$(ls \$HOME/.nvm/versions/node 2>/dev/null | tail -n1)/bin:\$PATH:/usr/local/bin:/usr/bin"
+          cd "${APP_DIR}"
+          npm ci --omit=dev
+          if pm2 describe "${APP_NAME}" >/dev/null 2>&1; then
+            pm2 restart "${APP_NAME}" --update-env
+          else
+            pm2 start npm --name "${APP_NAME}" -- start -- -p ${PORT}
+          fi
+          pm2 save || true
+          EOF
+
+      - name: Cleanup SSH key
+        if: always()
+        run: rm -f ~/.ssh/id_ed25519
