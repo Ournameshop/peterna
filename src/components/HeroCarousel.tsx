@@ -9,6 +9,13 @@ export type HeroCarouselSlide = {
   src: string;
   alt: string;
   poster?: string;
+  /**
+   * CSS object-position for the underlying <Image>. Defaults to "center 35%"
+   * which keeps subjects in the upper third visible when a landscape photo is
+   * cover-cropped on a portrait mobile viewport. Override per-slide where the
+   * subject sits elsewhere.
+   */
+  objectPosition?: string;
 };
 
 type Props = {
@@ -156,6 +163,7 @@ export default function HeroCarousel({
               sizes="100vw"
               style={{
                 objectFit: "cover",
+                objectPosition: activeSlide.objectPosition ?? "center 35%",
               }}
             />
           </motion.div>
