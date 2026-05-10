@@ -18,9 +18,8 @@ import {
 */
 
 export default function PageGallery() {
-  // 6 illustrative tributes — candid, natural-environment direction.
-  // TODO: replace each `img` with a Gemini-generated still per the prompts in
-  // /tmp/peterna/peterna-gallery-prompts.md (regenerated 2026-05-10 for natural-life moments).
+  // 6 illustrative tributes — Gemini nano-banana-pro-preview stills, generated
+  // from the prompts in `docs/gallery-prompts.md` (2026-05-10).
   const samples = [
     {
       name: "Charlie",
@@ -28,7 +27,7 @@ export default function PageGallery() {
       breed: "Yellow Lab · 17 years",
       excerpt:
         "The good boy. The first dog of a young marriage. The dog the kids grew up with.",
-      img: "1601758228041-f3b2795255f1",
+      img: "/gallery/gallery-01-charlie-yellow-lab.jpg",
     },
     {
       name: "Biscuit",
@@ -36,7 +35,7 @@ export default function PageGallery() {
       breed: "Golden Retriever · 14 years",
       excerpt:
         "The golden one. Knew every neighbor by name. Followed the kids to the school bus every morning until he couldn't anymore.",
-      img: "1552053831-71594a27632d",
+      img: "/gallery/gallery-02-biscuit-golden-retriever.jpg",
     },
     {
       name: "Mango",
@@ -44,14 +43,14 @@ export default function PageGallery() {
       breed: "Tabby cat · 9 years",
       excerpt:
         "The sunlight tabby. Slept on every laptop. Owned every windowsill in the house.",
-      img: "1573865526739-10659fec78a5",
+      img: "/gallery/gallery-03-mango-tabby.jpg",
     },
     {
       name: "Pepper",
       years: "1998 — 2011",
       breed: "Border Collie mix · 13 years",
       excerpt: "The first family dog. Outsmarted everyone. Loved deeply, loved long.",
-      img: "1551717743-49959800b1f6",
+      img: "/gallery/gallery-04-pepper-border-collie.jpg",
     },
     {
       name: "Kiwi",
@@ -59,7 +58,7 @@ export default function PageGallery() {
       breed: "Green-cheeked conure · 26 years",
       excerpt:
         "The talker. Said good morning before the coffee was made. Whistled the same four notes for twenty-six years.",
-      img: "1555169062-013468b47731",
+      img: "/gallery/gallery-05-kiwi-conure.jpg",
     },
     {
       name: "Toby",
@@ -67,7 +66,7 @@ export default function PageGallery() {
       breed: "Beagle · 14 years",
       excerpt:
         "Mom's heart dog. The dog she still talks about. The one who started everything.",
-      img: "1505628346881-b72b27e84530",
+      img: "/gallery/gallery-06-toby-beagle.jpg",
     },
   ];
   return (
@@ -141,14 +140,9 @@ export default function PageGallery() {
                     boxShadow: "0 16px 50px -16px rgba(42,33,27,0.25)",
                   }}
                 >
-                  {/* TODO: replace with Gemini-generated image — see prompt in artifact PageGallery for {s.name} */}
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={
-                      s.img.startsWith("http")
-                        ? s.img
-                        : `https://images.unsplash.com/photo-${s.img}?w=1200&q=85`
-                    }
+                    src={s.img}
                     alt={`Tribute thumbnail for ${s.name}`}
                     style={{
                       position: "absolute",
