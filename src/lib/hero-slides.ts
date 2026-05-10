@@ -20,35 +20,38 @@ export type HeroSlide = {
   objectPosition?: string;
 };
 
+// objectPosition values were measured per-image (subject head as anchor)
+// against the actual generated 16:9 stills, so when cover-cropped to a
+// 9:16 portrait phone viewport the pet stays in frame.
 export const HERO_SLIDES: HeroSlide[] = [
   {
     src: "/hero/slides/01-backyard-golden.jpg",
     alt: "A golden retriever resting in a sunlit backyard, late afternoon light",
-    objectPosition: "center 55%",
+    objectPosition: "52% 38%",
   },
   {
     src: "/hero/slides/02-window-parrot.jpg",
     alt: "A small green-cheeked conure parrot at a kitchen window in morning light",
-    objectPosition: "center 40%",
+    objectPosition: "22% 45%",
   },
   {
     src: "/hero/slides/03-kitchen-tabby.jpg",
     alt: "An orange tabby cat on a sunlit kitchen counter, mid-morning",
-    objectPosition: "center 45%",
+    objectPosition: "62% 48%",
   },
   {
     src: "/hero/slides/04-porch-small-dog.jpg",
     alt: "A small mixed-breed dog on a wooden front porch at golden hour",
-    objectPosition: "center 50%",
+    objectPosition: "58% 35%",
   },
   {
     src: "/hero/slides/05-couch-sunbeam-dog.jpg",
     alt: "A medium dog sleeping on a linen couch in a long afternoon sunbeam",
-    objectPosition: "center 55%",
+    objectPosition: "55% 52%",
   },
   {
     src: "/hero/slides/06-path-senior-dog.jpg",
     alt: "A senior gray-muzzled dog walking slowly down a garden path at golden hour",
-    objectPosition: "center 50%",
+    objectPosition: "48% 48%",
   },
 ];
