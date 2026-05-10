@@ -77,7 +77,7 @@ function HomeHero() {
         }}
         aria-hidden="true"
       />
-      <div style={{ ...sectionMaxStyle, padding: "96px 40px 128px", position: "relative" }}>
+      <div className="peterna-hero-pad" style={{ ...sectionMaxStyle, position: "relative" }}>
         <motion.div
           initial="hidden"
           animate="show"
@@ -91,11 +91,12 @@ function HomeHero() {
             </motion.div>
             <motion.h1
               variants={item}
+              className="peterna-hero-h1"
               style={{
-                marginTop: 24,
+                marginTop: 20,
                 fontFamily: FONT_DISPLAY,
                 fontWeight: 400,
-                fontSize: "clamp(48px, 7vw, 96px)",
+                fontSize: "clamp(40px, 7vw, 96px)",
                 lineHeight: 1.0,
                 letterSpacing: "-0.015em",
                 color: C.cream,
@@ -107,11 +108,12 @@ function HomeHero() {
             </motion.h1>
             <motion.p
               variants={item}
+              className="peterna-hero-body"
               style={{
-                marginTop: 32,
+                marginTop: 24,
                 maxWidth: 560,
                 fontSize: 18,
-                lineHeight: 1.65,
+                lineHeight: 1.6,
                 color: "rgba(248,241,228,0.85)",
                 fontFamily: FONT_SANS,
                 textShadow: "0 1px 20px rgba(0,0,0,0.3)",
@@ -120,19 +122,20 @@ function HomeHero() {
               Peterna turns your photos and memories into a cinematic tribute film, a
               permanent memorial page, and a family channel for every pet you&rsquo;ve
               ever loved. Built by people who understand the weight of the moment.
-              Launching soon — join the waitlist.
             </motion.p>
             <motion.div
               variants={item}
-              style={{ marginTop: 40, display: "flex", flexWrap: "wrap", gap: 12 }}
+              className="peterna-hero-cta"
+              style={{ marginTop: 28, display: "flex", flexWrap: "wrap", gap: 12 }}
             >
               <GoldBtn href="/get-started">Join the waitlist</GoldBtn>
               <GhostBtn href="/how-it-works" light>How it works</GhostBtn>
             </motion.div>
             <motion.div
               variants={item}
+              className="peterna-hero-meta"
               style={{
-                marginTop: 56,
+                marginTop: 40,
                 display: "flex",
                 flexWrap: "wrap",
                 alignItems: "center",
@@ -163,6 +166,7 @@ function HomeHero() {
           </div>
           <motion.div variants={item} style={{ y: visualY }}>
             <div
+              className="peterna-hero-portrait"
               style={{
                 position: "relative",
                 aspectRatio: "4/5",
@@ -218,6 +222,16 @@ function HomeHero() {
         </div>
       </div>
       <style>{`
+        .peterna-hero-pad { padding: 96px 40px 128px; }
+        @media (max-width: 768px) {
+          .peterna-hero-pad { padding: 32px 22px 56px; }
+          .peterna-hero-grid { gap: 32px !important; }
+          .peterna-hero-h1 { font-size: clamp(36px, 9.5vw, 56px) !important; margin-top: 16px !important; }
+          .peterna-hero-body { font-size: 15.5px !important; line-height: 1.55 !important; margin-top: 18px !important; }
+          .peterna-hero-cta { margin-top: 22px !important; }
+          .peterna-hero-meta { margin-top: 28px !important; }
+          .peterna-hero-portrait { max-width: 320px !important; }
+        }
         @media (min-width: 1024px) { .peterna-hero-grid { grid-template-columns: 7fr 5fr !important; } }
       `}</style>
     </section>
