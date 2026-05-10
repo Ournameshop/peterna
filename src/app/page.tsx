@@ -18,6 +18,7 @@ import {
 import Pill from "@/components/Pill";
 import { GoldBtn, GhostBtn } from "@/components/Buttons";
 import QuietLine from "@/components/QuietLine";
+import FeaturedPortrait from "@/components/FeaturedPortrait";
 import HeroCarousel from "@/components/HeroCarousel";
 import {
   C,
@@ -165,55 +166,7 @@ function HomeHero() {
             </motion.div>
           </div>
           <motion.div variants={item} style={{ y: visualY }}>
-            <div
-              className="peterna-hero-portrait"
-              style={{
-                position: "relative",
-                aspectRatio: "4/5",
-                borderRadius: 16,
-                overflow: "hidden",
-                background: "rgba(233,213,195,0.1)",
-                border: "1px solid rgba(248,241,228,0.18)",
-                maxWidth: 460,
-                marginLeft: "auto",
-                boxShadow: "0 30px 80px -20px rgba(0,0,0,0.5)",
-              }}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/home/portrait-charlie.jpg"
-                alt="Charlie, a senior yellow Labrador Retriever, in warm afternoon light"
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                }}
-              />
-              <div
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  pointerEvents: "none",
-                  background:
-                    "linear-gradient(to bottom, transparent 60%, rgba(42,33,27,0.25) 100%)",
-                }}
-                aria-hidden="true"
-              />
-            </div>
-            <p
-              style={{
-                marginTop: 12,
-                textAlign: "center",
-                fontSize: 14,
-                fontStyle: "italic",
-                color: "rgba(248,241,228,0.7)",
-                fontFamily: FONT_DISPLAY,
-              }}
-            >
-              &ldquo;Some loves never leave the house.&rdquo;
-            </p>
+            <FeaturedPortrait />
           </motion.div>
         </motion.div>
         <div style={{ marginTop: 96 }}>
