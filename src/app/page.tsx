@@ -87,14 +87,11 @@ function HomeHero() {
           className="peterna-hero-grid"
         >
           <div>
-            <motion.div variants={item}>
-              <Pill tone="gold">A beautiful tribute · for the pet you loved</Pill>
-            </motion.div>
             <motion.h1
               variants={item}
               className="peterna-hero-h1"
               style={{
-                marginTop: 20,
+                marginTop: 0,
                 fontFamily: FONT_DISPLAY,
                 fontWeight: 400,
                 fontSize: "clamp(40px, 7vw, 96px)",
@@ -178,7 +175,7 @@ function HomeHero() {
         @media (max-width: 768px) {
           .peterna-hero-pad { padding: 32px 22px 56px; }
           .peterna-hero-grid { gap: 32px !important; }
-          .peterna-hero-h1 { font-size: clamp(36px, 9.5vw, 56px) !important; margin-top: 16px !important; }
+          .peterna-hero-h1 { font-size: clamp(36px, 9.5vw, 56px) !important; margin-top: 0 !important; }
           .peterna-hero-body { font-size: 15.5px !important; line-height: 1.55 !important; margin-top: 18px !important; }
           .peterna-hero-cta { margin-top: 22px !important; }
           .peterna-hero-meta { margin-top: 28px !important; }
