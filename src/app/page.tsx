@@ -179,11 +179,10 @@ function HomeHero() {
                 boxShadow: "0 30px 80px -20px rgba(0,0,0,0.5)",
               }}
             >
-              {/* TODO: replace with Gemini-generated image — see prompt in artifact PageHome HomeHero */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="https://images.unsplash.com/photo-1558788353-f76d92427f16?w=900&q=80"
-                alt="A senior yellow Labrador Retriever in warm afternoon light"
+                src="/home/portrait-charlie.jpg"
+                alt="Charlie, a senior yellow Labrador Retriever, in warm afternoon light"
                 style={{
                   position: "absolute",
                   inset: 0,
@@ -488,11 +487,10 @@ function HomeSampleTribute() {
               textDecoration: "none",
             }}
           >
-            {/* TODO: replace with Gemini-generated image — see prompt in artifact PageHome HomeSampleTribute (Charlie) */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="https://images.unsplash.com/photo-1583337130417-3346a1be7dee?w=1400&q=85"
-              alt="A frame from a Peterna tribute film"
+              src="/home/sample-charlie.jpg"
+              alt="A frame from a Peterna tribute film: Charlie, a senior yellow Lab, on a back porch"
               style={{
                 position: "absolute",
                 inset: 0,
