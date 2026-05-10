@@ -127,7 +127,7 @@ function HomeHero() {
               style={{ marginTop: 40, display: "flex", flexWrap: "wrap", gap: 12 }}
             >
               <GoldBtn href="/get-started">Join the waitlist</GoldBtn>
-              <GhostBtn href="/how-it-works">How it works</GhostBtn>
+              <GhostBtn href="/how-it-works" light>How it works</GhostBtn>
             </motion.div>
             <motion.div
               variants={item}
