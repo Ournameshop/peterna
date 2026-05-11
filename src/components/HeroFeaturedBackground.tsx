@@ -64,15 +64,17 @@ export default function HeroFeaturedBackground({ fadeSec = 1.5 }: Props) {
             willChange: "opacity",
           }}
         >
-          {/* The image itself — blurred so the foreground card pops. We use
-              a slight overscale + negative inset to hide the blurred edge
-              halo that CSS `filter: blur()` produces. */}
+          {/* The image itself — softly blurred so the foreground card stays
+              the focal point without losing the scene behind. Andre asked
+              (2026-05-11) for the bg to be noticeably less blurry; dialed
+              from 22px → 8px (10px for reduced-motion). The slight overscale
+              + negative inset hides the soft edge halo. */}
           <div
             style={{
               position: "absolute",
-              inset: -40,
-              filter: prefersReducedMotion ? "blur(18px)" : "blur(22px)",
-              transform: "scale(1.06)",
+              inset: -20,
+              filter: prefersReducedMotion ? "blur(10px)" : "blur(8px)",
+              transform: "scale(1.03)",
               willChange: "filter, transform",
             }}
           >
