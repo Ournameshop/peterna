@@ -19,7 +19,8 @@ import Pill from "@/components/Pill";
 import { GoldBtn, GhostBtn } from "@/components/Buttons";
 import QuietLine from "@/components/QuietLine";
 import FeaturedPortrait from "@/components/FeaturedPortrait";
-import HeroCarousel from "@/components/HeroCarousel";
+import HeroFeaturedBackground from "@/components/HeroFeaturedBackground";
+import { FeaturedPetRotationProvider } from "@/lib/featured-pet-rotation";
 import {
   C,
   FONT_DISPLAY,
@@ -27,7 +28,6 @@ import {
   sectionMaxStyle,
   NARROW_MAX,
 } from "@/lib/peterna-tokens";
-import { HERO_SLIDES } from "@/lib/hero-slides";
 
 function HomeHero() {
   const ref = useRef<HTMLDivElement>(null);
@@ -47,14 +47,17 @@ function HomeHero() {
   };
 
   return (
+    <FeaturedPetRotationProvider>
     <section
       ref={ref}
       style={{ position: "relative", background: "#1A1410", overflow: "hidden", isolation: "isolate" }}
     >
-      {/* Hero carousel — 6 candid pet-life stills, 6s each, 1.2s crossfade,
-          ken-burns 1.00 → 1.06. Replaces the original ambient video bg.
-          prefers-reduced-motion: shows first slide as a still. */}
-      <HeroCarousel slides={HERO_SLIDES} />
+      {/* Hero background — mirrors the currently-featured pet from the
+          foreground portrait card, blurred + darkened. Andre flagged on
+          2026-05-11 that the previous independent 6-slide carousel was
+          showing a different animal than the foreground card; this keeps
+          background + foreground locked to the same pet. */}
+      <HeroFeaturedBackground />
       {/* Dark warm overlay for text legibility */}
       <div
         style={{
@@ -184,6 +187,7 @@ function HomeHero() {
         @media (min-width: 1024px) { .peterna-hero-grid { grid-template-columns: 7fr 5fr !important; } }
       `}</style>
     </section>
+    </FeaturedPetRotationProvider>
   );
 }
 

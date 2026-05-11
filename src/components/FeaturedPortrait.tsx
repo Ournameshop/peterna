@@ -1,19 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { FONT_DISPLAY } from "@/lib/peterna-tokens";
-import { FEATURED_PETS } from "@/lib/pets";
+import { useFeaturedPetRotation } from "@/lib/featured-pet-rotation";
 
 type Props = {
-  /** ms each pet stays on screen (default 8000 — deliberately offset from the
-   *  hero carousel's 6s so the two rhythms never visibly sync). */
-  intervalMs?: number;
   /** crossfade duration in seconds (default 1.5). */
   fadeSec?: number;
-  /** Per-pet object-position overrides for the 4:5 portrait crop. Some sample
-   *  images are 16:9 with the subject's head in the upper-third — anchor
-   *  there so the head survives the crop. */
 };
 
 // Per-pet anchor for cropping the 16:9 samples down to 4:5 on the card.
@@ -28,34 +21,16 @@ const PORTRAIT_OBJECT_POSITION: Record<string, string> = {
 };
 
 /**
- * Featured portrait card on the home hero. Rotates through `FEATURED_PETS` on
- * its own slow rhythm (8s/pet, 1.5s crossfade) — independent from the hero
- * carousel behind it so visitors don't perceive them as a single animation.
+ * Featured portrait card on the home hero. Reads the currently-featured pet
+ * from <FeaturedPetRotationProvider> so the hero BACKGROUND (rendered by
+ * <HeroFeaturedBackground>) always shows the same pet, blurred + darkened
+ * — fixing the 2026-05-11 bug where the hero bg and the foreground card
+ * showed two completely different animals.
  *
- * Honours `prefers-reduced-motion` (no auto-advance, single static pet).
+ * Honours `prefers-reduced-motion` via the shared provider (no auto-advance).
  */
-export default function FeaturedPortrait({
-  intervalMs = 8000,
-  fadeSec = 1.5,
-}: Props) {
-  const prefersReducedMotion = useReducedMotion();
-
-  // Random start index per page-load so different visitors meet different
-  // pets first. Stable across re-renders within a session.
-  const [index, setIndex] = useState(() =>
-    Math.floor(Math.random() * FEATURED_PETS.length),
-  );
-
-  useEffect(() => {
-    if (prefersReducedMotion) return;
-    if (FEATURED_PETS.length <= 1) return;
-    const id = window.setTimeout(() => {
-      setIndex((i) => (i + 1) % FEATURED_PETS.length);
-    }, intervalMs);
-    return () => window.clearTimeout(id);
-  }, [index, intervalMs, prefersReducedMotion]);
-
-  const pet = FEATURED_PETS[index];
+export default function FeaturedPortrait({ fadeSec = 1.5 }: Props) {
+  const { pet } = useFeaturedPetRotation();
   const objectPosition = PORTRAIT_OBJECT_POSITION[pet.slug] ?? "center 35%";
 
   return (
