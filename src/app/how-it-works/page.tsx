@@ -39,8 +39,8 @@ export default function PageHowItWorks() {
       n: "04",
       icon: Film,
       title: "Final review. Final delivery.",
-      body: "AI assembles your first cut in minutes — then a producer watches it end-to-end before it ships. Color, audio mix, story arc, captions — checked. Most tributes are final within hours of upload. Priority producer review is planned for memorial services scheduled within 48 hours of loss.",
-      detail: "AI-composed. Human-finished. Hours, not days.",
+      body: "This step depends on the tier you pick. Peterna Instant ($99) skips this queue — AI finalizes your tribute and ships it in minutes, no waiting. On concierge tiers ($149+), a human producer watches every frame end-to-end before it ships: color, audio mix, story arc, captions — all checked. Priority producer review is planned for memorial services scheduled within 48 hours of loss.",
+      detail: "Instant in minutes · Concierge in hours",
     },
     {
       n: "05",
@@ -60,8 +60,8 @@ export default function PageHowItWorks() {
   const cards = [
     {
       icon: Clock,
-      t: "Ready in minutes",
-      d: "AI builds a first cut instantly. A producer reviews and finalizes — usually within hours.",
+      t: "You pick the speed",
+      d: "Peterna Instant finalizes in minutes (AI). Concierge tiers finish in hours (producer review).",
     },
     {
       icon: Heart,

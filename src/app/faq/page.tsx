@@ -29,7 +29,7 @@ export default function PageFAQ() {
         },
         {
           q: "How long will it take?",
-          a: "AI builds your first cut in minutes — then a human producer reviews it end-to-end before it ships. Most tributes are final within hours of upload, not days. Priority producer review is planned for Elite and for any tier when a memorial service is scheduled within 48 hours of loss. These targets will be confirmed once we open.",
+          a: "Depends on the tier. Peterna Instant ($99) is AI-finalized in literal minutes — no waiting, no review queue. Concierge tiers ($149+) add a human producer who reviews every frame before it ships, usually within hours of upload. Priority producer review is planned for Elite and for any tier when a memorial service is scheduled within 48 hours of loss. These targets will be confirmed once we open.",
         },
       ],
     },

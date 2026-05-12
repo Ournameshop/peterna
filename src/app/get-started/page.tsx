@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { Suspense, useState, type FormEvent } from "react";
+import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
-import { Heart } from "lucide-react";
+import { Heart, Zap } from "lucide-react";
 import Pill from "@/components/Pill";
 import { GoldBtn } from "@/components/Buttons";
 import QuietLine from "@/components/QuietLine";
@@ -13,7 +14,20 @@ import {
   sectionMaxStyle,
 } from "@/lib/peterna-tokens";
 
-export default function PageGetStarted() {
+// Two-track form added 2026-05-13 when Peterna Instant ($99 self-serve)
+// was introduced alongside the concierge waitlist. Reads ?interest=instant
+// from the URL so /pricing#instant → "Notify me at launch" can pre-select
+// the right track. useSearchParams() requires a Suspense boundary in the
+// App Router; <PageGetStarted> wraps <GetStartedInner> in one.
+
+type Interest = "waitlist" | "instant";
+
+function GetStartedInner() {
+  const searchParams = useSearchParams();
+  const initialInterest: Interest =
+    searchParams.get("interest") === "instant" ? "instant" : "waitlist";
+
+  const [interest, setInterest] = useState<Interest>(initialInterest);
   const [submitted, setSubmitted] = useState(false);
   const [email, setEmail] = useState("");
 
@@ -44,6 +58,37 @@ export default function PageGetStarted() {
     display: "block" as const,
   };
 
+  // Track-specific copy so the page reads correctly whichever track the
+  // visitor lands on. Pill, h1, body, button label and success state all
+  // swap together so there's never a mixed message.
+  const copy = {
+    waitlist: {
+      pill: "Join the Peterna waitlist",
+      h1Lead: "We\u2019ll let you know",
+      h1Em: "when we open.",
+      body: "Peterna isn\u2019t open yet. Leave your email and we\u2019ll write to you the week we launch \u2014 once, quietly, with no marketing in between. Waitlist members will get early access and a small thank-you for helping us build this carefully.",
+      button: "Join the waitlist",
+      successTitle: "You\u2019re on the list.",
+      successBody:
+        "Thank you. We\u2019ll write to you the week Peterna opens \u2014 once, quietly. Until then, you won\u2019t hear from us.",
+      successIcon: Heart,
+    },
+    instant: {
+      pill: "Peterna Instant \u00b7 $99",
+      h1Lead: "We\u2019ll notify you",
+      h1Em: "the minute Instant goes live.",
+      body: "Peterna Instant isn\u2019t open yet. It\u2019s our self-serve tier \u2014 a cinematic tribute, finalized by AI in minutes, no waiting. Leave your email and we\u2019ll write to you the day it ships. No newsletter in between.",
+      button: "Notify me at launch",
+      successTitle: "We\u2019ll let you know.",
+      successBody:
+        "Thank you. We\u2019ll write to you the day Peterna Instant opens \u2014 once, quietly. Until then, you won\u2019t hear from us.",
+      successIcon: Zap,
+    },
+  } as const;
+
+  const c = copy[interest];
+  const SuccessIcon = c.successIcon;
+
   return (
     <main>
       {!submitted ? (
@@ -68,7 +113,7 @@ export default function PageGetStarted() {
 
           <div style={{ ...sectionMaxStyle, position: "relative" }}>
             <div style={{ maxWidth: 760 }}>
-              <Pill tone="gold">Join the Peterna waitlist</Pill>
+              <Pill tone="gold">{c.pill}</Pill>
               <h1
                 style={{
                   marginTop: 24,
@@ -80,8 +125,8 @@ export default function PageGetStarted() {
                   color: C.ink,
                 }}
               >
-                We&rsquo;ll let you know{" "}
-                <em style={{ color: C.goldDeep }}>when we open.</em>
+                {c.h1Lead}{" "}
+                <em style={{ color: C.goldDeep }}>{c.h1Em}</em>
               </h1>
               <p
                 style={{
@@ -93,22 +138,95 @@ export default function PageGetStarted() {
                   fontFamily: FONT_SANS,
                 }}
               >
-                Peterna isn&rsquo;t open yet. Leave your email and we&rsquo;ll write to you
-                the week we launch — once, quietly, with no marketing in between. Waitlist
-                members will get early access and a small thank-you for helping us build this
-                carefully.
+                {c.body}
               </p>
+
+              {/* Track selector \u2014 lets visitors switch between the two waitlists
+                  without leaving the page. Pre-selected from ?interest=. */}
+              <fieldset
+                style={{
+                  border: "none",
+                  padding: 0,
+                  margin: "40px 0 0",
+                }}
+              >
+                <legend style={labelStyle}>I&rsquo;m interested in *</legend>
+                <div
+                  className="peterna-interest-row"
+                  style={{ marginTop: 8 }}
+                >
+                  {([
+                    {
+                      id: "waitlist" as const,
+                      label: "The full Peterna waitlist",
+                      sub: "Premium concierge tiers \u00b7 producer-finished",
+                    },
+                    {
+                      id: "instant" as const,
+                      label: "Peterna Instant",
+                      sub: "$99 \u00b7 AI-finalized in minutes",
+                    },
+                  ]).map((opt) => {
+                    const active = interest === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => setInterest(opt.id)}
+                        aria-pressed={active}
+                        style={{
+                          textAlign: "left",
+                          padding: "16px 20px",
+                          borderRadius: 12,
+                          border: active
+                            ? `1px solid ${C.goldDeep}`
+                            : `1px solid rgba(42,33,27,0.15)`,
+                          background: active
+                            ? "rgba(201,169,97,0.10)"
+                            : "transparent",
+                          cursor: "pointer",
+                          fontFamily: FONT_SANS,
+                          transition:
+                            "background 0.2s ease, border-color 0.2s ease",
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: 15,
+                            fontWeight: 500,
+                            color: active ? C.ink : C.inkSoft,
+                          }}
+                        >
+                          {opt.label}
+                        </div>
+                        <div
+                          style={{
+                            marginTop: 4,
+                            fontSize: 13,
+                            color: C.inkSofter,
+                          }}
+                        >
+                          {opt.sub}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </fieldset>
 
               <form
                 onSubmit={handleSubmit}
                 style={{
-                  marginTop: 56,
+                  marginTop: 40,
                   display: "grid",
                   gridTemplateColumns: "1fr",
                   gap: 32,
                   maxWidth: 560,
                 }}
               >
+                {/* Hidden field captures the chosen track for whatever backend
+                    we wire up later. */}
+                <input type="hidden" name="interest" value={interest} />
                 <label>
                   <div style={labelStyle}>Email *</div>
                   <input
@@ -122,7 +240,9 @@ export default function PageGetStarted() {
                   />
                 </label>
                 <label>
-                  <div style={labelStyle}>Anything you want us to know? (optional)</div>
+                  <div style={labelStyle}>
+                    Anything you want us to know? (optional)
+                  </div>
                   <textarea
                     style={{ ...fieldStyle, resize: "none" }}
                     rows={3}
@@ -131,7 +251,7 @@ export default function PageGetStarted() {
                   />
                 </label>
                 <div style={{ marginTop: 8 }}>
-                  <GoldBtn type="submit">Join the waitlist</GoldBtn>
+                  <GoldBtn type="submit">{c.button}</GoldBtn>
                 </div>
                 <p
                   style={{
@@ -152,6 +272,18 @@ export default function PageGetStarted() {
               </div>
             </div>
           </div>
+
+          <style>{`
+            .peterna-interest-row {
+              display: grid;
+              grid-template-columns: 1fr;
+              gap: 12px;
+              max-width: 560px;
+            }
+            @media (min-width: 640px) {
+              .peterna-interest-row { grid-template-columns: 1fr 1fr; }
+            }
+          `}</style>
         </section>
       ) : (
         <motion.section
@@ -197,7 +329,7 @@ export default function PageGetStarted() {
                 justifyContent: "center",
               }}
             >
-              <Heart size={32} color={C.goldDeep} />
+              <SuccessIcon size={32} color={C.goldDeep} />
             </div>
             <h2
               style={{
@@ -209,7 +341,7 @@ export default function PageGetStarted() {
                 color: C.ink,
               }}
             >
-              You&rsquo;re on the list.
+              {c.successTitle}
             </h2>
             <p
               style={{
@@ -220,8 +352,7 @@ export default function PageGetStarted() {
                 fontFamily: FONT_SANS,
               }}
             >
-              Thank you. We&rsquo;ll write to you the week Peterna opens — once, quietly.
-              Until then, you won&rsquo;t hear from us.
+              {c.successBody}
             </p>
             <p
               style={{
@@ -238,5 +369,13 @@ export default function PageGetStarted() {
         </motion.section>
       )}
     </main>
+  );
+}
+
+export default function PageGetStarted() {
+  return (
+    <Suspense fallback={null}>
+      <GetStartedInner />
+    </Suspense>
   );
 }

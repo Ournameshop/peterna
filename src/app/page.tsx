@@ -46,7 +46,7 @@ function HomeHero() {
       ref={ref}
       style={{ position: "relative", background: "#1A1410", overflow: "hidden", isolation: "isolate" }}
     >
-      {/* Hero background — looping muted background video. Andre asked on
+      {/* Hero background - looping muted background video. Andre asked on
           2026-05-12 to replace the previous pet-mirror image background
           with a video. Assets live in /public/hero/ (mp4 + webm + poster).
           Stacks at z-index: -3 so the dark warm + radial gold overlays
@@ -124,6 +124,7 @@ function HomeHero() {
               style={{ marginTop: 28, display: "flex", flexWrap: "wrap", gap: 12 }}
             >
               <GoldBtn href="/get-started">Join the waitlist</GoldBtn>
+              <GhostBtn href="/pricing#instant" light>Peterna Instant · $99</GhostBtn>
               <GhostBtn href="/how-it-works" light>How it works</GhostBtn>
             </motion.div>
             <motion.div
@@ -144,7 +145,7 @@ function HomeHero() {
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <Heart size={14} color={C.gold} aria-hidden="true" /> Ready in minutes — polished by humans
+                <Heart size={14} color={C.gold} aria-hidden="true" /> Instant from $99 · Concierge from $149
               </div>
               <div
                 style={{ width: 1, height: 16, background: "rgba(248,241,228,0.2)" }}
@@ -180,7 +181,7 @@ function HomeHero() {
 }
 
 function HomeFeaturedPortraitGallery() {
-  // Editorial gallery of featured pets — rebuilt 2026-05-12 after Andre
+  // Editorial gallery of featured pets - rebuilt 2026-05-12 after Andre
   // reviewed the v1 (single floating card) and called it not A+. The new
   // design pairs a large rotating featured card with a thumbnail strip of
   // all six pets, plus a real eyebrow / headline / supporting copy + CTA.
@@ -264,21 +265,21 @@ function HomeThreeThings() {
       icon: Film,
       eyebrow: "First",
       title: "A cinematic tribute film.",
-      body: "You upload the photos and the memories. Our AI restores, animates, and scores them into a beautiful first cut in minutes. A human producer then reviews every frame before it ships — so your pet looks like your pet, not a generated approximation. Most tributes are final within hours, not days.",
-      detail: "AI-composed. Human-finished. Broadcast quality.",
+      body: "You upload the photos and the memories. Our AI restores, animates, and scores them into a beautiful tribute film. Choose Peterna Instant ($99) and AI finalizes it in minutes - ready right now. Choose a concierge tier and a human producer reviews every frame before it ships, usually within hours. Either way, your pet looks like your pet.",
+      detail: "Instant in minutes · Concierge in hours · Broadcast quality",
     },
     {
       icon: Bookmark,
       eyebrow: "Then",
       title: "A permanent memorial page.",
-      body: "Every tribute lives on its own page — beautifully designed, hosted forever, shareable by link or QR code. A place for family to gather, share photos, and leave their own messages.",
+      body: "Every tribute lives on its own page - beautifully designed, hosted forever, shareable by link or QR code. A place for family to gather, share photos, and leave their own messages.",
       detail: "Yours to keep. Yours to share. Yours forever.",
     },
     {
       icon: Tv,
       eyebrow: "Always",
       title: "A family channel for every pet you've loved.",
-      body: "Add every pet, past and present, into one private family channel. Anniversary reminders. New tributes for new losses. A living archive of the animals who shaped your family — for $9.95 a month, or one-time forever.",
+      body: "Add every pet, past and present, into one private family channel. Anniversary reminders. New tributes for new losses. A living archive of the animals who shaped your family - for $9.95 a month, or one-time forever.",
       detail: "Multi-pet. Multi-generation. Always there.",
     },
   ];
@@ -317,7 +318,7 @@ function HomeThreeThings() {
           >
             Most pet memorials are a slideshow on a hard drive. Peterna is something
             different. A real tribute, a real memorial, and a real place for the family
-            you&rsquo;ve built together — pets included.
+            you&rsquo;ve built together - pets included.
           </p>
         </motion.div>
         <div style={{ display: "flex", flexDirection: "column", gap: 1, background: C.line }}>
@@ -566,7 +567,7 @@ function HomeSampleTribute() {
                   fontSize: "clamp(16px, 1.6vw, 22px)",
                 }}
               >
-                &ldquo;For Charlie. 2007 — 2024. The best dog we ever knew.&rdquo;
+                &ldquo;For Charlie. 2007 - 2024. The best dog we ever knew.&rdquo;
               </div>
             </div>
           </Link>
@@ -593,8 +594,8 @@ function HomeProcess() {
     {
       n: "03",
       icon: Film,
-      title: "Ready in minutes. Finished by hand.",
-      body: "AI builds your first cut in minutes — then a human producer reviews it end-to-end before it ships. The result is broadcast-quality, cinematic, and ready to play at the memorial or share with family. Hours, not days.",
+      title: "You pick the speed.",
+      body: "Peterna Instant ($99) is AI-finalized and ready in minutes - no waiting, no review queue. Concierge tiers ($149+) add a human producer who reviews every frame end-to-end before it ships, usually within hours. Same broadcast quality, different production depth.",
     },
     {
       n: "04",
@@ -627,7 +628,7 @@ function HomeProcess() {
                 color: C.ink,
               }}
             >
-              Four steps. Hours, not days.
+              Four steps. Minutes or hours, never days.
             </h2>
           </div>
           <div>
@@ -641,7 +642,7 @@ function HomeProcess() {
               }}
             >
               No software to learn. No editing skills required. From your first upload to a
-              finished, beautifully composed tribute — most families have a film ready to
+              finished, beautifully composed tribute - most families have a film ready to
               watch by this time tomorrow.
             </p>
           </div>
@@ -724,7 +725,7 @@ function HomeProcess() {
           ))}
         </div>
         <div style={{ marginTop: 64 }}>
-          <QuietLine animated label="Ready in minutes · Finished by hand" />
+          <QuietLine animated label="Instant from $99 · Concierge from $149" />
         </div>
         <div style={{ marginTop: 40, textAlign: "center" }}>
           <Link
@@ -756,10 +757,10 @@ function HomeProcess() {
 
 function HomeFamilyChannelTease() {
   const pets = [
-    { name: "Charlie", years: "2007 — 2024", role: "The good boy.", live: true },
-    { name: "Mango", years: "2014 — 2023", role: "The sunlight tabby." },
-    { name: "Pepper", years: "1998 — 2011", role: "The first family dog." },
-    { name: "Toby", years: "1989 — 2003", role: "Mom's heart dog." },
+    { name: "Charlie", years: "2007 - 2024", role: "The good boy.", live: true },
+    { name: "Mango", years: "2014 - 2023", role: "The sunlight tabby." },
+    { name: "Pepper", years: "1998 - 2011", role: "The first family dog." },
+    { name: "Toby", years: "1989 - 2003", role: "Mom's heart dog." },
   ];
   return (
     <section
@@ -817,7 +818,7 @@ function HomeFamilyChannelTease() {
               }}
             >
               Most families have loved more than one pet. Peterna&rsquo;s Family Channel is
-              a private space for every animal who&rsquo;s been part of your family — the
+              a private space for every animal who&rsquo;s been part of your family - the
               cat from your twenties, the dog who raised your kids, the rabbit your daughter
               still talks about. Every tribute, every memorial, kept together. Anniversary
               reminders, gentle and never intrusive. Add new pets as the years go on.
@@ -883,7 +884,7 @@ function HomeFamilyChannelTease() {
                 </div>
               </div>
 
-              {/* TODO: AVATAR PROMPTS — see artifact HomeFamilyChannelTease for Gemini prompts. Currently rendered as initial-letter monograms. */}
+              {/* TODO: AVATAR PROMPTS - see artifact HomeFamilyChannelTease for Gemini prompts. Currently rendered as initial-letter monograms. */}
               {pets.map((p, i) => (
                 <div
                   key={i}
@@ -989,7 +990,7 @@ function HomeFamilyChannelTease() {
                   fontFamily: FONT_DISPLAY,
                 }}
               >
-                Every animal who shaped your family — gathered, remembered, kept.
+                Every animal who shaped your family - gathered, remembered, kept.
               </div>
             </div>
           </motion.div>
@@ -1012,7 +1013,7 @@ function HomeCarePromise() {
     },
     {
       t: "We will not cancel your memorial.",
-      d: "Memorial pages we build for you are hosted permanently — even if you cancel a Family Channel subscription. The page is yours, kept.",
+      d: "Memorial pages we build for you are hosted permanently - even if you cancel a Family Channel subscription. The page is yours, kept.",
     },
     {
       t: "We will not sell your photos, memories, or grief.",
@@ -1175,7 +1176,7 @@ function HomeForVetsTease() {
               }}
             >
               Peterna lets veterinary clinics and pet ERs offer a beautiful remembrance
-              experience to grieving families — without lifting a finger on production. You
+              experience to grieving families - without lifting a finger on production. You
               introduce. We deliver. Your practice earns referral revenue on every tribute
               and a share of every Family Channel subscription.
             </p>
@@ -1303,7 +1304,7 @@ function HomeForVetsTease() {
                     margin: 0,
                   }}
                 >
-                  Illustrative modeling — actual results vary. See partner page for full
+                  Illustrative modeling - actual results vary. See partner page for full
                   disclaimers.
                 </p>
               </div>
@@ -1363,9 +1364,9 @@ function HomeClosing() {
             fontFamily: FONT_SANS,
           }}
         >
-          A tribute, ready in minutes and finished by hand. A memorial page, kept forever. A
-          family channel for every animal you&rsquo;ve loved, and the ones still ahead.
-          Launching soon.
+          A tribute, ready in minutes or finished by a producer in hours. A memorial page,
+          kept forever. A family channel for every animal you&rsquo;ve loved, and the ones
+          still ahead. Launching soon.
         </p>
         <div
           style={{
@@ -1387,7 +1388,7 @@ function HomeClosing() {
             fontFamily: FONT_DISPLAY,
           }}
         >
-          From everyone at Peterna — when the moment comes, we&rsquo;ll take it from there.
+          From everyone at Peterna - when the moment comes, we&rsquo;ll take it from there.
         </p>
       </motion.div>
     </section>
