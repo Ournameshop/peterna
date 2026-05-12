@@ -58,9 +58,9 @@ export default function PageFamilyChannel() {
             pointerEvents: "none",
             backgroundImage: "url(/hero/slides/05-couch-sunbeam-dog.jpg)",
             backgroundSize: "cover",
-            backgroundPosition: "center",
-            opacity: 0.32,
-            filter: "saturate(0.85)",
+            backgroundPosition: "center 30%",
+            opacity: 0.55,
+            filter: "saturate(0.9) contrast(1.05)",
           }}
           aria-hidden="true"
         />
@@ -70,7 +70,7 @@ export default function PageFamilyChannel() {
             inset: 0,
             pointerEvents: "none",
             background:
-              "linear-gradient(180deg, rgba(20,18,16,0.55) 0%, rgba(20,18,16,0.78) 60%, rgba(20,18,16,0.92) 100%)",
+              "linear-gradient(90deg, rgba(20,18,16,0.85) 0%, rgba(20,18,16,0.55) 55%, rgba(20,18,16,0.35) 100%), linear-gradient(180deg, rgba(20,18,16,0.25) 0%, rgba(20,18,16,0.55) 70%, rgba(20,18,16,0.85) 100%)",
           }}
           aria-hidden="true"
         />
