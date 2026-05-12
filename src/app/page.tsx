@@ -144,8 +144,7 @@ function HomeHero() {
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <Heart size={14} color={C.gold} aria-hidden="true" /> Designed for
-                24-hour delivery
+                <Heart size={14} color={C.gold} aria-hidden="true" /> Ready in minutes — polished by humans
               </div>
               <div
                 style={{ width: 1, height: 16, background: "rgba(248,241,228,0.2)" }}
@@ -265,8 +264,8 @@ function HomeThreeThings() {
       icon: Film,
       eyebrow: "First",
       title: "A cinematic tribute film.",
-      body: "You upload the photos and the memories. Our team — guided by AI, never automated — restores, animates, and scores them into a beautiful tribute film, designed to be ready within 24 hours.",
-      detail: "AI-restored. Human-guided. Broadcast quality.",
+      body: "You upload the photos and the memories. Our AI restores, animates, and scores them into a beautiful first cut in minutes. A human producer then reviews every frame before it ships — so your pet looks like your pet, not a generated approximation. Most tributes are final within hours, not days.",
+      detail: "AI-composed. Human-finished. Broadcast quality.",
     },
     {
       icon: Bookmark,
@@ -594,8 +593,8 @@ function HomeProcess() {
     {
       n: "03",
       icon: Film,
-      title: "A tribute, designed for 24-hour delivery.",
-      body: "A human producer reviews every tribute before it ships. The result is broadcast-quality, cinematic, and ready to play at the memorial or share with family.",
+      title: "Ready in minutes. Finished by hand.",
+      body: "AI builds your first cut in minutes — then a human producer reviews it end-to-end before it ships. The result is broadcast-quality, cinematic, and ready to play at the memorial or share with family. Hours, not days.",
     },
     {
       n: "04",
@@ -628,7 +627,7 @@ function HomeProcess() {
                 color: C.ink,
               }}
             >
-              Four steps. Designed for 24 hours.
+              Four steps. Hours, not days.
             </h2>
           </div>
           <div>
@@ -725,7 +724,7 @@ function HomeProcess() {
           ))}
         </div>
         <div style={{ marginTop: 64 }}>
-          <QuietLine animated label="Designed for same-day delivery" />
+          <QuietLine animated label="Ready in minutes · Finished by hand" />
         </div>
         <div style={{ marginTop: 40, textAlign: "center" }}>
           <Link
@@ -1364,9 +1363,9 @@ function HomeClosing() {
             fontFamily: FONT_SANS,
           }}
         >
-          A tribute, designed for 24-hour delivery. A memorial page, kept forever. A family
-          channel for every animal you&rsquo;ve loved, and the ones still ahead. Launching
-          soon.
+          A tribute, ready in minutes and finished by hand. A memorial page, kept forever. A
+          family channel for every animal you&rsquo;ve loved, and the ones still ahead.
+          Launching soon.
         </p>
         <div
           style={{

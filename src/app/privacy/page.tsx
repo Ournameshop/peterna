@@ -22,7 +22,7 @@ export default function PagePrivacy() {
     },
     {
       h: "Your photos and tribute media",
-      b: "The photos and media you upload to create a tribute are treated as your private information. We use them only to produce the tribute and memorial page you've requested, and to host them on the page you control. We will not display them publicly without your explicit consent (and our default page setting is private link only). We will not license them to anyone.\n\nYou can request deletion of any uploaded media at any time. Memorial pages can be taken down on request within 24 hours.",
+      b: "The photos and media you upload to create a tribute are treated as your private information. We use them only to produce the tribute and memorial page you've requested, and to host them on the page you control. We will not display them publicly without your explicit consent (and our default page setting is private link only). We will not license them to anyone.\n\nYou can request deletion of any uploaded media at any time. Memorial pages can be taken down on request the same day.",
     },
     {
       h: "How we protect your information",

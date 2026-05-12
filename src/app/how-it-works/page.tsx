@@ -39,8 +39,8 @@ export default function PageHowItWorks() {
       n: "04",
       icon: Film,
       title: "Final review. Final delivery.",
-      body: "Before your tribute ships, a producer watches it end-to-end. Color, audio mix, story arc, captions — checked. We're aiming for delivery within 24 hours of upload, with rush options for memorial services scheduled within 48 hours of loss.",
-      detail: "Designed for same-day delivery. Rush options planned.",
+      body: "AI assembles your first cut in minutes — then a producer watches it end-to-end before it ships. Color, audio mix, story arc, captions — checked. Most tributes are final within hours of upload. Priority producer review is planned for memorial services scheduled within 48 hours of loss.",
+      detail: "AI-composed. Human-finished. Hours, not days.",
     },
     {
       n: "05",
@@ -60,8 +60,8 @@ export default function PageHowItWorks() {
   const cards = [
     {
       icon: Clock,
-      t: "Designed for 24-hour delivery",
-      d: "Rush options planned for memorial services within 48 hours of loss.",
+      t: "Ready in minutes",
+      d: "AI builds a first cut instantly. A producer reviews and finalizes — usually within hours.",
     },
     {
       icon: Heart,
@@ -91,8 +91,8 @@ export default function PageHowItWorks() {
               maxWidth: 1100,
             }}
           >
-            From your first photo to a finished tribute, designed for{" "}
-            <em style={{ color: C.goldDeep }}>24 hours.</em>
+            From your first photo to a finished tribute, in{" "}
+            <em style={{ color: C.goldDeep }}>hours, not days.</em>
           </h1>
           <p
             style={{
@@ -105,12 +105,12 @@ export default function PageHowItWorks() {
             }}
           >
             Most pet memorial services are slideshow tools or stock-template generators.
-            Peterna is something different — a real production process, powered by AI,
-            finished by hand. Here&rsquo;s exactly what happens between your upload and your
-            tribute.
+            Peterna is something different — a real production process, powered by AI for
+            speed and finished by humans for soul. Here&rsquo;s exactly what happens between
+            your upload and your tribute.
           </p>
           <div style={{ marginTop: 48 }}>
-            <QuietLine animated label="Six steps · One day · One care promise" />
+            <QuietLine animated label="Six steps · Hours, not days · One care promise" />
           </div>
         </div>
       </section>
