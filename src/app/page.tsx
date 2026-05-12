@@ -18,7 +18,7 @@ import {
 import Pill from "@/components/Pill";
 import { GoldBtn, GhostBtn } from "@/components/Buttons";
 import QuietLine from "@/components/QuietLine";
-import FeaturedPortrait from "@/components/FeaturedPortrait";
+import FeaturedPortraitGallery from "@/components/FeaturedPortraitGallery";
 import HeroVideoBackground from "@/components/HeroVideoBackground";
 import { FeaturedPetRotationProvider } from "@/lib/featured-pet-rotation";
 import {
@@ -181,57 +181,78 @@ function HomeHero() {
 }
 
 function HomeFeaturedPortraitGallery() {
-  // Rotating featured pet portrait — pulled out of the hero on 2026-05-12
-  // at Andre's request: "move the rotating photo gallery to second block".
-  // The portrait was previously rendered to the right of the hero copy and
-  // cycled through pets via <FeaturedPetRotationProvider> (which now wraps
-  // <PageHome>, so this section + the hero bg both stay in sync).
+  // Editorial gallery of featured pets — rebuilt 2026-05-12 after Andre
+  // reviewed the v1 (single floating card) and called it not A+. The new
+  // design pairs a large rotating featured card with a thumbnail strip of
+  // all six pets, plus a real eyebrow / headline / supporting copy + CTA.
+  // See <FeaturedPortraitGallery> for the layout details.
   //
-  // Background uses C.ink (warm dark) so the existing cream caption inside
-  // <FeaturedPortrait> stays legible without component changes.
+  // The previous v1 used <Pill> with the default `tone="ink"` against a
+  // C.ink background, which rendered the pill text invisibly dark-on-dark
+  // (Andre's screenshot showed an empty capsule). Switched to tone="gold"
+  // so the eyebrow reads against the warm dark background.
   return (
-    <section style={{ padding: "120px 0", background: C.ink, position: "relative", overflow: "hidden" }}>
+    <section
+      style={{
+        padding: "140px 0",
+        background: C.ink,
+        position: "relative",
+        overflow: "hidden",
+      }}
+    >
       <div
         style={{
           position: "absolute",
           inset: 0,
           pointerEvents: "none",
           background:
-            "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(201,169,97,0.12), transparent 65%)",
+            "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(201,169,97,0.14), transparent 65%)",
         }}
         aria-hidden="true"
       />
       <div style={{ ...sectionMaxStyle, position: "relative" }}>
         <motion.div
-          style={{ textAlign: "center", maxWidth: 640, margin: "0 auto 48px" }}
+          style={{ maxWidth: 720, margin: "0 auto 64px", textAlign: "center" }}
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-100px" }}
           transition={{ duration: 0.7 }}
         >
-          <Pill>The ones we&rsquo;ve loved</Pill>
+          <Pill tone="gold">Six families. Six stories.</Pill>
           <h2
             style={{
               marginTop: 24,
               fontFamily: FONT_DISPLAY,
               fontWeight: 400,
-              fontSize: "clamp(32px, 4.5vw, 56px)",
+              fontSize: "clamp(36px, 5vw, 64px)",
               lineHeight: 1.05,
               letterSpacing: "-0.01em",
               color: C.cream,
             }}
           >
-            Every pet has a story.
+            Every pet has a story. <em style={{ color: C.gold }}>Every story
+            deserves to be told well.</em>
           </h2>
+          <p
+            style={{
+              marginTop: 24,
+              fontSize: 18,
+              lineHeight: 1.65,
+              color: "rgba(248,241,228,0.72)",
+              fontFamily: FONT_SANS,
+            }}
+          >
+            These are real tributes for real families. Hand-crafted, not
+            automated. Click any pet to read theirs.
+          </p>
         </motion.div>
         <motion.div
           initial={{ opacity: 0, y: 24 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-100px" }}
           transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-          style={{ maxWidth: 460, margin: "0 auto" }}
         >
-          <FeaturedPortrait />
+          <FeaturedPortraitGallery />
         </motion.div>
       </div>
     </section>
