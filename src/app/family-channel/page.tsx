@@ -56,6 +56,29 @@ export default function PageFamilyChannel() {
             position: "absolute",
             inset: 0,
             pointerEvents: "none",
+            backgroundImage: "url(/hero/slides/05-couch-sunbeam-dog.jpg)",
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            opacity: 0.32,
+            filter: "saturate(0.85)",
+          }}
+          aria-hidden="true"
+        />
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            pointerEvents: "none",
+            background:
+              "linear-gradient(180deg, rgba(20,18,16,0.55) 0%, rgba(20,18,16,0.78) 60%, rgba(20,18,16,0.92) 100%)",
+          }}
+          aria-hidden="true"
+        />
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            pointerEvents: "none",
             background:
               "radial-gradient(ellipse 70% 60% at 90% 0%, rgba(201,169,97,0.22), transparent 65%)",
           }}
