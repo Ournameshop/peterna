@@ -87,8 +87,8 @@ export default function PagePricing() {
         "Voice memos from up to 10 family members",
         "Custom-licensed signature music option",
         "First year of Family Channel included",
-        "Priority producer review (planned, for time-sensitive memorials)",
-        "Dedicated producer",
+        "Dedicated producer · priority review for time-sensitive memorials",
+        "Ready in hours · finished by a human producer",
       ],
       cta: "Join the waitlist",
       ctaHref: "/get-started",
@@ -156,7 +156,7 @@ export default function PagePricing() {
               maxWidth: 1100,
             }}
           >
-            Three tiers. <em style={{ color: C.goldDeep }}>One care promise.</em>
+            Four tiers. <em style={{ color: C.goldDeep }}>One care promise.</em>
           </h1>
           <p
             style={{
