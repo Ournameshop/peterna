@@ -13,7 +13,32 @@ import {
 } from "@/lib/peterna-tokens";
 
 export default function PagePricing() {
+  // Tier ladder (added 'Instant' on 2026-05-13 at Andre's direction):
+  //   Instant   $99   AI-finalized, ready in minutes, self-serve
+  //   Essential $149  Concierge entry tier, producer-reviewed
+  //   Premium   $295  Concierge, family upload, animation
+  //   Elite     $595  Concierge, dedicated producer, full library
+  // Instant differs from concierge tiers on PRODUCTION DEPTH, not quality
+  // tier. Customer self-selects on how much production they want.
   const tiers = [
+    {
+      name: "Instant",
+      price: "$99",
+      tagline: "For when you need something beautiful, right now.",
+      features: [
+        "Cinematic tribute video, up to 60 seconds",
+        "AI photo restoration, up to 12 images",
+        "Permanent memorial page, hosted forever",
+        "12 curated music tracks",
+        "Shareable link + QR code",
+        "Ready in literal minutes · AI-finalized, no waiting",
+      ],
+      cta: "Notify me at launch",
+      ctaHref: "/get-started?interest=instant",
+      accent: false,
+      badge: "New · Self-serve",
+      anchor: "instant",
+    },
     {
       name: "Essential",
       price: "$149",
@@ -24,11 +49,13 @@ export default function PagePricing() {
         "Permanent memorial page, hosted forever",
         "Curated music from licensed library",
         "Shareable link + QR code",
-        "Ready in minutes · finished by hand",
+        "Ready in hours · finished by a human producer",
       ],
       cta: "Join the waitlist",
+      ctaHref: "/get-started",
       accent: false,
       badge: undefined as string | undefined,
+      anchor: undefined as string | undefined,
     },
     {
       name: "Premium",
@@ -41,11 +68,13 @@ export default function PagePricing() {
         "Family voice memo or written tribute included",
         "Multi-track curated soundtrack",
         "Family upload — up to 5 contributors",
-        "Ready in minutes · finished by hand",
+        "Ready in hours · finished by a human producer",
       ],
       cta: "Join the waitlist",
+      ctaHref: "/get-started",
       accent: true,
       badge: "Planned launch tier",
+      anchor: undefined as string | undefined,
     },
     {
       name: "Elite",
@@ -62,8 +91,10 @@ export default function PagePricing() {
         "Dedicated producer",
       ],
       cta: "Join the waitlist",
+      ctaHref: "/get-started",
       accent: false,
       badge: undefined as string | undefined,
+      anchor: undefined as string | undefined,
     },
   ];
   const channelTiers = [
@@ -160,6 +191,7 @@ export default function PagePricing() {
             {tiers.map((t, i) => (
               <div
                 key={i}
+                id={t.anchor}
                 style={{
                   position: "relative",
                   padding: 40,
@@ -168,6 +200,7 @@ export default function PagePricing() {
                   background: C.cream,
                   display: "flex",
                   flexDirection: "column",
+                  scrollMarginTop: 96,
                 }}
               >
                 {t.badge && (
@@ -266,11 +299,11 @@ export default function PagePricing() {
                 </ul>
                 <div style={{ marginTop: 40 }}>
                   {t.accent ? (
-                    <GoldBtn href="/get-started" full>
+                    <GoldBtn href={t.ctaHref} full>
                       {t.cta}
                     </GoldBtn>
                   ) : (
-                    <GhostBtn href="/get-started" full>
+                    <GhostBtn href={t.ctaHref} full>
                       {t.cta}
                     </GhostBtn>
                   )}
