@@ -1191,7 +1191,7 @@ function HomeForVetsTease() {
             >
               <GhostBtn href="/for-veterinarians">See partner economics</GhostBtn>
               <Link
-                href="/for-veterinarians"
+                href="/partners"
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
