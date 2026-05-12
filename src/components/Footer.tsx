@@ -120,7 +120,7 @@ export default function Footer() {
             title="Partners"
             items={[
               { label: "For Veterinarians", route: "/for-veterinarians" },
-              { label: "Become a partner", route: "/for-veterinarians" },
+              { label: "Become a partner", route: "/partners" },
             ]}
           />
           <Col

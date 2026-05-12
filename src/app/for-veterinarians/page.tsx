@@ -136,7 +136,7 @@ export default function PageForVets() {
             production. Your team introduces. We do everything else.
           </p>
           <div style={{ marginTop: 40, display: "flex", flexWrap: "wrap", gap: 12 }}>
-            <GoldBtn href="mailto:partners@peterna.com">Become a partner</GoldBtn>
+            <GoldBtn href="/partners">Become a partner</GoldBtn>
             <GhostBtn href="#vet-economics">See the numbers</GhostBtn>
           </div>
           <div style={{ marginTop: 48 }}>
@@ -618,7 +618,7 @@ export default function PageForVets() {
             30-minute call to walk through the pilot structure. No pressure, no pitch deck.
           </p>
           <div style={{ marginTop: 40 }}>
-            <GoldBtn href="mailto:partners@peterna.com">Email partners@peterna.com</GoldBtn>
+            <GoldBtn href="/partners">Tell us about your practice</GoldBtn>
           </div>
           <p
             style={{
