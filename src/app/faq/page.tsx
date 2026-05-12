@@ -29,7 +29,7 @@ export default function PageFAQ() {
         },
         {
           q: "How long will it take?",
-          a: "We're designing the service for delivery within 24 hours of completing your upload, with rush delivery within 12 hours planned for Elite, and on other tiers when a memorial service is scheduled within 48 hours of loss. These targets will be confirmed once we open.",
+          a: "AI builds your first cut in minutes — then a human producer reviews it end-to-end before it ships. Most tributes are final within hours of upload, not days. Priority producer review is planned for Elite and for any tier when a memorial service is scheduled within 48 hours of loss. These targets will be confirmed once we open.",
         },
       ],
     },
@@ -88,7 +88,7 @@ export default function PageFAQ() {
         },
         {
           q: "What if I need to take a memorial down?",
-          a: "Send us a message and we'll honor it within 24 hours. Your data is yours. We never put a memorial up without explicit permission, and we never refuse to take one down when asked.",
+          a: "Send us a message and we'll honor it the same day. Your data is yours. We never put a memorial up without explicit permission, and we never refuse to take one down when asked.",
         },
       ],
     },
