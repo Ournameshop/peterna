@@ -36,7 +36,7 @@ export default function PagePricing() {
       cta: "Notify me at launch",
       ctaHref: "/get-started?interest=instant",
       accent: false,
-      badge: "New · Self-serve",
+      badge: "New",
       anchor: "instant",
     },
     {
@@ -223,6 +223,7 @@ export default function PagePricing() {
                         textTransform: "uppercase",
                         fontWeight: 500,
                         fontFamily: FONT_SANS,
+                        whiteSpace: "nowrap",
                       }}
                     >
                       {t.badge}

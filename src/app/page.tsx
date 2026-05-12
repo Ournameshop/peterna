@@ -124,7 +124,6 @@ function HomeHero() {
               style={{ marginTop: 28, display: "flex", flexWrap: "wrap", gap: 12 }}
             >
               <GoldBtn href="/get-started">Join the waitlist</GoldBtn>
-              <GhostBtn href="/pricing#instant" light>Peterna Instant · $99</GhostBtn>
               <GhostBtn href="/how-it-works" light>How it works</GhostBtn>
             </motion.div>
             <motion.div
@@ -145,7 +144,7 @@ function HomeHero() {
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <Heart size={14} color={C.gold} aria-hidden="true" /> Instant from $99 · Concierge from $149
+                <Heart size={14} color={C.gold} aria-hidden="true" /> Cinematic tributes · Permanent memorial pages
               </div>
               <div
                 style={{ width: 1, height: 16, background: "rgba(248,241,228,0.2)" }}
