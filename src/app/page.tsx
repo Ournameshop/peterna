@@ -19,7 +19,7 @@ import Pill from "@/components/Pill";
 import { GoldBtn, GhostBtn } from "@/components/Buttons";
 import QuietLine from "@/components/QuietLine";
 import FeaturedPortrait from "@/components/FeaturedPortrait";
-import HeroFeaturedBackground from "@/components/HeroFeaturedBackground";
+import HeroVideoBackground from "@/components/HeroVideoBackground";
 import { FeaturedPetRotationProvider } from "@/lib/featured-pet-rotation";
 import {
   C,
@@ -52,12 +52,12 @@ function HomeHero() {
       ref={ref}
       style={{ position: "relative", background: "#1A1410", overflow: "hidden", isolation: "isolate" }}
     >
-      {/* Hero background — mirrors the currently-featured pet from the
-          foreground portrait card, blurred + darkened. Andre flagged on
-          2026-05-11 that the previous independent 6-slide carousel was
-          showing a different animal than the foreground card; this keeps
-          background + foreground locked to the same pet. */}
-      <HeroFeaturedBackground />
+      {/* Hero background — looping muted background video. Andre asked on
+          2026-05-12 to replace the previous pet-mirror image background
+          with a video. Assets live in /public/hero/ (mp4 + webm + poster).
+          Stacks at z-index: -3 so the dark warm + radial gold overlays
+          below render on top for text legibility. */}
+      <HeroVideoBackground />
       {/* Dark warm overlay for text legibility */}
       <div
         style={{
