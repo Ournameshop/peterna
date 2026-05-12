@@ -2,7 +2,7 @@
 
 import { useRef } from "react";
 import Link from "next/link";
-import { motion, useScroll, useTransform } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   Heart,
   Stethoscope,
@@ -31,11 +31,6 @@ import {
 
 function HomeHero() {
   const ref = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({
-    target: ref,
-    offset: ["start start", "end start"],
-  });
-  const visualY = useTransform(scrollYProgress, [0, 1], [0, -40]);
 
   const stagger = {
     hidden: { opacity: 0 },
@@ -47,7 +42,6 @@ function HomeHero() {
   };
 
   return (
-    <FeaturedPetRotationProvider>
     <section
       ref={ref}
       style={{ position: "relative", background: "#1A1410", overflow: "hidden", isolation: "isolate" }}
@@ -86,10 +80,10 @@ function HomeHero() {
           initial="hidden"
           animate="show"
           variants={stagger}
-          style={{ display: "grid", gridTemplateColumns: "1fr", gap: 64, alignItems: "center" }}
+          style={{ display: "block" }}
           className="peterna-hero-grid"
         >
-          <div>
+          <div style={{ maxWidth: 820 }}>
             <motion.h1
               variants={item}
               className="peterna-hero-h1"
@@ -165,9 +159,6 @@ function HomeHero() {
               <div>Launching 2026</div>
             </motion.div>
           </div>
-          <motion.div variants={item} style={{ y: visualY }}>
-            <FeaturedPortrait />
-          </motion.div>
         </motion.div>
         <div style={{ marginTop: 96 }}>
           <QuietLine animated label="Tribute · Memorial · Family Channel" tone="light" />
@@ -184,10 +175,66 @@ function HomeHero() {
           .peterna-hero-meta { margin-top: 28px !important; }
           .peterna-hero-portrait { max-width: 320px !important; }
         }
-        @media (min-width: 1024px) { .peterna-hero-grid { grid-template-columns: 7fr 5fr !important; } }
       `}</style>
     </section>
-    </FeaturedPetRotationProvider>
+  );
+}
+
+function HomeFeaturedPortraitGallery() {
+  // Rotating featured pet portrait — pulled out of the hero on 2026-05-12
+  // at Andre's request: "move the rotating photo gallery to second block".
+  // The portrait was previously rendered to the right of the hero copy and
+  // cycled through pets via <FeaturedPetRotationProvider> (which now wraps
+  // <PageHome>, so this section + the hero bg both stay in sync).
+  //
+  // Background uses C.ink (warm dark) so the existing cream caption inside
+  // <FeaturedPortrait> stays legible without component changes.
+  return (
+    <section style={{ padding: "120px 0", background: C.ink, position: "relative", overflow: "hidden" }}>
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          pointerEvents: "none",
+          background:
+            "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(201,169,97,0.12), transparent 65%)",
+        }}
+        aria-hidden="true"
+      />
+      <div style={{ ...sectionMaxStyle, position: "relative" }}>
+        <motion.div
+          style={{ textAlign: "center", maxWidth: 640, margin: "0 auto 48px" }}
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-100px" }}
+          transition={{ duration: 0.7 }}
+        >
+          <Pill>The ones we&rsquo;ve loved</Pill>
+          <h2
+            style={{
+              marginTop: 24,
+              fontFamily: FONT_DISPLAY,
+              fontWeight: 400,
+              fontSize: "clamp(32px, 4.5vw, 56px)",
+              lineHeight: 1.05,
+              letterSpacing: "-0.01em",
+              color: C.cream,
+            }}
+          >
+            Every pet has a story.
+          </h2>
+        </motion.div>
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-100px" }}
+          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+          style={{ maxWidth: 460, margin: "0 auto" }}
+        >
+          <FeaturedPortrait />
+        </motion.div>
+      </div>
+    </section>
   );
 }
 
@@ -1329,15 +1376,18 @@ function HomeClosing() {
 
 export default function PageHome() {
   return (
-    <main>
-      <HomeHero />
-      <HomeThreeThings />
-      <HomeSampleTribute />
-      <HomeProcess />
-      <HomeFamilyChannelTease />
-      <HomeCarePromise />
-      <HomeForVetsTease />
-      <HomeClosing />
-    </main>
+    <FeaturedPetRotationProvider>
+      <main>
+        <HomeHero />
+        <HomeFeaturedPortraitGallery />
+        <HomeThreeThings />
+        <HomeSampleTribute />
+        <HomeProcess />
+        <HomeFamilyChannelTease />
+        <HomeCarePromise />
+        <HomeForVetsTease />
+        <HomeClosing />
+      </main>
+    </FeaturedPetRotationProvider>
   );
 }
