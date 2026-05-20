@@ -940,16 +940,41 @@ function Welcome({ onNext }) {
 function PhotoUpload({ data, update, onNext, onBack }) {
   const [url, setUrl] = useState('');
   const [drag, setDrag] = useState(false);
+  const fileInputRef = useRef(null);
 
-  const addPlaceholder = () => {
-    update({ photos: [...data.photos, { id: Date.now() + Math.random(), name: `photo_${data.photos.length + 1}.jpg` }] });
+  const addFiles = (fileList) => {
+    if (!fileList || fileList.length === 0) return;
+    const incoming = Array.from(fileList).filter(f => f && f.type && f.type.startsWith('image/'));
+    if (incoming.length === 0) return;
+    const mapped = incoming.map((f, idx) => ({
+      id: Date.now() + Math.random() + idx,
+      name: f.name || `photo_${data.photos.length + idx + 1}.jpg`,
+      file: f,
+      preview: URL.createObjectURL(f),
+      size: f.size,
+    }));
+    update({ photos: [...data.photos, ...mapped] });
+  };
+  const openPicker = () => {
+    if (fileInputRef.current) fileInputRef.current.click();
+  };
+  const onFilePicked = (e) => {
+    addFiles(e.target.files);
+    // reset so picking the same file again still fires onChange
+    if (e.target) e.target.value = '';
   };
   const addUrl = () => {
     if (!url.trim()) return;
     update({ photos: [...data.photos, { id: Date.now(), name: url.split('/').pop() || 'linked-image', url }] });
     setUrl('');
   };
-  const remove = (id) => update({ photos: data.photos.filter(p => p.id !== id) });
+  const remove = (id) => {
+    const target = data.photos.find(p => p.id === id);
+    if (target && target.preview) {
+      try { URL.revokeObjectURL(target.preview); } catch (_) { /* noop */ }
+    }
+    update({ photos: data.photos.filter(p => p.id !== id) });
+  };
 
   return (
     <StageShell
@@ -958,10 +983,23 @@ function PhotoUpload({ data, update, onNext, onBack }) {
       lede="A face shot, side profile, full body, anything that shows their personality. More angles help us capture their likeness more accurately."
       onNext={onNext} onBack={onBack} canNext={data.photos.length > 0}
     >
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*,.heic,.heif"
+        multiple
+        onChange={onFilePicked}
+        style={{ display: 'none' }}
+      />
       <div
+        role="button"
+        tabIndex={0}
+        aria-label="Add photos"
         onDragOver={e => { e.preventDefault(); setDrag(true); }}
         onDragLeave={() => setDrag(false)}
-        onDrop={e => { e.preventDefault(); setDrag(false); addPlaceholder(); }}
+        onDrop={e => { e.preventDefault(); setDrag(false); addFiles(e.dataTransfer && e.dataTransfer.files); }}
+        onClick={openPicker}
+        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPicker(); } }}
         style={{
           border: `1.5px dashed ${drag ? PALETTE.brass : PALETTE.parchment}`,
           background: drag ? 'rgba(201,169,97,0.06)' : PALETTE.boneSoft,
@@ -971,11 +1009,10 @@ function PhotoUpload({ data, update, onNext, onBack }) {
           transition: 'all 180ms ease',
           cursor: 'pointer',
         }}
-        onClick={addPlaceholder}
       >
         <Upload size={28} color={PALETTE.brass} style={{ marginBottom: 12 }}/>
         <Serif style={{ fontSize: 22, color: PALETTE.espresso }}>Drag photos here</Serif>
-        <Sans style={{ color: PALETTE.mute, fontSize: 13, marginTop: 6 }}>or click to browse â€” JPG, PNG, HEIC</Sans>
+        <Sans style={{ color: PALETTE.mute, fontSize: 13, marginTop: 6 }}>or click to browse — JPG, PNG, HEIC</Sans>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, margin: '24px 0' }}>
@@ -998,8 +1035,13 @@ function PhotoUpload({ data, update, onNext, onBack }) {
           <Eyebrow>{data.photos.length} {data.photos.length === 1 ? 'photo' : 'photos'} added</Eyebrow>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 12, marginTop: 12 }}>
             {data.photos.map((p, i) => (
-              <div key={p.id} style={{ position: 'relative', aspectRatio: '1', background: `linear-gradient(135deg, ${PALETTE.parchment}, ${PALETTE.parchmentLight})`, borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <PetSketch size={56} color={PALETTE.espressoSoft} dim/>
+              <div key={p.id} style={{ position: 'relative', aspectRatio: '1', background: `linear-gradient(135deg, ${PALETTE.parchment}, ${PALETTE.parchmentLight})`, borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                {p.preview || p.url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={p.preview || p.url} alt={p.name || 'pet photo'} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                ) : (
+                  <PetSketch size={56} color={PALETTE.espressoSoft} dim/>
+                )}
                 <button onClick={() => remove(p.id)} style={{ position: 'absolute', top: 6, right: 6, width: 22, height: 22, borderRadius: '50%', background: 'rgba(42,33,27,0.8)', color: PALETTE.bone, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <X size={12}/>
                 </button>
