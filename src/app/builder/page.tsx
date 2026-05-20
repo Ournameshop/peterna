@@ -11,6 +11,15 @@ import { Upload, Link as LinkIcon, ArrowRight, ArrowLeft, Check, X, Sparkles, He
 // Bone / espresso / brass palette Â· Cormorant Garamond + Inter
 // ============================================================================
 
+// Feature flag: when true, the builder talks to the real fal.ai-backed API routes.
+// When false (default), keeps the original placeholder/simulation behavior.
+// Set NEXT_PUBLIC_USE_FAL=true in the deployed .env to activate.
+const USE_FAL = process.env.NEXT_PUBLIC_USE_FAL === 'true';
+
+// TODO(fal): batch-generate the 16 static format/style tile previews via a build-time
+// script that hits /api/image/generate once per tile and writes the URLs into a
+// committed JSON map. Doing it per-render is wasteful and slow.
+
 const PALETTE = {
   bone: '#F8F1E4',
   boneSoft: '#FBF6EC',
@@ -834,7 +843,12 @@ export default function PeternaPrototype() {
     customWords: '',
   });
 
-  const update = (patch) => setData(d => ({ ...d, ...patch }));
+  // update() supports both merge patches and functional updates: pass an object to merge,
+  // or a function (latestData) => partialPatch for race-safe in-flight mutations.
+  const update = (patch) => setData(d => {
+    const p = typeof patch === 'function' ? patch(d) : patch;
+    return { ...d, ...(p || {}) };
+  });
   const next = () => setStep(s => Math.min(STEPS.length - 1, s + 1));
   const back = () => setStep(s => Math.max(0, s - 1));
   const jumpTo = (i) => setStep(i);
@@ -942,6 +956,35 @@ function PhotoUpload({ data, update, onNext, onBack }) {
   const [drag, setDrag] = useState(false);
   const fileInputRef = useRef(null);
 
+  // Background upload to fal.storage via /api/storage/upload. Fires when USE_FAL is true.
+  // Race-safe: uses functional update() so concurrent uploads don't overwrite each other.
+  const uploadPhotoInBackground = (photoId, file) => {
+    if (!USE_FAL || !file) return;
+    const fd = new FormData();
+    fd.append('file', file);
+    fetch('/api/storage/upload', { method: 'POST', body: fd })
+      .then(async (r) => {
+        const ct = r.headers.get('content-type') || '';
+        const body = ct.includes('application/json') ? await r.json() : { error: await r.text() };
+        if (!r.ok) throw new Error(body.error || `upload failed (${r.status})`);
+        return body;
+      })
+      .then((body) => {
+        update((latest) => ({
+          photos: latest.photos.map((p) =>
+            p.id === photoId ? { ...p, uploading: false, remoteUrl: body.url } : p
+          ),
+        }));
+      })
+      .catch((err) => {
+        update((latest) => ({
+          photos: latest.photos.map((p) =>
+            p.id === photoId ? { ...p, uploading: false, uploadError: String((err && err.message) || err) } : p
+          ),
+        }));
+      });
+  };
+
   const addFiles = (fileList) => {
     if (!fileList || fileList.length === 0) return;
     const incoming = Array.from(fileList).filter(f => f && f.type && f.type.startsWith('image/'));
@@ -952,8 +995,15 @@ function PhotoUpload({ data, update, onNext, onBack }) {
       file: f,
       preview: URL.createObjectURL(f),
       size: f.size,
+      uploading: USE_FAL ? true : false,
+      remoteUrl: null,
+      uploadError: null,
     }));
     update({ photos: [...data.photos, ...mapped] });
+    // Kick off background uploads (no await, no block on Next button).
+    if (USE_FAL) {
+      mapped.forEach((m) => uploadPhotoInBackground(m.id, m.file));
+    }
   };
   const openPicker = () => {
     if (fileInputRef.current) fileInputRef.current.click();
@@ -1045,6 +1095,17 @@ function PhotoUpload({ data, update, onNext, onBack }) {
                 <button onClick={() => remove(p.id)} style={{ position: 'absolute', top: 6, right: 6, width: 22, height: 22, borderRadius: '50%', background: 'rgba(42,33,27,0.8)', color: PALETTE.bone, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <X size={12}/>
                 </button>
+                {p.uploading && (
+                  <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '4px 6px', background: 'rgba(42,33,27,0.7)', color: PALETTE.bone, fontFamily: 'Inter, sans-serif', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <Loader2 size={10} style={{ animation: 'spin 1.2s linear infinite' }}/>
+                    uploadingâ€¦
+                  </div>
+                )}
+                {p.uploadError && (
+                  <div title={p.uploadError} style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '4px 6px', background: 'rgba(150,40,40,0.8)', color: PALETTE.bone, fontFamily: 'Inter, sans-serif', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                    upload failed
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -1127,10 +1188,63 @@ function PetDetails({ data, update, onNext, onBack }) {
 // ============================================================================
 function CharacterSheet({ data, update, onNext, onBack }) {
   const [generating, setGenerating] = useState(true);
+  const [frames, setFrames] = useState(null); // null = not yet, [] = empty, [{url, view}, ...]
+  const [genError, setGenError] = useState(null);
+  const [rerollCount, setRerollCount] = useState(0);
+
+  const firstRemoteUrl = (data.photos || []).map((p) => p.remoteUrl).find(Boolean);
+
   useEffect(() => {
-    const t = setTimeout(() => setGenerating(false), 2400);
-    return () => clearTimeout(t);
-  }, []);
+    let cancelled = false;
+
+    if (!USE_FAL || !firstRemoteUrl) {
+      // Original placeholder behavior: pretend to render for 2.4s then show sketches.
+      setFrames(null);
+      setGenError(null);
+      setGenerating(true);
+      const t = setTimeout(() => { if (!cancelled) setGenerating(false); }, 2400);
+      return () => { cancelled = true; clearTimeout(t); };
+    }
+
+    // Real path: hit /api/video/character-sheet with the first uploaded photo.
+    setGenerating(true);
+    setGenError(null);
+    setFrames(null);
+
+    const styleObj = STYLES.find((s) => s.id === data.style);
+    const styleDirective = styleObj
+      ? `${styleObj.name} â€” ${styleObj.desc}`
+      : 'cinematic photoreal painterly grade, warm 35mm film stock';
+
+    fetch('/api/video/character-sheet', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        petPhotoUrl: firstRemoteUrl,
+        styleDirective,
+        petName: data.petName,
+      }),
+    })
+      .then(async (r) => {
+        const ct = r.headers.get('content-type') || '';
+        const body = ct.includes('application/json') ? await r.json() : { error: await r.text() };
+        if (!r.ok) throw new Error(body.error || `character-sheet failed (${r.status})`);
+        return body;
+      })
+      .then((body) => {
+        if (cancelled) return;
+        const f = Array.isArray(body && body.frames) ? body.frames : [];
+        setFrames(f);
+        setGenerating(false);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setGenError(String((err && err.message) || err));
+        setGenerating(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [USE_FAL && firstRemoteUrl, rerollCount, data.style, data.petName]);
 
   return (
     <StageShell
@@ -1140,14 +1254,31 @@ function CharacterSheet({ data, update, onNext, onBack }) {
       onNext={onNext} onBack={onBack} canNext={!generating}
       nextLabel="Yes, this is them"
       secondaryAction={!generating && (
-        <button onClick={() => { setGenerating(true); setTimeout(() => setGenerating(false), 1600); }}
+        <button onClick={() => {
+          if (USE_FAL && firstRemoteUrl) {
+            setRerollCount((n) => n + 1);
+          } else {
+            setGenerating(true);
+            setTimeout(() => setGenerating(false), 1600);
+          }
+        }}
           style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'transparent', border: 'none', color: PALETTE.brassDeep, fontFamily: 'Inter, sans-serif', fontSize: 13, cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 4 }}>
           <RotateCcw size={13}/> reroll
         </button>
       )}
     >
+      {genError && (
+        <div style={{ marginBottom: 16, padding: '12px 16px', background: PALETTE.boneSoft, border: `1px solid ${PALETTE.parchmentLight}`, borderRadius: 4 }}>
+          <Sans style={{ fontSize: 13, color: PALETTE.espressoSoft }}>
+            We couldnâ€™t generate previews right now â€” showing placeholders. You can still continue, or hit reroll to try again.
+          </Sans>
+        </div>
+      )}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
-        {['Front', 'Side profile', 'Full body', 'Looking up'].map((view, i) => (
+        {['Front', 'Side profile', 'Full body', 'Looking up'].map((view, i) => {
+          const frame = frames && frames[i];
+          const frameUrl = frame && frame.url;
+          return (
           <div key={view} style={{
             aspectRatio: '1',
             background: PALETTE.boneSoft,
@@ -1164,6 +1295,12 @@ function CharacterSheet({ data, update, onNext, onBack }) {
                 <Loader2 size={20} color={PALETTE.brass} style={{ animation: 'spin 1.2s linear infinite' }}/>
                 <Sans style={{ fontSize: 11, color: PALETTE.mute, letterSpacing: '0.1em', textTransform: 'uppercase' }}>renderingâ€¦</Sans>
               </div>
+            ) : frameUrl ? (
+              <>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={frameUrl} alt={`${data.petName || 'pet'} â€” ${view}`} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}/>
+                <Sans style={{ position: 'absolute', bottom: 10, left: 12, fontSize: 11, color: PALETTE.bone, letterSpacing: '0.12em', textTransform: 'uppercase', textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>{view}</Sans>
+              </>
             ) : (
               <>
                 <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(circle at 50% 60%, ${PALETTE.parchment}, ${PALETTE.boneSoft})` }}/>
@@ -1172,7 +1309,7 @@ function CharacterSheet({ data, update, onNext, onBack }) {
               </>
             )}
           </div>
-        ))}
+        );})}
       </div>
 
       {!generating && (
