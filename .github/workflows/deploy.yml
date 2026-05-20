@@ -93,12 +93,18 @@ jobs:
             "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}" \
             "mkdir -p '${APP_DIR}'"
 
-      - name: Rsync artifact
+      - name: Rsync artifact (preserve .env)
         run: |
-          rsync -az --delete \
+          rsync -az --delete --exclude='.env' \
             -e "ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no" \
             artifact/ \
             "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:${APP_DIR}/"
+
+      - name: Restore .env from persistent source
+        run: |
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no \
+            "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}" \
+            "if [ -f \$HOME/.peterna-env/${SLOT}.env ]; then cp -f \$HOME/.peterna-env/${SLOT}.env ${APP_DIR}/.env && chmod 600 ${APP_DIR}/.env && echo 'env restored'; else echo 'WARN: no persistent env at ~/.peterna-env/${SLOT}.env'; fi"
 
       - name: Install + (re)start PM2
         run: |

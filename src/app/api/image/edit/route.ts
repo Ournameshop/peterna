@@ -28,12 +28,7 @@ export async function POST(req: Request) {
   if (!process.env.FAL_KEY) {
     return NextResponse.json({ error: "FAL_KEY not configured" }, { status: 500 });
   }
-  if (!process.env.OPENAI_API_KEY) {
-    return NextResponse.json(
-      { error: "OPENAI_API_KEY not configured" },
-      { status: 500 }
-    );
-  }
+  // OPENAI_API_KEY is optional — fal proxies openai/gpt-image-2/edit with FAL_KEY alone.
 
   let body: ReqBody;
   try {
@@ -61,7 +56,7 @@ export async function POST(req: Request) {
       image_size: body.aspect || "auto",
       quality: body.quality || "medium",
       output_format: body.outputFormat || "png",
-      openai_api_key: process.env.OPENAI_API_KEY,
+      ...(process.env.OPENAI_API_KEY ? { openai_api_key: process.env.OPENAI_API_KEY } : {}),
     };
     if (body.maskImageUrl) input.mask_image_url = body.maskImageUrl;
 
