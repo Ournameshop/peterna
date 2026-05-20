@@ -43,6 +43,8 @@ jobs:
         run: npm ci
 
       - name: Build
+        env:
+          NEXT_PUBLIC_USE_FAL: 'true'
         run: npm run build
 
       - name: Stage artifact
