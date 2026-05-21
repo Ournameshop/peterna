@@ -161,3 +161,14 @@ export function findMusicTrack(
   if (!id) return undefined;
   return TRACK_BY_ID.get(id as MusicTrackId);
 }
+
+/** First track ID whose `format_affinity` includes the given format, else null. */
+export function defaultMusicForFormat(formatId: string | null | undefined): string | null {
+  if (!formatId) return null;
+  for (const t of MUSIC_TRACKS) {
+    if (t.id === 'silence') continue;
+    const affinity = t.format_affinity as readonly string[];
+    if (affinity.includes('all') || affinity.includes(formatId)) return t.id;
+  }
+  return null;
+}

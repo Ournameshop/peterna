@@ -16,7 +16,11 @@ import type {
   MemoryPromptId,
   PersonalityTraitId,
 } from '@/lib/library/intake';
-import type { BeatWire, StoryboardFrameWire } from './wire-types';
+import type {
+  BeatWire,
+  CardPreviewWire,
+  StoryboardFrameWire,
+} from './wire-types';
 
 // -----------------------------------------------------------------------------
 // Stage tags — one per screen. URL-driven (?step=...).
@@ -64,9 +68,25 @@ export type StageTag =
   | 'storyboard_review'
   | 'storyboard_frame_reroll'
   | 'storyboard_complete'
-  // Stage 6 placeholder — Stage 5.5 "The Words" entry. The reducer just lands
-  // here on storyboard_approved; no further wiring in Phase 4b.
-  | 'words_render';
+  // Stage 5.5 — The Words.
+  //
+  // `words_render` is the entry stage from `storyboard_complete` — the user
+  // lands directly on the editor (no separate "loading" render screen; the
+  // editor is the screen). `words_editor` is reserved as an alias for
+  // deep-links and remains the same screen as `words_render`. We keep both
+  // tags so a future split of "loading defaults" vs "editor" is possible
+  // without a stage-tag migration.
+  | 'words_render'
+  | 'words_editor'
+  | 'words_complete'
+  // Stage 5.6 — Card preview (v2.3). Renders the opening title, closing card,
+  // and one in-scene caption frame BEFORE any cinematography brief or video
+  // render fires.
+  | 'card_preview_render'
+  | 'card_preview_review'
+  | 'card_preview_complete'
+  // Stage 5.7 placeholder — cinematography brief entry (Phase 6).
+  | 'cinematography_brief';
 
 // -----------------------------------------------------------------------------
 // Session data carried alongside the stage. Mirrors the columns on `sessions`
@@ -157,6 +177,22 @@ export type WizardData = {
   /** Which beat_idx is currently being rerolled (UI guard). Null when no
    *  reroll is in flight. */
   reroll_beat_idx: number | null;
+
+  // Stage 5.5 — The Words.
+  //
+  // All four are optional from the user's perspective — the editor pre-fills
+  // opening + closing with sensible defaults, and music + narration default
+  // to "none." `null` here means "not yet set" until the user touches the
+  // field; the backend persists `null` as the literal default.
+  opening_title_card_text: string | null;
+  closing_card_text: string | null;
+  music_track_id: string | null;
+  narration_voice_id: string | null;
+  narration_text: string | null;
+
+  // Stage 5.6 — Card preview. Three stills: opening card, closing card, and
+  // one in-scene caption frame. Null until /api/card-preview/render returns.
+  card_preview_cards: CardPreviewWire[] | null;
 };
 
 export type WizardState = {
@@ -194,6 +230,12 @@ export const INITIAL_WIZARD_DATA: WizardData = {
   beat_sheet: null,
   storyboard_frames: null,
   reroll_beat_idx: null,
+  opening_title_card_text: null,
+  closing_card_text: null,
+  music_track_id: null,
+  narration_voice_id: null,
+  narration_text: null,
+  card_preview_cards: null,
 };
 
 export function createInitialState(sessionId: string | null = null): WizardState {
@@ -284,6 +326,32 @@ export type WizardEvent =
   | { type: 'storyboard_frame_reroll_started'; beatIdx: number }
   | { type: 'storyboard_frame_rerolled'; frame: StoryboardFrameWire }
   | { type: 'storyboard_approved' }
+  // Stage 5.5 — The Words
+  | {
+      type: 'words_loaded';
+      openingText: string | null;
+      closingText: string | null;
+      musicTrackId: string | null;
+      narrationVoiceId: string | null;
+      narrationText: string | null;
+    }
+  | {
+      type: 'words_updated';
+      patch: Partial<{
+        opening_title_card_text: string | null;
+        closing_card_text: string | null;
+        music_track_id: string | null;
+        narration_voice_id: string | null;
+        narration_text: string | null;
+      }>;
+    }
+  | { type: 'words_approved' }
+  // Stage 5.6 — Card preview
+  | { type: 'card_preview_render_started' }
+  | { type: 'card_preview_rendered'; cards: CardPreviewWire[] }
+  | { type: 'card_preview_approved' }
+  | { type: 'card_preview_restart_words' }
+  | { type: 'card_preview_restart_all' }
   | { type: 'session_loaded'; state: WizardState }
   | { type: 'goto'; stage: StageTag };
 
@@ -881,7 +949,100 @@ export function reduceState(state: WizardState, event: WizardEvent): WizardState
       return state;
     }
 
+    // Stage 5.5 — The Words. `words_render` is the entry tag; `words_editor`
+    // is an alias for deep-links. Both stages accept the same events; the
+    // editor IS the render screen (no separate loading panel — the pre-fill
+    // defaults are computed client-side).
     case 'words_render':
+    case 'words_editor': {
+      if (event.type === 'words_loaded') {
+        return {
+          ...state,
+          data: {
+            ...state.data,
+            opening_title_card_text: event.openingText,
+            closing_card_text: event.closingText,
+            music_track_id: event.musicTrackId,
+            narration_voice_id: event.narrationVoiceId,
+            narration_text: event.narrationText,
+          },
+        };
+      }
+      if (event.type === 'words_updated') {
+        return {
+          ...state,
+          data: { ...state.data, ...event.patch },
+        };
+      }
+      if (event.type === 'words_approved') {
+        return { ...state, stage: 'words_complete' };
+      }
+      return state;
+    }
+
+    case 'words_complete': {
+      // Soft pause between The Words and Card Preview. The user advances by
+      // tapping the CTA which fires `card_preview_render_started`. We accept
+      // `words_approved` here too — the BuilderClient's PATCH path may emit
+      // it after a delayed network confirm and we want the reducer to be
+      // tolerant.
+      if (event.type === 'card_preview_render_started') {
+        return {
+          stage: 'card_preview_render',
+          data: { ...state.data, card_preview_cards: null },
+        };
+      }
+      if (event.type === 'words_approved') return state;
+      return state;
+    }
+
+    // Stage 5.6 — Card preview render → review → approve.
+    case 'card_preview_render': {
+      if (event.type === 'card_preview_rendered') {
+        return {
+          stage: 'card_preview_review',
+          data: { ...state.data, card_preview_cards: event.cards },
+        };
+      }
+      return state;
+    }
+
+    case 'card_preview_review': {
+      if (event.type === 'card_preview_approved') {
+        return { ...state, stage: 'card_preview_complete' };
+      }
+      if (event.type === 'card_preview_restart_words') {
+        // "Edit the words" — bounce back to the Words editor, keep the
+        // already-set values so the user doesn't have to retype anything.
+        // The cards themselves are cleared so the next render is fresh.
+        return {
+          stage: 'words_editor',
+          data: { ...state.data, card_preview_cards: null },
+        };
+      }
+      if (event.type === 'card_preview_restart_all') {
+        // "Start over" — kicks back further (bouncing the user all the way
+        // to storyboard_complete is the agreed-upon "start over" target for
+        // Stage 5.5/5.6 per spec §5.6.2). Words choices stay in state so a
+        // re-entry pre-fills with the user's last picks.
+        return {
+          stage: 'storyboard_complete',
+          data: { ...state.data, card_preview_cards: null },
+        };
+      }
+      return state;
+    }
+
+    case 'card_preview_complete': {
+      // Hand-off into Stage 5.7 cinematography brief (Phase 6 entry).
+      if (event.type === 'card_preview_approved') {
+        return { ...state, stage: 'cinematography_brief' };
+      }
+      return state;
+    }
+
+    case 'cinematography_brief':
+      // Phase 6 entry — placeholder; no further events handled here.
       return state;
 
     default: {
@@ -940,8 +1101,16 @@ export const ALL_STAGE_TAGS = [
   'storyboard_review',
   'storyboard_frame_reroll',
   'storyboard_complete',
-  // Stage 5.5 placeholder
+  // Stage 5.5 — The Words
   'words_render',
+  'words_editor',
+  'words_complete',
+  // Stage 5.6 — Card preview
+  'card_preview_render',
+  'card_preview_review',
+  'card_preview_complete',
+  // Stage 5.7 placeholder
+  'cinematography_brief',
 ] as const satisfies readonly StageTag[];
 
 const STAGE_TAG_SET: ReadonlySet<string> = new Set<string>(ALL_STAGE_TAGS);
@@ -1037,6 +1206,23 @@ const PROBE_EVENTS: WizardEvent[] = [
     frame: { beat_idx: 0, asset_id: 'probe', public_url: 'probe' },
   },
   { type: 'storyboard_approved' },
+  // Stage 5.5 — The Words
+  {
+    type: 'words_loaded',
+    openingText: null,
+    closingText: null,
+    musicTrackId: null,
+    narrationVoiceId: null,
+    narrationText: null,
+  },
+  { type: 'words_updated', patch: {} },
+  { type: 'words_approved' },
+  // Stage 5.6 — Card preview
+  { type: 'card_preview_render_started' },
+  { type: 'card_preview_rendered', cards: [] },
+  { type: 'card_preview_approved' },
+  { type: 'card_preview_restart_words' },
+  { type: 'card_preview_restart_all' },
 ];
 
 export function legalNextStages(current: StageTag): Set<StageTag> {
@@ -1093,7 +1279,9 @@ export function bannerKeyForStage(
   | 'character_sheet'
   | 'format_theme_style'
   | 'beat_sheet'
-  | 'storyboard' {
+  | 'storyboard'
+  | 'words'
+  | 'card_preview' {
   if (stage.startsWith('intake_')) return 'intake';
   if (
     stage.startsWith('character_sheet_') ||
@@ -1103,8 +1291,23 @@ export function bannerKeyForStage(
     return 'character_sheet';
   }
   if (stage.startsWith('beat_sheet_')) return 'beat_sheet';
-  if (stage.startsWith('storyboard_') || stage === 'words_render') {
+  if (stage.startsWith('storyboard_')) {
     return 'storyboard';
+  }
+  if (
+    stage === 'words_render' ||
+    stage === 'words_editor' ||
+    stage === 'words_complete'
+  ) {
+    return 'words';
+  }
+  if (
+    stage === 'card_preview_render' ||
+    stage === 'card_preview_review' ||
+    stage === 'card_preview_complete' ||
+    stage === 'cinematography_brief'
+  ) {
+    return 'card_preview';
   }
   return 'format_theme_style';
 }

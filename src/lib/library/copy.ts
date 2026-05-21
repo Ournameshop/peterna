@@ -58,6 +58,16 @@ export const STAGE_BANNERS = {
     emoji: '🖼️',
     headline: 'Stage 5: Storyboard — one frame for every beat',
   },
+  words: {
+    emoji: '✍️',
+    headline:
+      "Stage 5.5: The Words — how [PET_NAME]'s tribute opens, closes, sounds",
+  },
+  card_preview: {
+    emoji: '🎴',
+    headline:
+      "Stage 5.6: Card preview — the opening, the closing, and a caption in [PET_NAME]'s world",
+  },
 } as const;
 
 /**
@@ -635,6 +645,93 @@ export const STORYBOARD_COMPLETE = {
   start_button: 'Write the words',
 } as const;
 
+// -----------------------------------------------------------------------------
+// Stage 5.5 — The Words.
+//
+// Tone: this is where the tribute "stops being a template and becomes theirs"
+// (SKILL spec §5.5). Section labels are gentle, generous defaults are
+// pre-filled, every section is optional. Music + narration default to OFF —
+// the user opts in.
+// -----------------------------------------------------------------------------
+
+export const WORDS_EDITOR = {
+  headline: "The words for [PET_NAME]'s tribute.",
+  subhead:
+    "Open the tribute, close the tribute, pick a piece of music, add a spoken letter — or skip any of it. We've filled in defaults that work beautifully if you'd rather just continue.",
+  sections: {
+    opening: {
+      label: 'Opening title card',
+      hint: "The first words on screen. We've filled in their name — change it or keep it.",
+      placeholder: 'e.g. [PET_NAME] — a life well loved',
+    },
+    closing: {
+      label: 'Closing card',
+      hint: "How the tribute ends. Default is 'With love, always' — change it or keep it.",
+      placeholder: 'e.g. With love, always',
+    },
+    music: {
+      label: 'Music',
+      hint: 'A gentle piece of music plays across the tribute. Skip for ambient sound only.',
+      skip_pill_label: 'No music — ambient sound',
+    },
+    narration: {
+      label: 'Narration (optional)',
+      hint: "A spoken voice reads a short letter to [PET_NAME] across the tribute. Skip if you'd rather let the images speak.",
+      voice_question: 'Pick a voice',
+      text_label: 'What should they say?',
+      text_placeholder:
+        "e.g. My sweet boy. You filled every day with joy. We loved you, and we always will.",
+      skip_pill_label: 'No narration — silent',
+    },
+  },
+  continue: 'Continue to card preview',
+  continue_hint:
+    "We'll render three sample cards in [PET_NAME]'s world so you can see how the words look before any video is made.",
+} as const;
+
+/**
+ * Stage 5.5-complete handoff — soft pause between words_complete and the
+ * card-preview render. Most users won't see this screen; it exists so
+ * deep-link users can resume mid-flow without losing context.
+ */
+export const WORDS_COMPLETE = {
+  headline: 'Words locked in.',
+  body: "Next, we'll render three sample cards — the opening, the closing, and one in-scene caption — so you can see how the words sit in [PET_NAME]'s world before any video is made.",
+  start_button: 'See the cards',
+} as const;
+
+// -----------------------------------------------------------------------------
+// Stage 5.6 — Card preview (v2.3 addition).
+//
+// Three GPT Image 2 stills (opening, closing, in-scene caption) rendered in
+// the locked typography pairing for the chosen art style, so the user can
+// catch awkward line breaks / clashing containers / wrong-style-for-the-words
+// at still-frame cost before any video render fires.
+// -----------------------------------------------------------------------------
+
+export const CARD_PREVIEW = {
+  loading:
+    "Rendering [PET_NAME]'s opening, closing, and a caption frame…",
+  loading_hint:
+    "Three still cards in the chosen typography. This takes about a minute. We're painting them all together.",
+  headline: 'How do the cards look?',
+  subhead:
+    "Opening, closing, and one in-scene caption — rendered in [PET_NAME]'s world so you can see how the words sit before any video.",
+  labels: {
+    opening: 'Opening title card',
+    closing: 'Closing card',
+    in_scene_caption: 'In-scene caption sample',
+  },
+  pills: {
+    approve: 'Looks beautiful',
+    restart_words: 'Edit the words',
+    rerender: 'Try different music',
+    restart: 'Start over',
+  },
+  pills_hint:
+    "There's no wrong answer here — we can keep tuning until the type, the music, and the words feel right.",
+} as const;
+
 /**
  * One barrel export for components that want the full object.
  */
@@ -679,4 +776,7 @@ export const COPY = {
   STORYBOARD_FRAME,
   STORYBOARD_REROLL_LOADING,
   STORYBOARD_COMPLETE,
+  WORDS_EDITOR,
+  WORDS_COMPLETE,
+  CARD_PREVIEW,
 } as const;

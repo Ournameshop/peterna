@@ -113,3 +113,6 @@ export function findClosingArchetype(
   if (!id) return undefined;
   return CLOSING_BY_ID.get(id as ClosingArchetypeId);
 }
+
+/** Default closing card text used when the user doesn't enter one. */
+export const DEFAULT_CLOSING_TEXT = 'With love, always';

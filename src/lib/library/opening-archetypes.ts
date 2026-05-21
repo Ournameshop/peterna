@@ -115,3 +115,50 @@ export function findOpeningArchetype(
   if (!id) return undefined;
   return OPENING_BY_ID.get(id as OpeningArchetypeId);
 }
+
+/**
+ * Pick a sensible default opening archetype for the given format. Falls back
+ * to the first non-custom archetype if none is format-specific. Returns the
+ * full archetype object so callers can substitute placeholders themselves.
+ */
+export function defaultOpeningArchetypeForFormat(
+  formatId: string | null | undefined,
+): OpeningArchetype | null {
+  if (!formatId) return OPENING_ARCHETYPES[0] ?? null;
+  // Format-affinity heuristic: send_off + biopic → ceremonial; music_video +
+  // greatest_hits → celebratory; everything else → warm/quiet.
+  const ceremonial = ['send_off', 'biopic', 'forever_young'];
+  const celebratory = ['music_video', 'greatest_hits'];
+  if (ceremonial.includes(formatId)) {
+    return (
+      OPENING_ARCHETYPES.find((a) => /elegy|memoriam|tribute|loving/i.test(a.label)) ??
+      OPENING_ARCHETYPES[0] ??
+      null
+    );
+  }
+  if (celebratory.includes(formatId)) {
+    return (
+      OPENING_ARCHETYPES.find((a) => /celebrat|joy|life/i.test(a.label)) ??
+      OPENING_ARCHETYPES[0] ??
+      null
+    );
+  }
+  return OPENING_ARCHETYPES[0] ?? null;
+}
+
+/**
+ * Substitute placeholders ([PET_NAME], [YEARS]) in an archetype template.
+ * `years` may be null/undefined — empty string is substituted.
+ */
+export function resolveOpeningArchetype(
+  archetype: OpeningArchetype | null | undefined,
+  petName: string,
+  years?: string | null,
+): string {
+  if (!archetype) return petName;
+  return archetype.template
+    .replace(/\[PET_NAME\]/g, petName)
+    .replace(/\[YEARS\]/g, years ?? '')
+    .replace(/\s+\n/g, '\n')
+    .trim();
+}
