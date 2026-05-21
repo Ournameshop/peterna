@@ -12,8 +12,6 @@
 
 import type { InferredProfile } from './state';
 
-type Confidence = 'high' | 'medium' | 'low' | undefined;
-
 const SPECIES_LABELS: Record<string, string> = {
   dog: 'dog',
   cat: 'cat',
@@ -56,12 +54,6 @@ function ageLabel(profile: InferredProfile): string | null {
   if (!profile.age_range) return null;
   const table = profile.species === 'cat' ? AGE_LABELS_CAT : AGE_LABELS;
   return table[profile.age_range] ?? null;
-}
-
-function hedge(confidence: Confidence): string {
-  if (confidence === 'high') return '';
-  if (confidence === 'medium') return 'looks like ';
-  return '';
 }
 
 /**
