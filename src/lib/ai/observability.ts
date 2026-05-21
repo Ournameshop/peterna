@@ -10,7 +10,7 @@ import type { VendorTag } from './types';
 export type LogRenderInput = {
   sessionId: string;
   stage: string;
-  capability: 'generate_image' | 'run_vision_pass' | 'generate_video';
+  capability: 'generate_image' | 'run_vision_pass' | 'generate_video' | 'run_beat_sheet';
   vendorAttempted: VendorTag[];
   vendorServed: VendorTag | null;
   model?: string;

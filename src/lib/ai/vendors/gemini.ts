@@ -12,6 +12,11 @@ import { GoogleGenAI } from '@google/genai';
 // Gemini 2.5 Pro is the vision-pass fallback per architecture.md §1.
 export const GEMINI_VISION_MODEL = 'gemini-2.5-pro';
 
+// Gemini 2.5 Pro is also the Stage-4 beat-sheet fallback. Same snapshot — the
+// JSON-schema constrained call uses no images, so the model choice is purely about
+// text quality + structured-output reliability. Bump in lockstep with `GEMINI_VISION_MODEL`.
+export const GEMINI_BEAT_SHEET_MODEL = 'gemini-2.5-pro';
+
 let cachedClient: GoogleGenAI | undefined;
 function getClient(): GoogleGenAI {
   if (cachedClient) return cachedClient;
@@ -140,4 +145,86 @@ export class GeminiTransportError extends Error {
 
 function isAbortError(err: unknown): err is Error {
   return err instanceof Error && (err.name === 'AbortError' || err.name === 'TimeoutError');
+}
+
+// ---------------------------------------------------------------------------
+// Beat sheet — Gemini 2.5 Pro structured JSON (Phase 4a)
+// ---------------------------------------------------------------------------
+
+export type GeminiBeatSheetInput = {
+  /** Final prompt text (after substitutions by the caller). */
+  prompt: string;
+  /** JSON Schema describing the structured output. */
+  schema: object;
+  /** Per-call timeout in ms. */
+  timeoutMs: number;
+  signal?: AbortSignal;
+};
+
+export type GeminiBeatSheetOutput = {
+  /** Raw parsed JSON object. Caller validates / extracts `beats`. */
+  raw: Record<string, unknown>;
+  /** Model snapshot string echoed for `renders.model`. */
+  model: string;
+};
+
+/**
+ * Call Gemini 2.5 Pro with a prompt and JSON-schema response constraint. Pure-text pass —
+ * no `inlineData` parts. Mirrors `runGeminiVision`'s error mapping so the hybrid policy
+ * in `run-beat-sheet.ts` can route on `GeminiStatusError` / `GeminiTransportError`.
+ */
+export async function runGeminiBeatSheet(
+  input: GeminiBeatSheetInput,
+): Promise<GeminiBeatSheetOutput> {
+  const client = getClient();
+
+  try {
+    const response = await client.models.generateContent({
+      model: GEMINI_BEAT_SHEET_MODEL,
+      contents: [{ role: 'user', parts: [{ text: input.prompt }] }],
+      config: {
+        responseMimeType: 'application/json',
+        responseJsonSchema: input.schema,
+        abortSignal: input.signal,
+        httpOptions: { timeout: input.timeoutMs },
+        maxOutputTokens: 2400,
+      },
+    });
+
+    const text = response.text;
+    if (!text) {
+      throw new GeminiStatusError('empty response from gemini beat-sheet', 502);
+    }
+
+    let raw: Record<string, unknown>;
+    try {
+      raw = JSON.parse(text) as Record<string, unknown>;
+    } catch {
+      throw new GeminiStatusError('gemini returned non-JSON content for beat-sheet', 502);
+    }
+
+    return {
+      raw,
+      model: response.modelVersion ?? GEMINI_BEAT_SHEET_MODEL,
+    };
+  } catch (err) {
+    if (err instanceof GeminiStatusError) throw err;
+    if (isAbortError(err)) {
+      throw new GeminiTransportError(err.message || 'aborted');
+    }
+    if (err instanceof Error) {
+      const anyErr = err as unknown as { status?: unknown; code?: unknown };
+      const status =
+        typeof anyErr.code === 'number'
+          ? anyErr.code
+          : typeof anyErr.status === 'number'
+            ? anyErr.status
+            : null;
+      if (status != null) {
+        throw new GeminiStatusError(err.message, status);
+      }
+      throw new GeminiTransportError(err.message);
+    }
+    throw new GeminiTransportError('unknown gemini error');
+  }
 }

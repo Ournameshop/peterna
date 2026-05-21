@@ -1,6 +1,7 @@
 export { generateImage } from './generate-image';
 export { runVisionPass } from './run-vision-pass';
 export { generateVideo } from './generate-video';
+export { runBeatSheet } from './run-beat-sheet';
 
 export type {
   AIErrorCode,
@@ -9,6 +10,9 @@ export type {
   GenerateVideoInput,
   GenerateVideoResult,
   ImageRenderStage,
+  RunBeatSheetBeat,
+  RunBeatSheetInput,
+  RunBeatSheetResult,
   VendorAttempt,
   VendorTag,
   VisionPassInput,
