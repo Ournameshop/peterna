@@ -158,6 +158,12 @@ export async function DELETE(req: NextRequest, ctx: RouteParams): Promise<Respon
 // The allowlist is the source of truth for what a PATCH can write. Any field added
 // here must also appear in `SessionPatchBody` at `src/lib/builder/wire-types.ts` so
 // the frontend's TypeScript catches drift.
+//
+// Phase 3 exception: `combination_preview_asset_id` is allowlisted here for a
+// defensive recovery path (per the Phase 3 task brief). `wire-types.ts` is frozen
+// for Phase 3 so the typed wire surface intentionally omits the field — the
+// canonical writer remains `/api/preview/approve`. Re-sync the wire-types when
+// Phase 3 lands.
 const STRING_FIELDS = [
   'stage',
   'pet_name',
@@ -173,6 +179,9 @@ const STRING_FIELDS = [
   'format_id',
   'theme_id',
   'style_id',
+  // Phase 3: defensively writable via PATCH so a recovery path exists if the
+  // approve route fails mid-update. Canonical writer is /api/preview/approve.
+  'combination_preview_asset_id',
 ] as const;
 
 const ARRAY_FIELDS = ['personality_traits', 'favorite_things'] as const;
@@ -196,6 +205,7 @@ const WIRE_TO_DRIZZLE: Record<string, string> = {
   format_id: 'formatId',
   theme_id: 'themeId',
   style_id: 'styleId',
+  combination_preview_asset_id: 'combinationPreviewAssetId',
   personality_traits: 'personalityTraits',
   favorite_things: 'favoriteThings',
   beat_count: 'beatCount',

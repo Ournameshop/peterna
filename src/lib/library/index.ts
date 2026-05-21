@@ -56,6 +56,16 @@ function checkMinimums(): Check[] {
       ok: pronounKeys.length >= 3,
       detail: `expected >=3 keys, got ${pronounKeys.length}`,
     },
+    {
+      name: 'theme_categories',
+      ok: THEME_CATEGORIES.length === 6,
+      detail: `expected exactly 6, got ${THEME_CATEGORIES.length}`,
+    },
+    {
+      name: 'curators_picks',
+      ok: CURATORS_PICKS.length >= 4,
+      detail: `expected >=4, got ${CURATORS_PICKS.length}`,
+    },
   ];
 }
 
