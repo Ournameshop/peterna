@@ -81,6 +81,17 @@ export const sessions = pgTable(
     cinematographyBriefs: jsonb('cinematography_briefs'),             // array of MotionBriefWire
     cinematographyDpOverlay: text('cinematography_dp_overlay'),        // dp_style id or null
     cinematographyApprovedAt: timestamp('cinematography_approved_at', { withTimezone: true }),
+
+    // Stage 6 — Video clip generation (Seedance via fal.ai). Length-N array
+    // of asset_ids, one per beat. Each entry is an `assets` row kind='video_clip'
+    // with metadata.beat_idx. Statuses array parallels the asset IDs.
+    videoClipAssetIds: text('video_clip_asset_ids').array(),
+    videoClipStatuses: jsonb('video_clip_statuses'),  // array of 'queued'|'rendering'|'done'|'failed' per beat
+
+    // Stage 7 — Final assembled video (stitched clips + title cards + music +
+    // narration). One asset_id pointing at the ffmpeg-produced MP4.
+    assembledVideoAssetId: uuid('assembled_video_asset_id'),
+    videoApprovedAt: timestamp('video_approved_at', { withTimezone: true }),
   },
   (table) => [
     index('sessions_resume_token_idx').on(table.resumeToken),

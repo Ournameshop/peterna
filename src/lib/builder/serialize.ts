@@ -7,6 +7,7 @@ import type {
   FrameVisionWire,
   MotionBriefWire,
   SessionWire,
+  VideoClipStatus,
 } from '@/lib/builder/wire-types';
 import type { StageTag } from '@/lib/builder/state';
 import type { InferredProfile } from '@/lib/builder/state';
@@ -96,6 +97,16 @@ export function serializeSession(s: Session): SessionWire {
         ? s.cinematographyApprovedAt.toISOString()
         : s.cinematographyApprovedAt
           ? String(s.cinematographyApprovedAt)
+          : null,
+
+    video_clip_asset_ids: s.videoClipAssetIds ?? null,
+    video_clip_statuses: (s.videoClipStatuses as VideoClipStatus[] | null) ?? null,
+    assembled_video_asset_id: s.assembledVideoAssetId,
+    video_approved_at:
+      s.videoApprovedAt instanceof Date
+        ? s.videoApprovedAt.toISOString()
+        : s.videoApprovedAt
+          ? String(s.videoApprovedAt)
           : null,
   };
 }

@@ -113,6 +113,12 @@ export type SessionWire = {
   cinematography_briefs: MotionBriefWire[] | null;
   cinematography_dp_overlay: DpStyleOverlayId | null;
   cinematography_approved_at: string | null;
+
+  // Phase 7 — Video clips (Stage 6) + Assembly (Stage 7).
+  video_clip_asset_ids: string[] | null;
+  video_clip_statuses: VideoClipStatus[] | null;
+  assembled_video_asset_id: string | null;
+  video_approved_at: string | null;
 };
 
 // -----------------------------------------------------------------------------
@@ -618,6 +624,86 @@ export type CinematographyApproveRequest = {
 export type CinematographyApproveResponse =
   | ApiOk<{ session: SessionWire }>
   | ApiErr<'invalid-input' | 'session-not-found' | 'cookie-mismatch' | 'no-briefs'>;
+
+// -----------------------------------------------------------------------------
+// Phase 7 — Video Generation (Stage 6) + Assembly (Stage 7) wire types.
+// -----------------------------------------------------------------------------
+
+/** Per-clip status during the long video-render process. */
+export type VideoClipStatus = 'queued' | 'rendering' | 'done' | 'failed';
+
+export type VideoClipWire = {
+  beat_idx: number;
+  status: VideoClipStatus;
+  asset_id: string | null;     // null until status='done'
+  public_url: string | null;
+  error?: string;
+};
+
+// POST /api/video/render — kicks off all N clip renders (queues them via
+// fal.ai's Seedance 2.0). Sequential or batched; the client polls /api/video/status.
+export type VideoRenderRequest = {
+  session_id: string;
+};
+
+export type VideoRenderResponse =
+  | ApiOk<{ clips: VideoClipWire[] }>
+  | ApiErr<
+      | 'invalid-input'
+      | 'session-not-found'
+      | 'cookie-mismatch'
+      | 'no-session'
+      | 'render-in-flight'
+      | 'session-budget-exceeded'
+      | 'cinematography-not-approved'
+    >;
+
+// GET /api/video/status — polled by frontend while clips render.
+export type VideoStatusResponse =
+  | ApiOk<{ clips: VideoClipWire[]; all_done: boolean }>
+  | ApiErr<'invalid-input' | 'session-not-found' | 'cookie-mismatch'>;
+
+// POST /api/video/reroll — re-renders a single failed/unwanted clip.
+export type VideoRerollRequest = {
+  session_id: string;
+  beat_idx: number;
+};
+
+export type VideoRerollResponse =
+  | ApiOk<VideoClipWire>
+  | ApiErr<
+      | 'invalid-input'
+      | 'session-not-found'
+      | 'cookie-mismatch'
+      | 'render-in-flight'
+      | 'beat-not-found'
+    >;
+
+// POST /api/assembly/render — stitches all clips + title cards + music +
+// optional narration into the final MP4 via ffmpeg. Returns the final asset.
+export type AssemblyRenderRequest = {
+  session_id: string;
+};
+
+export type AssemblyRenderResponse =
+  | ApiOk<{ asset_id: string; public_url: string }>
+  | ApiErr<
+      | 'invalid-input'
+      | 'session-not-found'
+      | 'cookie-mismatch'
+      | 'incomplete-clips'
+      | 'assembly_failed'
+    >;
+
+// POST /api/assembly/approve — locks the final video and advances to
+// Phase 8 (Eulogy PDF entry).
+export type AssemblyApproveRequest = {
+  session_id: string;
+};
+
+export type AssemblyApproveResponse =
+  | ApiOk<{ session: SessionWire }>
+  | ApiErr<'invalid-input' | 'session-not-found' | 'cookie-mismatch' | 'no-video'>;
 
 // -----------------------------------------------------------------------------
 // Helper: PhotoAsset re-export so frontend imports come from one place.
