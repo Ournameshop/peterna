@@ -97,3 +97,41 @@ export type GenerateVideoResult = {
   costUsdEst: number;
   durationMs: number;
 };
+
+/**
+ * Stage-4 beat-sheet capability — structured-JSON pass that produces the N-beat
+ * outline of the tribute. No images; pure text. Mirrors `VisionPassInput` so
+ * route handlers can share the prompt + schema construction pattern.
+ */
+export type RunBeatSheetInput = {
+  /** Final prompt text composed by the caller (see `@/lib/prompts/build-beat-sheet`). */
+  prompt: string;
+  /** JSON schema (strict mode) describing the beat-sheet object the model must return. */
+  schema: object;
+  /** Number of beats expected (8 / 12 / 16). Logged for observability; not enforced here. */
+  beatCount: 8 | 12 | 16;
+  sessionId: string;
+  /** Optional `Idempotency-Key` header value — used as the `renders.idempotency_key`. */
+  idempotencyKey?: string;
+};
+
+/**
+ * A beat as the vendor layer returns it. Mirrors `BeatWire` from
+ * `@/lib/builder/wire-types` exactly; we keep the shape duplicated here so the
+ * vendor layer doesn't pull in the wire-types module (which is intentionally
+ * `'use client'`-safe and stays free of `server-only` deps).
+ */
+export type RunBeatSheetBeat = {
+  idx: number;
+  archetype: string;
+  scene_description: string;
+  caption: string;
+  notes?: string;
+};
+
+export type RunBeatSheetResult = {
+  beats: RunBeatSheetBeat[];
+  vendorServed: VendorTag;
+  vendorAttempted: VendorTag[];
+  durationMs: number;
+};

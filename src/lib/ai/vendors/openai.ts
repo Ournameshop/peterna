@@ -6,6 +6,12 @@ import OpenAI, { toFile } from 'openai';
 // stays reproducible; bump when we re-evaluate against a newer snapshot.
 export const OPENAI_VISION_MODEL = 'gpt-4o-2024-11-20';
 
+// Model snapshot used for the Stage-4 beat-sheet structured-JSON pass. Same GPT-4o family
+// as the vision pass — chosen because it's already the cheapest snapshot with strict
+// `response_format: json_schema` support and the prompt is well within its 128k context.
+// Bump if/when we evaluate GPT-4o-mini against beat quality in production.
+export const OPENAI_BEAT_SHEET_MODEL = 'gpt-4o-2024-11-20';
+
 // Model snapshot used for image generation. GPT Image 2's released snapshot per
 // `architecture.md` §1 ("gpt-image-2-2026-04-21"). The unversioned tag would float to
 // whatever snapshot OpenAI rolls next — pin so prompt-tuning is reproducible.
@@ -288,4 +294,83 @@ function estimateCostUsd(
   if (quality === 'high') return 0.2;                            // smaller hi-q renders
   if (quality === 'medium') return 0.04;                         // combination preview
   return 0.01;                                                   // exploratory / low
+}
+
+// ---------------------------------------------------------------------------
+// Beat sheet — GPT-4o structured JSON (Phase 4a)
+// ---------------------------------------------------------------------------
+
+export type OpenAIBeatSheetInput = {
+  /** Final prompt text (after substitutions by the caller). */
+  prompt: string;
+  /** JSON Schema object passed via `response_format: json_schema` strict mode. */
+  schema: object;
+  /** Per-call timeout in ms (vendor-layer hybrid policy: 12000 for text passes). */
+  timeoutMs: number;
+  /** Optional AbortSignal so the route can cut the call short. */
+  signal?: AbortSignal;
+};
+
+export type OpenAIBeatSheetOutput = {
+  /** Raw parsed JSON object. Caller normalizes / validates against `BeatWire[]`. */
+  raw: Record<string, unknown>;
+  /** Model snapshot string echoed for `renders.model`. */
+  model: string;
+};
+
+/**
+ * Call GPT-4o with a prompt and a JSON schema, expecting a structured beat-sheet object.
+ * No image references — this is a pure text pass. Mirrors `runOpenAIVision`'s error
+ * shape so the hybrid policy in `run-beat-sheet.ts` can route on it identically.
+ */
+export async function runOpenAIBeatSheet(
+  input: OpenAIBeatSheetInput,
+): Promise<OpenAIBeatSheetOutput> {
+  const client = getClient();
+
+  try {
+    const completion = await client.chat.completions.create(
+      {
+        model: OPENAI_BEAT_SHEET_MODEL,
+        messages: [{ role: 'user', content: input.prompt }],
+        response_format: {
+          type: 'json_schema',
+          json_schema: {
+            name: 'beat_sheet',
+            schema: input.schema as Record<string, unknown>,
+            strict: true,
+          },
+        },
+        // Generous ceiling: 16 beats × ~80 tokens of scene/caption + envelope ≈ 1600. Add headroom.
+        max_tokens: 2400,
+      },
+      { timeout: input.timeoutMs, signal: input.signal },
+    );
+
+    const text = completion.choices[0]?.message?.content;
+    if (!text) {
+      throw new OpenAIStatusError('empty response from gpt-4o beat-sheet', 502);
+    }
+
+    let raw: Record<string, unknown>;
+    try {
+      raw = JSON.parse(text) as Record<string, unknown>;
+    } catch {
+      throw new OpenAIStatusError('gpt-4o returned non-JSON content for beat-sheet', 502);
+    }
+
+    return {
+      raw,
+      model: completion.model ?? OPENAI_BEAT_SHEET_MODEL,
+    };
+  } catch (err) {
+    if (err instanceof OpenAIStatusError) throw err;
+    if (err instanceof OpenAI.APIError) {
+      throw new OpenAIStatusError(err.message, err.status ?? 500);
+    }
+    if (isAbortError(err)) {
+      throw new OpenAITransportError(err.message || 'aborted');
+    }
+    throw new OpenAITransportError(err instanceof Error ? err.message : 'unknown openai error');
+  }
 }
