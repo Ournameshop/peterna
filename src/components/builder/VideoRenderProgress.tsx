@@ -11,6 +11,7 @@ import type {
   VideoClipStatus,
   VideoClipWire,
 } from "@/lib/builder/wire-types";
+import NotificationOptIn from "./NotificationOptIn";
 
 // Stage 6 — Video render progress.
 //
@@ -48,6 +49,10 @@ type Props = {
   rerollBeatIdx?: number | null;
   /** Called on tap of a card's "Try again" pill. */
   onRerollClip: (beatIdx: number) => void;
+  /** Session id — forwarded to the push opt-in so anonymous subscriptions
+   *  are scoped before any auth_user is attached. Omit to skip the prompt
+   *  (e.g. if we don't have a session yet, which shouldn't happen on this view). */
+  sessionId?: string | null;
 };
 
 export default function VideoRenderProgress({
@@ -59,6 +64,7 @@ export default function VideoRenderProgress({
   disabled = false,
   rerollBeatIdx = null,
   onRerollClip,
+  sessionId = null,
 }: Props) {
   const headline = substitutePetName(VIDEO_RENDER.headline, petName);
 
@@ -83,12 +89,20 @@ export default function VideoRenderProgress({
     .replace("[N]", String(doneCount))
     .replace("[M]", String(total));
 
+  // Show the push opt-in only when there's actually a render in flight — i.e.
+  // the user has at least one beat queued. Suppress on empty grids.
+  const showOptIn = beats.length > 0 && sessionId !== null;
+
   return (
     <section aria-label="Video render progress" style={wrap}>
       <header style={headerWrap}>
         <h2 style={headlineStyle}>{headline}</h2>
         <p style={subheadStyle}>{VIDEO_RENDER.subhead}</p>
       </header>
+
+      {showOptIn ? (
+        <NotificationOptIn petName={petName} sessionId={sessionId} />
+      ) : null}
 
       <div
         role="status"

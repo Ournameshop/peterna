@@ -2938,6 +2938,7 @@ export default function BuilderClient({
         return (
           <VideoRenderProgress
             petName={petName}
+            sessionId={state.data.session_id}
             clips={state.data.video_clips}
             beats={beats}
             storyboardFrames={state.data.storyboard_frames}
@@ -2960,6 +2961,7 @@ export default function BuilderClient({
         return (
           <VideoRenderProgress
             petName={petName}
+            sessionId={state.data.session_id}
             clips={state.data.video_clips}
             beats={beats}
             storyboardFrames={state.data.storyboard_frames}
@@ -3171,6 +3173,7 @@ export default function BuilderClient({
         return (
           <DeliveryReadyView
             petName={petName}
+            sessionId={state.data.session_id}
             finalizing={finalizeInFlight}
             shareUrl={state.data.delivery_share_url}
             artifacts={artifacts}

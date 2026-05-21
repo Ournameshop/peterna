@@ -11,6 +11,7 @@ import {
 import { motion } from "framer-motion";
 import { C, FONT_DISPLAY, FONT_SANS } from "@/lib/peterna-tokens";
 import { DELIVERY, substitutePetName } from "@/lib/library/copy";
+import NotificationOptIn from "./NotificationOptIn";
 
 // Phase 9 — Final wizard stage. The screen the user lands on after the
 // eulogy is locked. Responsibilities:
@@ -58,6 +59,9 @@ type Props = {
   onEmail: (email: string) => Promise<void>;
   /** Last-sent recipient — drives the "Sent to <addr>" confirmation line. */
   emailedTo: string | null;
+  /** Session id — forwarded to the optional push opt-in offered when the user
+   *  didn't subscribe earlier (Phase 12). Omit to skip the prompt. */
+  sessionId?: string | null;
 };
 
 export default function DeliveryReadyView({
@@ -68,6 +72,7 @@ export default function DeliveryReadyView({
   eulogyPdfUrl,
   onEmail,
   emailedTo,
+  sessionId = null,
 }: Props) {
   const headline = substitutePetName(DELIVERY.ready.headline, petName);
   const subhead = DELIVERY.ready.subhead;
@@ -101,6 +106,17 @@ export default function DeliveryReadyView({
         onSubmit={onEmail}
         emailedTo={emailedTo}
       />
+
+      {/* Phase 12 — subtle second-chance push opt-in. The component self-gates
+          on the localStorage flag + Notification.permission so users who said
+          no (or yes) earlier never see it again. */}
+      {sessionId ? (
+        <NotificationOptIn
+          petName={petName}
+          sessionId={sessionId}
+          tone="compact"
+        />
+      ) : null}
 
       {artifacts.length > 0 ? (
         <ArtifactsGrid
