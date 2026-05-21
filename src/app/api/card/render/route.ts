@@ -1,5 +1,5 @@
 // POST /api/card/render
-// Rasterizes a card SVG to PNG deterministically using @resvg/resvg-js,
+// Rasterizes a card SVG to PNG deterministically using @resvg/resvg-wasm,
 // then uploads the PNG to fal storage and returns { url }.
 //
 // Body: { cardType, text, containerId, artStyle, aspectRatio }
@@ -7,7 +7,8 @@
 
 import { NextResponse } from "next/server";
 import path from "path";
-import { Resvg } from "@resvg/resvg-js";
+import fs from "fs";
+import { Resvg, initWasm } from "@resvg/resvg-wasm";
 import { fal } from "@/lib/fal";
 import { renderCardSvg, FRAME_DIMS } from "@/lib/peternal-card-spec";
 import type { ContainerId, ArtStyleId } from "@/lib/peternal-card-spec";
@@ -15,14 +16,26 @@ import type { ContainerId, ArtStyleId } from "@/lib/peternal-card-spec";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Resolve font file paths once at module scope.
+// Initialize WASM once per process — initWasm throws if called more than once.
+let wasmReady: Promise<void> | null = null;
+function ensureWasm(): Promise<void> {
+  if (!wasmReady) {
+    const wasm = fs.readFileSync(
+      path.join(process.cwd(), "node_modules/@resvg/resvg-wasm/index_bg.wasm"),
+    );
+    wasmReady = initWasm(wasm);
+  }
+  return wasmReady;
+}
+
+// Read font files once at module scope as Buffers (WASM needs fontBuffers, not fontFiles).
 const fontsDir = path.join(process.cwd(), "public", "fonts");
-const fontFiles: string[] = [
+const fontBuffers: Uint8Array[] = [
   "CormorantGaramond-Italic.ttf",
   "Inter-Regular.ttf",
   "Inter-Medium.ttf",
   "JetBrainsMono-Regular.ttf",
-].map((f) => path.join(fontsDir, f));
+].map((f) => fs.readFileSync(path.join(fontsDir, f)));
 
 interface ReqBody {
   cardType?: string;
@@ -86,6 +99,8 @@ export async function POST(req: Request) {
   }
 
   try {
+    await ensureWasm();
+
     const svg = renderCardSvg({
       cardType: cardType as "opening" | "closing" | "caption" | "caption_overlay",
       text,
@@ -99,7 +114,7 @@ export async function POST(req: Request) {
 
     const resvg = new Resvg(svg, {
       fitTo: { mode: "width", value: w },
-      font: { fontFiles, loadSystemFonts: false },
+      font: { fontBuffers, loadSystemFonts: false },
     });
 
     const pngData = resvg.render().asPng();
