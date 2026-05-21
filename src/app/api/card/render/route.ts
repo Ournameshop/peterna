@@ -1,6 +1,6 @@
 // POST /api/card/render
 // Rasterizes a card SVG to PNG deterministically using @resvg/resvg-wasm,
-// then uploads the PNG to fal storage and returns { url }.
+// then returns the PNG as a data URL { url: "data:image/png;base64,..." }.
 //
 // Body: { cardType, text, containerId, artStyle, aspectRatio }
 // Response: { url: string }
@@ -9,7 +9,6 @@ import { NextResponse } from "next/server";
 import path from "path";
 import fs from "fs";
 import { Resvg, initWasm } from "@resvg/resvg-wasm";
-import { fal } from "@/lib/fal";
 import { renderCardSvg, FRAME_DIMS } from "@/lib/peternal-card-spec";
 import type { ContainerId, ArtStyleId } from "@/lib/peternal-card-spec";
 
@@ -50,10 +49,6 @@ const VALID_CARD_TYPES = new Set(["opening", "closing", "caption", "caption_over
 const VALID_ASPECTS = new Set(["9:16", "16:9", "1:1"]);
 
 export async function POST(req: Request) {
-  if (!process.env.FAL_KEY) {
-    return NextResponse.json({ error: "FAL_KEY not configured" }, { status: 500 });
-  }
-
   let body: ReqBody;
   try {
     body = (await req.json()) as ReqBody;
@@ -118,15 +113,12 @@ export async function POST(req: Request) {
     });
 
     const pngData = resvg.render().asPng();
-    // Slice the exact byte range so we don't upload extra bytes if the Buffer is a
-    // view into a larger pooled ArrayBuffer. Cast is safe: resvg always returns a
-    // plain Buffer backed by a real ArrayBuffer (never a SharedArrayBuffer).
-    const pngSlice = pngData.buffer.slice(
+    const pngBase64 = Buffer.from(
+      pngData.buffer,
       pngData.byteOffset,
-      pngData.byteOffset + pngData.byteLength,
-    ) as ArrayBuffer;
-    const blob = new Blob([pngSlice], { type: "image/png" });
-    const url = await fal.storage.upload(blob);
+      pngData.byteLength,
+    ).toString("base64");
+    const url = `data:image/png;base64,${pngBase64}`;
 
     return NextResponse.json({ url });
   } catch (err) {
