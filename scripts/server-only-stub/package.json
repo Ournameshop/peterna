@@ -1,0 +1,7 @@
+{
+  "name": "server-only",
+  "version": "0.0.0",
+  "description": "Worker-process stub for `server-only`. Next.js ships its own copy at build time; this stub keeps `tsx scripts/worker.ts` from blowing up on the `import 'server-only'` marker that every server module declares.",
+  "main": "index.js",
+  "private": true
+}

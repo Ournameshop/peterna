@@ -1,8 +1,5 @@
-import { eq, inArray } from 'drizzle-orm';
-import { v7 as uuidv7 } from 'uuid';
+import { eq } from 'drizzle-orm';
 
-import { generateVideo } from '@/lib/ai/generate-video';
-import { AIError } from '@/lib/ai/types';
 import { errJson, okJson } from '@/lib/api/respond';
 import { serializeSession } from '@/lib/builder/serialize';
 import type {
@@ -12,58 +9,36 @@ import type {
   VideoClipWire,
 } from '@/lib/builder/wire-types';
 import { getDb } from '@/lib/db/client';
-import { assets, sessions } from '@/lib/db/schema';
+import { sessions } from '@/lib/db/schema';
 import { findArtStyle } from '@/lib/library/art-styles';
 import { findFormat } from '@/lib/library/formats';
 import { findTheme } from '@/lib/library/themes';
-import { buildVideoClipPrompt } from '@/lib/prompts/build-video-clip';
+import { enqueueVideoBatch } from '@/lib/queue/enqueue';
 import { authBySession } from '@/lib/session/auth';
 import { checkSessionBudget } from '@/lib/session/budget';
-import { acquireSessionSlot } from '@/lib/session/rate-limit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-export const maxDuration = 300;
 
 /**
- * POST /api/video/render (Stage 6 — Generation)
+ * POST /api/video/render (Phase 12 — async)
  *
- * Body: `VideoRenderRequest` — `{ session_id }`. Kicks off all N Seedance 2.0
- * clip renders SEQUENTIALLY — fal rate-limits aggressively on the video
- * endpoint, and the spec's "no clip is ever rendered without an approved
- * brief" rule plus sequential ordering keeps cost predictable. Per-clip
- * cost ≈ $0.50, so an 8-beat tribute is ~$4 and a 16-beat tribute is ~$8.
+ * Body: `VideoRenderRequest` — `{ session_id }`. Replaces the Phase 7 inline
+ * loop with an enqueue + return-immediately flow:
  *
- * Preconditions (all 400 unless noted):
- *   - `cinematography_approved_at` null → `cinematography-not-approved`
- *   - `cinematography_briefs` array length must equal `beat_sheet.length`
- *   - `storyboard_frame_asset_ids` must be present and non-empty per beat
- *   - format / theme / style / aspect / character-sheet present
+ *   1. Validate preconditions (same as before — cinematography approved,
+ *      briefs/frames present, library refs resolvable).
+ *   2. Mark every beat's `video_clip_statuses[i]='queued'` so the FE polling
+ *      `/api/video/status` sees the intent immediately.
+ *   3. Enqueue one `video_clip` `render_jobs` row per beat + one `assembly`
+ *      row that the worker auto-defers until all clips finish.
+ *   4. Return the queued clip snapshot — no vendor work happens in this
+ *      request lifecycle anymore.
  *
- * Process per beat (in idx order):
- *   1. Mark `video_clip_statuses[idx] = 'rendering'` and persist.
- *   2. Build the Seedance prompt via `buildVideoClipPrompt` from the
- *      approved brief + storyboard frame + locked format/theme/style.
- *   3. Call `generateVideo()` (180s timeout, single retry, fal sole vendor).
- *   4. On success: insert `assets` row kind='video_clip' with
- *      `metadata.beat_idx`; write the asset id into
- *      `video_clip_asset_ids[idx]`; mark status 'done'.
- *   5. On failure: mark status 'failed' with `error` message; continue
- *      to the next beat (the user can reroll the failed one later).
- *
- * The route returns the initial clips snapshot AFTER all sequential
- * renders finish — `maxDuration=300` (5 minutes) covers the typical
- * 8-beat ≈ 30–60s/clip path. The frontend uses /api/video/status to
- * poll long-running sessions (16-beat tributes may benefit from a
- * background queue once we add one; Phase 7 keeps it inline).
- *
- * The whole batch shares one `Idempotency-Key` header (the caller sends
- * one for the render-all call). Per-beat sub-keys derive from the batch
- * key so a retry of the same batch dedupes per-beat at the renders table.
- *
- * No vendor names leak through the response — `error` strings on a
- * failed clip are kept generic ("render_failed", "content-policy", or
- * a vendor-neutral message).
+ * Idempotency: `enqueueVideoBatch` skips beats that already have a
+ * queued/running job for this session, so a double-click on the render
+ * button won't fan out duplicate fal calls. Reroll (a separate route)
+ * handles re-rendering a specific failed beat.
  */
 export async function POST(req: Request): Promise<Response> {
   let body: { session_id?: unknown };
@@ -121,263 +96,51 @@ export async function POST(req: Request): Promise<Response> {
     });
   }
 
-  const format = findFormat(formatId);
-  const theme = findTheme(themeId);
-  const style = findArtStyle(styleId);
-  if (!format || !theme || !style) {
+  if (!findFormat(formatId) || !findTheme(themeId) || !findArtStyle(styleId)) {
     return errJson('invalid-input', {
       status: 400,
-      details: {
-        unknown: {
-          format_id: format ? null : formatId,
-          theme_id: theme ? null : themeId,
-          style_id: style ? null : styleId,
-        },
-      },
+      details: { reason: 'unknown-library-ref' },
     });
   }
 
-  // -------- budget + in-flight slot --------
+  // -------- budget --------
   const budget = await checkSessionBudget(sessionId);
   if (!budget.ok) return errJson(budget.reason, { status: 429 });
 
-  const slot = acquireSessionSlot(sessionId);
-  if (!slot.ok) {
-    if (slot.reason === 'in_flight') {
-      return errJson('render-in-flight', { status: 409, headers: { 'Retry-After': '5' } });
-    }
-    return errJson('session-budget-exceeded', { status: 429 });
-  }
-
-  const batchKey = req.headers.get('idempotency-key') ?? uuidv7();
+  // -------- enqueue --------
+  const db = getDb();
   const sortedBeats = [...beats].sort((a, b) => a.idx - b.idx);
-  const briefsByIdx = new Map<number, MotionBriefWire>();
-  for (const b of briefs) briefsByIdx.set(b.beat_idx, b);
 
-  let committed = false;
-  try {
-    const db = getDb();
+  // Reset clip statuses to 'queued' for every beat we're about to enqueue.
+  // Preserve the existing asset-id array (so an already-done beat keeps its
+  // asset_id; the idempotent enqueue keeps the worker from re-rendering).
+  const initialStatuses: VideoClipStatus[] = sortedBeats.map(() => 'queued');
+  const clipAssetIds: string[] = [
+    ...((auth.session.videoClipAssetIds ?? []) as string[]),
+  ];
+  while (clipAssetIds.length < beats.length) clipAssetIds.push('');
 
-    // Resolve storyboard frame URLs in one round-trip.
-    const frameRows = await db
-      .select({
-        id: assets.id,
-        publicUrl: assets.publicUrl,
-        kind: assets.kind,
-        sessionId: assets.sessionId,
-      })
-      .from(assets)
-      .where(inArray(assets.id, frameAssetIds));
-    const urlByAssetId = new Map<string, string>();
-    for (const row of frameRows) {
-      if (row.sessionId !== sessionId) continue;
-      if (row.kind !== 'storyboard_frame') continue;
-      urlByAssetId.set(row.id, row.publicUrl);
-    }
-
-    const frameUrls: string[] = new Array(beats.length);
-    for (let i = 0; i < beats.length; i++) {
-      const url = urlByAssetId.get(frameAssetIds[i]!);
-      if (!url) {
-        slot.slot.releaseAndDontCount();
-        committed = true;
-        return errJson('cinematography-not-approved', {
-          status: 400,
-          details: { reason: 'frame-asset-missing', beat_idx: i },
-        });
-      }
-      frameUrls[i] = url;
-    }
-
-    // Initialize status array — all 'queued'. We persist this immediately
-    // so even if the route crashes mid-batch, the FE polling /status sees
-    // the intent. Any pre-existing asset-id array from a prior failed run
-    // is preserved (so reroll can target the failed indices).
-    const initialStatuses: VideoClipStatus[] = new Array(beats.length).fill('queued');
-    const clipAssetIds: string[] = [
-      ...((auth.session.videoClipAssetIds ?? []) as string[]),
-    ];
-    while (clipAssetIds.length < beats.length) clipAssetIds.push('');
-
-    await db
-      .update(sessions)
-      .set({
-        videoClipStatuses: initialStatuses,
-        stage: 'video_render',
-        updatedAt: new Date(),
-      })
-      .where(eq(sessions.id, sessionId));
-
-    // -------- sequential render loop --------
-    const statuses: VideoClipStatus[] = [...initialStatuses];
-    const errors: Array<string | undefined> = new Array(beats.length).fill(undefined);
-
-    for (const beat of sortedBeats) {
-      const brief = briefsByIdx.get(beat.idx);
-      if (!brief) {
-        statuses[beat.idx] = 'failed';
-        errors[beat.idx] = 'brief-missing';
-        await persistStatuses(sessionId, statuses);
-        continue;
-      }
-
-      const storyboardFrameUrl = frameUrls[beat.idx]!;
-
-      statuses[beat.idx] = 'rendering';
-      errors[beat.idx] = undefined;
-      await persistStatuses(sessionId, statuses);
-
-      const { prompt, imageUrl, durationSeconds, aspectRatio: clipAspect } = buildVideoClipPrompt({
-        session,
-        beat,
-        brief,
-        format,
-        theme,
-        style,
-        storyboardFrameUrl,
-      });
-
-      try {
-        const result = await generateVideo({
-          imageUrl,
-          prompt,
-          durationSeconds,
-          aspectRatio: clipAspect,
-          sessionId,
-          idempotencyKey: `${batchKey}:beat-${beat.idx}`,
-          stage: 'video_clip',
-        });
-
-        const assetId = uuidv7();
-        const s3Key = extractS3KeyFromPublicUrl(result.url);
-
-        await db.insert(assets).values({
-          id: assetId,
-          sessionId,
-          kind: 'video_clip',
-          source: 'vendor_render',
-          r2Key: s3Key,
-          publicUrl: result.url,
-          mimeType: 'video/mp4',
-          metadata: {
-            vendor_served: result.vendorServed,
-            vendor_attempted: result.vendorAttempted,
-            cost_usd_est: result.costUsdEst,
-            duration_ms: result.durationMs,
-            beat_idx: beat.idx,
-            beat_archetype: beat.archetype,
-            format_id: format.id,
-            theme_id: theme.id,
-            style_id: style.id,
-            aspect_ratio: clipAspect,
-            duration_s: durationSeconds,
-          },
-        });
-
-        clipAssetIds[beat.idx] = assetId;
-        statuses[beat.idx] = 'done';
-      } catch (err) {
-        if (err instanceof AIError) {
-          console.error('[video.render] AIError', {
-            beat_idx: beat.idx,
-            code: err.code,
-            attempts: err.attempts,
-          });
-          statuses[beat.idx] = 'failed';
-          errors[beat.idx] =
-            err.code === 'content_policy'
-              ? 'content-policy-violation'
-              : err.code === 'invalid_input'
-                ? 'invalid-input'
-                : 'render_failed';
-        } else {
-          console.error('[video.render] unexpected error', {
-            beat_idx: beat.idx,
-            error: err instanceof Error ? err.message : String(err),
-          });
-          statuses[beat.idx] = 'failed';
-          errors[beat.idx] = 'render_failed';
-        }
-      }
-
-      // Persist after every beat so the FE polling /status gets incremental
-      // visibility. Asset id array is written too so a reroll of a later
-      // beat doesn't blow away an earlier successful one.
-      await persistRenderProgress(sessionId, statuses, clipAssetIds);
-    }
-
-    slot.slot.commit();
-    committed = true;
-
-    const clips: VideoClipWire[] = sortedBeats.map((b) => ({
-      beat_idx: b.idx,
-      status: statuses[b.idx]!,
-      asset_id: statuses[b.idx] === 'done' ? clipAssetIds[b.idx] || null : null,
-      public_url: null, // resolved by /status from the asset row
-      ...(errors[b.idx] ? { error: errors[b.idx]! } : {}),
-    }));
-
-    // Hydrate public_url for done clips so the FE can show the first
-    // frame immediately without a /status round-trip.
-    const doneAssetIds = clips
-      .filter((c) => c.status === 'done' && c.asset_id)
-      .map((c) => c.asset_id!);
-    if (doneAssetIds.length > 0) {
-      const rows = await db
-        .select({ id: assets.id, publicUrl: assets.publicUrl })
-        .from(assets)
-        .where(inArray(assets.id, doneAssetIds));
-      const urlById = new Map(rows.map((r) => [r.id, r.publicUrl]));
-      for (const c of clips) {
-        if (c.status === 'done' && c.asset_id) c.public_url = urlById.get(c.asset_id) ?? null;
-      }
-    }
-
-    return okJson({ clips });
-  } finally {
-    if (!committed) slot.slot.releaseAndDontCount();
-  }
-}
-
-// -----------------------------------------------------------------------------
-// Helpers
-// -----------------------------------------------------------------------------
-
-async function persistStatuses(sessionId: string, statuses: VideoClipStatus[]): Promise<void> {
-  const db = getDb();
-  await db
-    .update(sessions)
-    .set({ videoClipStatuses: statuses, updatedAt: new Date() })
-    .where(eq(sessions.id, sessionId));
-}
-
-async function persistRenderProgress(
-  sessionId: string,
-  statuses: VideoClipStatus[],
-  clipAssetIds: string[],
-): Promise<void> {
-  const db = getDb();
   await db
     .update(sessions)
     .set({
-      videoClipStatuses: statuses,
+      videoClipStatuses: initialStatuses,
       videoClipAssetIds: clipAssetIds,
+      stage: 'video_render',
       updatedAt: new Date(),
     })
     .where(eq(sessions.id, sessionId));
-}
 
-function extractS3KeyFromPublicUrl(url: string): string {
-  const base = (process.env.S3_PUBLIC_BASE_URL ?? '').replace(/\/+$/, '');
-  if (base && url.startsWith(base + '/')) {
-    return url.slice(base.length + 1);
-  }
-  console.warn('[video.render] S3 public URL did not match S3_PUBLIC_BASE_URL prefix', {
-    url,
-    base,
+  await enqueueVideoBatch({
+    sessionId,
+    beatIndices: sortedBeats.map((b) => b.idx),
   });
-  const idx = url.indexOf('/sessions/');
-  if (idx >= 0) return url.slice(idx + 1);
-  return url;
-}
 
+  const clips: VideoClipWire[] = sortedBeats.map((b) => ({
+    beat_idx: b.idx,
+    status: 'queued' as VideoClipStatus,
+    asset_id: null,
+    public_url: null,
+  }));
+
+  return okJson({ clips });
+}
