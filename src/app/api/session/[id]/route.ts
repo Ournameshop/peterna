@@ -2,8 +2,19 @@ import { eq } from 'drizzle-orm';
 import type { NextRequest } from 'next/server';
 
 import { errJson, okJson } from '@/lib/api/respond';
+import {
+  isStageTag,
+  legalNextStages,
+  type StageTag,
+} from '@/lib/builder/state';
+import { serializeSession } from '@/lib/builder/serialize';
+// Note: this route's allowlist mirrors `SessionPatchBody` in
+// `src/lib/builder/wire-types.ts`. Every key in `STRING_FIELDS` /
+// `ARRAY_FIELDS` / `INT_FIELDS` / `BOOL_FIELDS` / `JSON_FIELDS` below must
+// appear there, and vice versa — that is the contract test the type system
+// can't enforce statically (because PATCH is value-typed at the boundary).
 import { getDb } from '@/lib/db/client';
-import { assets, sessions, type Session } from '@/lib/db/schema';
+import { assets, sessions } from '@/lib/db/schema';
 import { authBySession, authByResumeToken } from '@/lib/session/auth';
 import { clearSessionCookie } from '@/lib/session/cookie';
 import { deleteObjects } from '@/lib/storage/r2';
@@ -37,12 +48,13 @@ export async function GET(req: NextRequest, ctx: RouteParams): Promise<Response>
 /**
  * PATCH /api/session/[id] — apply an intake-field update.
  *
- * Phase 1 implements field validation against an allowlist; the full state-machine transition
- * guard from `src/lib/builder/state.ts` is the frontend agent's territory. We refuse stage
- * transitions to anything the state machine doesn't know about ourselves once that module
- * lands; for now we accept the `stage` field as a string and trust the caller (the state
- * machine on the client is the source of truth in Phase 1, by design — see the note in
- * `phase-plan.md` Phase 1 ¶ "state machine reused server-side by PATCH").
+ * Wire shape: snake_case keys per `src/lib/builder/wire-types.ts#SessionPatchBody`. Server
+ * maps each allowlisted field to its Drizzle camelCase setter via `WIRE_TO_DRIZZLE` below.
+ *
+ * State-machine guard (B5): when `stage` is in the body, validate the transition against
+ * `reduceState` via `legalNextStages(current)`. Illegal transitions return 400
+ * `invalid-stage-transition` so a buggy or malicious client can't skip ahead. Same-stage
+ * PATCHes are always legal (idempotent).
  */
 export async function PATCH(req: NextRequest, ctx: RouteParams): Promise<Response> {
   const { id } = await ctx.params;
@@ -62,8 +74,29 @@ export async function PATCH(req: NextRequest, ctx: RouteParams): Promise<Respons
     return errJson('invalid-input', { status: 400, details: { issues } });
   }
 
+  // State-machine transition validation (B5 + Bug-6).
+  // - Stage must be a known tag (Bug-6: reject `lol_eaten_by_a_dragon`).
+  // - Target must be reachable from the current stage via at least one reducer event;
+  //   same-stage is always legal (idempotent PATCH).
+  if ('stage' in patch) {
+    const nextStage = patch.stage as string;
+    if (!isStageTag(nextStage)) {
+      return errJson('invalid-input', { status: 400, details: { field: 'stage', message: 'unknown stage tag' } });
+    }
+    const currentStage = auth.session.stage as StageTag;
+    if (nextStage !== currentStage) {
+      const legal = legalNextStages(currentStage);
+      if (!legal.has(nextStage)) {
+        return errJson('invalid-stage-transition', {
+          status: 400,
+          details: { from: currentStage, to: nextStage },
+        });
+      }
+    }
+  }
+
   const db = getDb();
-  const update: Record<string, unknown> = { ...patch, updatedAt: new Date() };
+  const update: Record<string, unknown> = { ...mapToDrizzle(patch), updatedAt: new Date() };
 
   const rows = await db.update(sessions).set(update).where(eq(sessions.id, id)).returning();
   const updated = rows[0];
@@ -77,6 +110,11 @@ export async function PATCH(req: NextRequest, ctx: RouteParams): Promise<Respons
  * `sessions/<id>/`. The DB cascade is via the FK `assets.session_id` ON DELETE CASCADE, but R2
  * doesn't know about Postgres — so we list and delete-objects in batches of 1000 first, then
  * drop the sessions row.
+ *
+ * Bug-1: wrap each batch in try/catch. R2 throw modes (throttling, partial-delete, network)
+ * should NOT block the DB delete + cookie clear — the lifecycle rule in `data-model.md`
+ * §"Lifecycle / retention" sweeps stragglers within 30 days. We log the affected keys so
+ * ops can spot-check; the UX is what we're protecting here.
  */
 export async function DELETE(req: NextRequest, ctx: RouteParams): Promise<Response> {
   const { id } = await ctx.params;
@@ -92,7 +130,18 @@ export async function DELETE(req: NextRequest, ctx: RouteParams): Promise<Respon
 
   // Delete in batches of 1000 (the AWS limit and S3-compat target).
   for (let i = 0; i < keys.length; i += 1000) {
-    await deleteObjects({ keys: keys.slice(i, i + 1000) });
+    const batch = keys.slice(i, i + 1000);
+    try {
+      await deleteObjects({ keys: batch });
+    } catch (err) {
+      // Don't fail the route — let the DB delete + cookie clear proceed; the R2 lifecycle
+      // rule sweeps within 30 days. See data-model.md §"Lifecycle / retention".
+      console.warn('[session.delete] R2 deleteObjects failed; proceeding with DB delete', {
+        sessionId: id,
+        batchSize: batch.length,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
   }
 
   await db.delete(sessions).where(eq(sessions.id, id));
@@ -103,29 +152,57 @@ export async function DELETE(req: NextRequest, ctx: RouteParams): Promise<Respon
 }
 
 // ----------------------------------------------------------------------------
-// Helpers
+// Allowlist (snake_case wire fields → drizzle camelCase setters)
 // ----------------------------------------------------------------------------
 
+// The allowlist is the source of truth for what a PATCH can write. Any field added
+// here must also appear in `SessionPatchBody` at `src/lib/builder/wire-types.ts` so
+// the frontend's TypeScript catches drift.
 const STRING_FIELDS = [
   'stage',
-  'petName',
-  'petNamePronunciation',
-  'petGender',
+  'pet_name',
+  'pet_name_pronunciation',
+  'pet_gender',
   'relationship',
-  'memoryPromptType',
-  'memoryPromptAnswer',
-  'creatorName',
-  'yearsLabel',
-  'aspectRatio',
-  'curatorsPickId',
-  'formatId',
-  'themeId',
-  'styleId',
+  'memory_prompt_type',
+  'memory_prompt_answer',
+  'creator_name',
+  'years_label',
+  'aspect_ratio',
+  'curators_pick_id',
+  'format_id',
+  'theme_id',
+  'style_id',
 ] as const;
 
-const ARRAY_FIELDS = ['personalityTraits', 'favoriteThings'] as const;
-const INT_FIELDS = ['beatCount', 'targetMinutes'] as const;
-const BOOL_FIELDS = ['returningUser'] as const;
+const ARRAY_FIELDS = ['personality_traits', 'favorite_things'] as const;
+const INT_FIELDS = ['beat_count', 'target_minutes'] as const;
+const BOOL_FIELDS = ['is_returning_user'] as const;
+const JSON_FIELDS = ['inferred_profile'] as const;
+
+// Snake-case wire keys → camelCase drizzle setters.
+const WIRE_TO_DRIZZLE: Record<string, string> = {
+  stage: 'stage',
+  pet_name: 'petName',
+  pet_name_pronunciation: 'petNamePronunciation',
+  pet_gender: 'petGender',
+  relationship: 'relationship',
+  memory_prompt_type: 'memoryPromptType',
+  memory_prompt_answer: 'memoryPromptAnswer',
+  creator_name: 'creatorName',
+  years_label: 'yearsLabel',
+  aspect_ratio: 'aspectRatio',
+  curators_pick_id: 'curatorsPickId',
+  format_id: 'formatId',
+  theme_id: 'themeId',
+  style_id: 'styleId',
+  personality_traits: 'personalityTraits',
+  favorite_things: 'favoriteThings',
+  beat_count: 'beatCount',
+  target_minutes: 'targetMinutes',
+  is_returning_user: 'returningUser',
+  inferred_profile: 'inferredProfile',
+};
 
 function pickAllowed(body: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
@@ -133,6 +210,16 @@ function pickAllowed(body: Record<string, unknown>): Record<string, unknown> {
   for (const k of ARRAY_FIELDS) if (k in body) out[k] = body[k];
   for (const k of INT_FIELDS) if (k in body) out[k] = body[k];
   for (const k of BOOL_FIELDS) if (k in body) out[k] = body[k];
+  for (const k of JSON_FIELDS) if (k in body) out[k] = body[k];
+  return out;
+}
+
+function mapToDrizzle(patch: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [wireKey, value] of Object.entries(patch)) {
+    const drizzleKey = WIRE_TO_DRIZZLE[wireKey];
+    if (drizzleKey) out[drizzleKey] = value;
+  }
   return out;
 }
 
@@ -164,14 +251,15 @@ function validatePatch(patch: Record<string, unknown>): Array<{ field: string; m
       issues.push({ field: k, message: 'expected boolean' });
     }
   }
+  for (const k of JSON_FIELDS) {
+    if (k in patch && patch[k] != null) {
+      const v = patch[k];
+      if (typeof v !== 'object' || Array.isArray(v)) {
+        issues.push({ field: k, message: 'expected object' });
+      }
+    }
+  }
   return issues;
 }
 
-/**
- * The session row is safe to ship as-is — `cookie_token` is included by design (the cookie
- * already authoritatively owns it; the client never reads it back). If we want to redact it in
- * a future revision, this is the one place to do it.
- */
-function serializeSession(s: Session): Session {
-  return s;
-}
+// Session row → wire JSON: see `serializeSession` in `@/lib/builder/serialize`.
