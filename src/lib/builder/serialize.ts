@@ -108,5 +108,22 @@ export function serializeSession(s: Session): SessionWire {
         : s.videoApprovedAt
           ? String(s.videoApprovedAt)
           : null,
+
+    eulogy_pdf_asset_id: s.eulogyPdfAssetId,
+    eulogy_approved_at:
+      s.eulogyApprovedAt instanceof Date
+        ? s.eulogyApprovedAt.toISOString()
+        : s.eulogyApprovedAt
+          ? String(s.eulogyApprovedAt)
+          : null,
+
+    delivery_share_slug: s.deliveryShareSlug,
+    delivery_emailed_to: s.deliveryEmailedTo,
+    delivery_ready_at:
+      s.deliveryReadyAt instanceof Date
+        ? s.deliveryReadyAt.toISOString()
+        : s.deliveryReadyAt
+          ? String(s.deliveryReadyAt)
+          : null,
   };
 }

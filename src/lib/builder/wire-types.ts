@@ -119,6 +119,15 @@ export type SessionWire = {
   video_clip_statuses: VideoClipStatus[] | null;
   assembled_video_asset_id: string | null;
   video_approved_at: string | null;
+
+  // Phase 8 — Eulogy PDF.
+  eulogy_pdf_asset_id: string | null;
+  eulogy_approved_at: string | null;
+
+  // Phase 9 — Final Delivery (added beyond spec).
+  delivery_share_slug: string | null;
+  delivery_emailed_to: string | null;
+  delivery_ready_at: string | null;
 };
 
 // -----------------------------------------------------------------------------
@@ -704,6 +713,81 @@ export type AssemblyApproveRequest = {
 export type AssemblyApproveResponse =
   | ApiOk<{ session: SessionWire }>
   | ApiErr<'invalid-input' | 'session-not-found' | 'cookie-mismatch' | 'no-video'>;
+
+// -----------------------------------------------------------------------------
+// Phase 8 — Eulogy PDF (Stage 8) wire types.
+// -----------------------------------------------------------------------------
+
+// POST /api/eulogy/render — generates the printable PDF and uploads to S3.
+// Returns the asset id + public URL. No vendor call; pure templating server-side.
+export type EulogyRenderRequest = {
+  session_id: string;
+};
+
+export type EulogyRenderResponse =
+  | ApiOk<{ asset_id: string; public_url: string }>
+  | ApiErr<
+      | 'invalid-input'
+      | 'session-not-found'
+      | 'cookie-mismatch'
+      | 'no-session'
+      | 'incomplete-tribute'
+      | 'render_failed'
+    >;
+
+// POST /api/eulogy/approve — locks the PDF and advances to delivery_ready.
+export type EulogyApproveRequest = {
+  session_id: string;
+};
+
+export type EulogyApproveResponse =
+  | ApiOk<{ session: SessionWire }>
+  | ApiErr<'invalid-input' | 'session-not-found' | 'cookie-mismatch' | 'no-pdf'>;
+
+// -----------------------------------------------------------------------------
+// Phase 9 — Final Delivery (added beyond the spec) wire types.
+// -----------------------------------------------------------------------------
+
+/** Snapshot of all locked artifacts the delivery page reads. */
+export type DeliveryArtifactsWire = {
+  session_id: string;
+  pet_name: string;
+  years_label: string | null;
+  character_sheet_url: string | null;
+  storyboard_frame_urls: string[];
+  card_preview_urls: string[];     // [opening, closing, in_scene]
+  assembled_video_url: string | null;
+  eulogy_pdf_url: string | null;
+  opening_title_card_text: string | null;
+  closing_card_text: string | null;
+  share_slug: string | null;
+  ready_at: string | null;
+};
+
+// POST /api/delivery/finalize — generates a shareable slug, snapshots the
+// delivery state, marks delivery_ready_at. Idempotent.
+export type DeliveryFinalizeRequest = {
+  session_id: string;
+};
+
+export type DeliveryFinalizeResponse =
+  | ApiOk<{ share_slug: string; share_url: string }>
+  | ApiErr<'invalid-input' | 'session-not-found' | 'cookie-mismatch' | 'incomplete-tribute'>;
+
+// GET /api/delivery/[slug] — public read; no cookie required (the slug IS the auth).
+export type DeliveryFetchResponse =
+  | ApiOk<{ artifacts: DeliveryArtifactsWire }>
+  | ApiErr<'not-found'>;
+
+// POST /api/delivery/email — sends the share link to a provided email.
+export type DeliveryEmailRequest = {
+  session_id: string;
+  email: string;
+};
+
+export type DeliveryEmailResponse =
+  | ApiOk<{ sent_to: string }>
+  | ApiErr<'invalid-input' | 'session-not-found' | 'cookie-mismatch' | 'send_failed'>;
 
 // -----------------------------------------------------------------------------
 // Helper: PhotoAsset re-export so frontend imports come from one place.

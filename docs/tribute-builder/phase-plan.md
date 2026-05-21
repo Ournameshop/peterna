@@ -103,7 +103,8 @@ Ship Phase 1 to a hand-off shape first, then 2, then 3. Don't try to land 1+2+3 
 | 5 | The Words (5.5) + Card preview (5.6) | New typography pipeline; music UX |
 | 6 | Cinematography Engine (5.7) | Stage 5.7 is its own subsystem with vision-pass-per-frame + a consistency-pass solver |
 | 7 | Seedance video gen + assembly | First Phase that touches `generateVideo()`. fal.ai is sole vendor (no direct ByteDance API); accept single-vendor risk per Risk Register #4. |
-| 8 | Eulogy PDF | Final phase; PDF rendering is the only new technology |
+| 8 | Eulogy PDF | Spec's final stage; PDF rendering is the only new technology |
+| 9 | **Final Delivery (added beyond the spec)** | Single-page customer-facing delivery: assembled MP4 + eulogy PDF + all artifacts (character sheet, storyboard, opening/closing cards) on one shareable URL. Download links + optional email-out. The spec ends at Stage 8 because it's a chat-skill (deliverables surface inline); a web app needs an explicit "here's your tribute" moment. |
 
 ## Cross-phase QA checklist
 

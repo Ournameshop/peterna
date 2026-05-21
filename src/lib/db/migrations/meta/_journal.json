@@ -43,6 +43,13 @@
       "when": 1779392143501,
       "tag": "0005_talented_vapor",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1779393795206,
+      "tag": "0006_worried_gideon",
+      "breakpoints": true
     }
   ]
 }

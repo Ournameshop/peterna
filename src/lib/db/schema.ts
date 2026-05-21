@@ -92,6 +92,17 @@ export const sessions = pgTable(
     // narration). One asset_id pointing at the ffmpeg-produced MP4.
     assembledVideoAssetId: uuid('assembled_video_asset_id'),
     videoApprovedAt: timestamp('video_approved_at', { withTimezone: true }),
+
+    // Stage 8 — Eulogy PDF.
+    eulogyPdfAssetId: uuid('eulogy_pdf_asset_id'),
+    eulogyApprovedAt: timestamp('eulogy_approved_at', { withTimezone: true }),
+
+    // Phase 9 (beyond spec) — Final Delivery snapshot. The shareable URL slug
+    // and optional email-out flag. The delivery page reads all locked artifact
+    // ids off the session row; no new asset table needed.
+    deliveryShareSlug: text('delivery_share_slug'),
+    deliveryEmailedTo: text('delivery_emailed_to'),
+    deliveryReadyAt: timestamp('delivery_ready_at', { withTimezone: true }),
   },
   (table) => [
     index('sessions_resume_token_idx').on(table.resumeToken),

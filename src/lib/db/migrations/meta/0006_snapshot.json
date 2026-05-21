@@ -1,0 +1,674 @@
+{
+  "id": "9d417298-806e-49c0-8a55-79618c93b55a",
+  "prevId": "1be55821-1978-4195-964d-007d4cd96b48",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.assets": {
+      "name": "assets",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "session_id": {
+          "name": "session_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "r2_key": {
+          "name": "r2_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "public_url": {
+          "name": "public_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "mime_type": {
+          "name": "mime_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "bytes": {
+          "name": "bytes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "width": {
+          "name": "width",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "height": {
+          "name": "height",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "vendor_job_id": {
+          "name": "vendor_job_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "metadata": {
+          "name": "metadata",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "assets_session_id_idx": {
+          "name": "assets_session_id_idx",
+          "columns": [
+            {
+              "expression": "session_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "assets_session_id_sessions_id_fk": {
+          "name": "assets_session_id_sessions_id_fk",
+          "tableFrom": "assets",
+          "tableTo": "sessions",
+          "columnsFrom": [
+            "session_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.renders": {
+      "name": "renders",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "session_id": {
+          "name": "session_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "stage": {
+          "name": "stage",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "capability": {
+          "name": "capability",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "vendor_attempted": {
+          "name": "vendor_attempted",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "vendor_served": {
+          "name": "vendor_served",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "model": {
+          "name": "model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "request_body": {
+          "name": "request_body",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "response_url": {
+          "name": "response_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cost_usd_est": {
+          "name": "cost_usd_est",
+          "type": "numeric(10, 4)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "duration_ms": {
+          "name": "duration_ms",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "error": {
+          "name": "error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "idempotency_key": {
+          "name": "idempotency_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "renders_session_id_idx": {
+          "name": "renders_session_id_idx",
+          "columns": [
+            {
+              "expression": "session_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "renders_vendor_served_idx": {
+          "name": "renders_vendor_served_idx",
+          "columns": [
+            {
+              "expression": "vendor_served",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "renders_session_id_sessions_id_fk": {
+          "name": "renders_session_id_sessions_id_fk",
+          "tableFrom": "renders",
+          "tableTo": "sessions",
+          "columnsFrom": [
+            "session_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "renders_session_stage_idempotency_unique": {
+          "name": "renders_session_stage_idempotency_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "session_id",
+            "stage",
+            "idempotency_key"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.sessions": {
+      "name": "sessions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "cookie_token": {
+          "name": "cookie_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "resume_token": {
+          "name": "resume_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "stage": {
+          "name": "stage",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'intake_welcome'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "returning_user": {
+          "name": "returning_user",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pet_name": {
+          "name": "pet_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pet_name_pronunciation": {
+          "name": "pet_name_pronunciation",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pet_gender": {
+          "name": "pet_gender",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "relationship": {
+          "name": "relationship",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "memory_prompt_type": {
+          "name": "memory_prompt_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "memory_prompt_answer": {
+          "name": "memory_prompt_answer",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "personality_traits": {
+          "name": "personality_traits",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "favorite_things": {
+          "name": "favorite_things",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "creator_name": {
+          "name": "creator_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "years_label": {
+          "name": "years_label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "inferred_profile": {
+          "name": "inferred_profile",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "inferred_confidence": {
+          "name": "inferred_confidence",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "beat_count": {
+          "name": "beat_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "target_minutes": {
+          "name": "target_minutes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "aspect_ratio": {
+          "name": "aspect_ratio",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "curators_pick_id": {
+          "name": "curators_pick_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "format_id": {
+          "name": "format_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "theme_id": {
+          "name": "theme_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "style_id": {
+          "name": "style_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "character_sheet_asset_id": {
+          "name": "character_sheet_asset_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "combination_preview_asset_id": {
+          "name": "combination_preview_asset_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "beat_sheet": {
+          "name": "beat_sheet",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "beat_sheet_approved_at": {
+          "name": "beat_sheet_approved_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "storyboard_frame_asset_ids": {
+          "name": "storyboard_frame_asset_ids",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "storyboard_approved_at": {
+          "name": "storyboard_approved_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "opening_title_card_text": {
+          "name": "opening_title_card_text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "closing_card_text": {
+          "name": "closing_card_text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "music_track_id": {
+          "name": "music_track_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "narration_voice_id": {
+          "name": "narration_voice_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "narration_text": {
+          "name": "narration_text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "card_preview_asset_ids": {
+          "name": "card_preview_asset_ids",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "card_preview_approved_at": {
+          "name": "card_preview_approved_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cinematography_frame_vision": {
+          "name": "cinematography_frame_vision",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cinematography_briefs": {
+          "name": "cinematography_briefs",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cinematography_dp_overlay": {
+          "name": "cinematography_dp_overlay",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cinematography_approved_at": {
+          "name": "cinematography_approved_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "video_clip_asset_ids": {
+          "name": "video_clip_asset_ids",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "video_clip_statuses": {
+          "name": "video_clip_statuses",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "assembled_video_asset_id": {
+          "name": "assembled_video_asset_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "video_approved_at": {
+          "name": "video_approved_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "eulogy_pdf_asset_id": {
+          "name": "eulogy_pdf_asset_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "eulogy_approved_at": {
+          "name": "eulogy_approved_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "delivery_share_slug": {
+          "name": "delivery_share_slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "delivery_emailed_to": {
+          "name": "delivery_emailed_to",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "delivery_ready_at": {
+          "name": "delivery_ready_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "sessions_resume_token_idx": {
+          "name": "sessions_resume_token_idx",
+          "columns": [
+            {
+              "expression": "resume_token",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "sessions_updated_at_idx": {
+          "name": "sessions_updated_at_idx",
+          "columns": [
+            {
+              "expression": "updated_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "sessions_cookie_token_unique": {
+          "name": "sessions_cookie_token_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "cookie_token"
+          ]
+        },
+        "sessions_resume_token_unique": {
+          "name": "sessions_resume_token_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "resume_token"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}
