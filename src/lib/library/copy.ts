@@ -88,6 +88,11 @@ export const STAGE_BANNERS = {
     headline:
       "Stage 8: The eulogy — a printable letter to keep",
   },
+  delivery: {
+    emoji: '💌',
+    headline:
+      "[PET_NAME]'s tribute, ready to share",
+  },
 } as const;
 
 /**
@@ -977,6 +982,125 @@ export const ASSEMBLY_COMPLETE = {
   start_button: 'See the eulogy',
 } as const;
 
+// -----------------------------------------------------------------------------
+// Stage 8 — Eulogy PDF.
+//
+// Pet name is REQUIRED in the loading line per spec rule ("Loading copy uses
+// the pet's name."). Pills are conversational — "It's perfect" / "Re-render"
+// / "Edit the words" — never "regenerate" / cost-pressure. The "Edit the
+// words" pill bounces the user back to the Words editor (Stage 5.5) and the
+// BuilderClient walks them forward through cinematography → video → assembly
+// → eulogy again. We don't model that as a destructive event — the existing
+// artifacts stay put; only the eulogy itself re-renders on the second pass.
+// -----------------------------------------------------------------------------
+
+export const EULOGY = {
+  loading: "Composing the eulogy for [PET_NAME]…",
+  loading_hint:
+    "Weaving in their name, the years you shared, the way they were. About a minute. The PDF lands on this screen — ready to read or print.",
+  review: {
+    headline: "[PET_NAME]'s eulogy.",
+    subhead:
+      "A one-page letter to keep — printable, framable. Take a moment with it. If anything reads wrong, we can re-render the PDF or go back and edit the words.",
+    pills: {
+      approve: "It's perfect",
+      rerender: 'Re-render the PDF',
+      restart_words: 'Edit the words',
+    },
+    pills_hint:
+      "Re-rendering is quick — same words, fresh composition. Editing the words takes you back to the editor.",
+  },
+} as const;
+
+// -----------------------------------------------------------------------------
+// Stage 8 → Phase 9 hand-off — eulogy locked, delivery is next.
+// -----------------------------------------------------------------------------
+
+export const EULOGY_COMPLETE = {
+  headline: "The eulogy is locked.",
+  body:
+    "Next, we'll bring everything together — the tribute, the eulogy, the storyboard — onto a single page you can share or come back to whenever you want.",
+  start_button: 'See [PET_NAME]’s tribute page',
+} as const;
+
+// -----------------------------------------------------------------------------
+// Phase 9 — Final delivery.
+//
+// `delivery_ready` is the final wizard stage. We show:
+//   - "Your tribute for [PET_NAME] is ready" headline
+//   - share URL with copy-to-clipboard
+//   - "View tribute" link (new tab → public page)
+//   - "Email me the link" form (non-blocking)
+//   - small grid of artifacts (character sheet, storyboard, eulogy PDF)
+//
+// Email send is non-blocking — the form lets the user stay on the same
+// screen and watch the confirmation appear. The wizard doesn't auto-advance.
+//
+// Public delivery page copy is namespaced under DELIVERY.public — that page
+// lives at /tribute/<slug> and is read-only.
+// -----------------------------------------------------------------------------
+
+export const DELIVERY = {
+  loading: "Putting the pieces together for [PET_NAME]…",
+  loading_hint:
+    "Snapshotting the tribute, the eulogy, and every frame so you can come back here whenever you want.",
+  ready: {
+    headline: "Your tribute for [PET_NAME] is ready.",
+    subhead:
+      "Everything you made — the tribute, the eulogy, the storyboard — lives at the link below. Share it with family, save it, come back to it whenever you need.",
+    share_label: 'Share link',
+    /** Hint under the copy-to-clipboard field. */
+    share_hint:
+      "Anyone with this link can view the tribute — no account, no login. Bookmark it.",
+    /** Copy-to-clipboard button labels. */
+    copy_button: 'Copy link',
+    copy_button_copied: 'Copied',
+    /** Button next to the link that opens the public page in a new tab. */
+    view_button: 'View tribute',
+    /** Email form. */
+    email_label: 'Email me the link',
+    email_hint: "We'll send the share URL — nothing else, no marketing.",
+    email_placeholder: 'you@example.com',
+    email_submit: 'Send',
+    email_submitting: 'Sending…',
+    /** Substituted with the address. */
+    email_success_template: 'Sent to [EMAIL].',
+    email_error: "We couldn't send that — try again, or copy the link instead.",
+    /** Artifacts grid heading. */
+    artifacts_heading: "Everything we made for [PET_NAME]",
+    artifacts: {
+      character_sheet: 'Character sheet',
+      storyboard: 'Storyboard',
+      eulogy_pdf: 'Eulogy PDF',
+      video: 'Final tribute',
+      opening_card: 'Opening card',
+      closing_card: 'Closing card',
+    },
+    download_eulogy: 'Download the eulogy',
+    download_video: 'Download the tribute',
+  },
+  /** Public delivery page copy — read-only. */
+  public: {
+    /** Substituted at runtime with the pet's name. */
+    page_title_template: 'A tribute for [PET_NAME]',
+    page_description_template:
+      "A tribute for [PET_NAME] — a life well loved, made with care by their family.",
+    memorial_heading: 'Memorial',
+    storyboard_heading: 'Every frame',
+    eulogy_heading: 'Eulogy',
+    download_eulogy: 'Download the eulogy',
+    /** Footer line — small Peterna mark + line. Substituted with the name. */
+    footer_template: 'Made with care for [PET_NAME].',
+    /** Header subtitle shown above the video when an opening title card text
+     *  exists — quietly echoes the chosen opening line. */
+    subtitle_default: 'A life well loved.',
+    /** Fallback when the slug doesn't resolve. */
+    not_found_headline: "That tribute link didn't open.",
+    not_found_body:
+      "The link may be incomplete, or the tribute may have been moved. Check the URL or ask whoever sent it.",
+  },
+} as const;
+
 /**
  * One barrel export for components that want the full object.
  */
@@ -1030,4 +1154,7 @@ export const COPY = {
   VIDEO_COMPLETE,
   ASSEMBLY,
   ASSEMBLY_COMPLETE,
+  EULOGY,
+  EULOGY_COMPLETE,
+  DELIVERY,
 } as const;
