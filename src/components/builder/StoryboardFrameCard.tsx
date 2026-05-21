@@ -91,6 +91,9 @@ export default function StoryboardFrameCard({
 
       <header style={headerRow}>
         <span style={sceneLabelStyle}>{sceneLabel}</span>
+        {/* Future hook: this row could host a per-card "regenerate" affordance,
+            but right now the user opens the mini-gate via the image tap or
+            the inline button below the caption. Keeping the header simple. */}
       </header>
 
       <CaptionBlock
