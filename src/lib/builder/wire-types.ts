@@ -901,6 +901,108 @@ export type PushUnsubscribeResponse = ApiOk<{ unsubscribed: true }> | ApiErr;
 export type PushVapidKeyResponse = ApiOk<{ public_key: string }> | ApiErr;
 
 // -----------------------------------------------------------------------------
+// Phase 14 — Admin dashboard: cost + generation observability.
+// -----------------------------------------------------------------------------
+
+/** Time-window selector accepted by the summary route. */
+export type AdminCostWindow = 'today' | '7d' | '30d' | 'all';
+
+/** Headline numbers for the overview screen. */
+export type AdminCostSummary = {
+  window: AdminCostWindow;
+  total_usd: number;
+  call_count: number;
+  failure_count: number;
+  failure_rate: number;     // 0..1
+  fallback_count: number;   // vendor_served != first(vendor_attempted)
+  fallback_rate: number;    // 0..1
+  by_capability: Array<{
+    capability: string;
+    calls: number;
+    total_usd: number;
+    avg_duration_ms: number;
+  }>;
+  by_day: Array<{ day: string; total_usd: number; call_count: number }>;
+};
+
+export type AdminCostSummaryResponse =
+  | ApiOk<{ summary: AdminCostSummary }>
+  | ApiErr<'forbidden'>;
+
+/** Compact per-session line for the admin sessions list. */
+export type AdminSessionCostRow = {
+  session_id: string;
+  pet_name: string | null;
+  user_email: string | null;       // null for anonymous
+  stage: StageTag;
+  total_usd: number;
+  call_count: number;
+  failure_count: number;
+  is_complete: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AdminSessionsListResponse =
+  | ApiOk<{ sessions: AdminSessionCostRow[]; total: number; limit: number; offset: number }>
+  | ApiErr<'forbidden'>;
+
+/** Per-render row in the audit log. */
+export type AdminRenderRow = {
+  id: string;
+  session_id: string;
+  pet_name: string | null;
+  user_email: string | null;
+  stage: string;
+  capability: string;
+  vendor_attempted: string[];
+  vendor_served: string | null;
+  model: string | null;
+  cost_usd_est: number | null;
+  duration_ms: number | null;
+  error: string | null;
+  response_url: string | null;
+  created_at: string;
+};
+
+export type AdminRendersListResponse =
+  | ApiOk<{ renders: AdminRenderRow[]; total: number; limit: number; offset: number }>
+  | ApiErr<'forbidden'>;
+
+/** Per-user roll-up. */
+export type AdminUserCostRow = {
+  user_id: string;
+  email: string;
+  name: string | null;
+  tribute_count: number;
+  completed_tribute_count: number;
+  total_usd: number;
+  call_count: number;
+  created_at: string;
+  last_active_at: string | null;
+};
+
+export type AdminUsersListResponse =
+  | ApiOk<{ users: AdminUserCostRow[]; total: number; limit: number; offset: number }>
+  | ApiErr<'forbidden'>;
+
+/** Full drill-down on one session — used by the session detail page. */
+export type AdminSessionDetailResponse =
+  | ApiOk<{
+      session: AdminSessionCostRow;
+      renders: AdminRenderRow[];
+    }>
+  | ApiErr<'forbidden' | 'not-found'>;
+
+/** Drill-down on one user. */
+export type AdminUserDetailResponse =
+  | ApiOk<{
+      user: AdminUserCostRow;
+      sessions: AdminSessionCostRow[];
+    }>
+  | ApiErr<'forbidden' | 'not-found'>;
+
+// -----------------------------------------------------------------------------
 // Helper: PhotoAsset re-export so frontend imports come from one place.
 // -----------------------------------------------------------------------------
 
