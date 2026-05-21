@@ -4,6 +4,7 @@ import { useState, type CSSProperties, type ReactNode } from "react";
 import { motion } from "framer-motion";
 import { Check } from "lucide-react";
 import { C, FONT_SANS } from "@/lib/peterna-tokens";
+import { tap } from "@/lib/builder/haptic";
 
 // Pattern B — pill picker (single or multi-select).
 // One primitive used by gender / relationship / traits / favorites / memory
@@ -107,8 +108,11 @@ export default function PillPicker({
       } else {
         next = [...selected, id];
       }
+      // Micro-haptic on every selection change (select + deselect).
+      tap();
       setSelected(next);
     } else {
+      tap();
       setSelected([id]);
       if (autoSubmitOnPick) {
         // Defer onSubmit to next frame so the visual selection lands

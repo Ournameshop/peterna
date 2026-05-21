@@ -4,6 +4,7 @@ import { useMemo, type CSSProperties } from "react";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { C, FONT_DISPLAY, FONT_SANS } from "@/lib/peterna-tokens";
+import { EASE, prefersReducedMotion } from "@/lib/builder/motion-tokens";
 import { VIDEO_RENDER, substitutePetName } from "@/lib/library/copy";
 import type {
   BeatWire,
@@ -185,9 +186,32 @@ function ClipCard({
   const aspectCss = (aspectRatio ?? "1:1").replace(":", " / ");
   const isFailed = status === "failed";
   const isDone = status === "done";
+  const isRendering = status === "rendering" || isRerolling;
+  // Slow card-shadow pulse while the clip is actively rendering. Reads as
+  // "this scene is being worked on" without the visual noise of a spinner.
+  // Honors prefers-reduced-motion (no animate prop when reduced).
+  const reduced = prefersReducedMotion();
+  const cardAnimate = isRendering && !reduced
+    ? {
+        boxShadow: [
+          "0 0 0 0 rgba(201, 169, 97, 0)",
+          "0 0 0 4px rgba(201, 169, 97, 0.18)",
+          "0 0 0 0 rgba(201, 169, 97, 0)",
+        ],
+      }
+    : undefined;
 
   return (
-    <article aria-label={cardAria} style={cardWrap}>
+    <motion.article
+      aria-label={cardAria}
+      style={cardWrap}
+      animate={cardAnimate}
+      transition={
+        cardAnimate
+          ? { duration: 2.4, ease: EASE.soft, repeat: Infinity }
+          : undefined
+      }
+    >
       <div style={{ ...frameBox, aspectRatio: aspectCss }}>
         {frame ? (
           <Image
@@ -238,7 +262,7 @@ function ClipCard({
           {isFailed ? VIDEO_RENDER.reroll_failed : VIDEO_RENDER.reroll_optional}
         </motion.button>
       ) : null}
-    </article>
+    </motion.article>
   );
 }
 
@@ -304,11 +328,30 @@ function StatusBadge({
     ? VIDEO_RENDER.status_labels.rendering
     : VIDEO_RENDER.status_labels[status];
   const tone = isRerolling ? "rendering" : status;
+  // While the badge is in the "rendering" tone we run a slow opacity pulse
+  // so the user reads the card as "alive" without spinning anything. Done /
+  // failed / queued badges hold steady. Honors prefers-reduced-motion via
+  // the helper — when reduced, the animate prop is undefined.
+  const reduced = prefersReducedMotion();
+  const shouldPulse = tone === "rendering" && !reduced;
   return (
-    <span style={badgeStyle(tone)} aria-label={`Status: ${label}`}>
+    <motion.span
+      style={badgeStyle(tone)}
+      aria-label={`Status: ${label}`}
+      animate={
+        shouldPulse
+          ? { opacity: [0.65, 1, 0.65] }
+          : undefined
+      }
+      transition={
+        shouldPulse
+          ? { duration: 1.6, ease: EASE.soft, repeat: Infinity }
+          : undefined
+      }
+    >
       {tone === "done" ? <CheckIcon /> : null}
       {label}
-    </span>
+    </motion.span>
   );
 }
 

@@ -11,6 +11,8 @@ import {
 import { motion } from "framer-motion";
 import { C, FONT_DISPLAY, FONT_SANS } from "@/lib/peterna-tokens";
 import { DELIVERY, substitutePetName } from "@/lib/library/copy";
+import { completion } from "@/lib/builder/haptic";
+import { DURATION, EASE } from "@/lib/builder/motion-tokens";
 import NotificationOptIn from "./NotificationOptIn";
 
 // Phase 9 — Final wizard stage. The screen the user lands on after the
@@ -77,13 +79,27 @@ export default function DeliveryReadyView({
   const headline = substitutePetName(DELIVERY.ready.headline, petName);
   const subhead = DELIVERY.ready.subhead;
 
+  // Phase 13 — fire the completion haptic the first time the share URL
+  // lands (the "your tribute is ready" moment). We guard with a ref so a
+  // re-render after e.g. an email send doesn't re-vibrate.
+  const hapticFiredRef = useRef(false);
+  useEffect(() => {
+    if (!finalizing && shareUrl && !hapticFiredRef.current) {
+      hapticFiredRef.current = true;
+      completion();
+    }
+  }, [finalizing, shareUrl]);
+
   if (finalizing || !shareUrl) {
     return <FinalizingPanel petName={petName} />;
   }
 
   return (
-    <section
+    <motion.section
       aria-label={`Final tribute for ${petName ?? "your pet"} — ready to share`}
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: DURATION.slow, ease: EASE.reveal }}
       style={pageWrap}
     >
       <header style={heroWrap}>
@@ -124,7 +140,7 @@ export default function DeliveryReadyView({
           items={artifacts}
         />
       ) : null}
-    </section>
+    </motion.section>
   );
 }
 

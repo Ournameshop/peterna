@@ -1,9 +1,11 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { C, FONT_SANS, NARROW_MAX } from "@/lib/peterna-tokens";
 import { SHELL_COPY } from "@/lib/library/copy";
 import type { StageTag } from "@/lib/builder/state";
+import { DURATION, EASE } from "@/lib/builder/motion-tokens";
 import StageBanner from "./StageBanner";
 
 // Outer wizard shell: stage banner on top, panel content in the middle,
@@ -40,7 +42,22 @@ export default function WizardShell({
       <div style={NARROW_MAX}>
         {showBanner ? <StageBanner stage={stage} petName={petName} /> : null}
         <main role="main" aria-live="polite">
-          {children}
+          {/* AnimatePresence wraps the active stage so each transitions out
+              before the next mounts. `mode="wait"` is required — the wizard
+              stages share screen real estate; overlapping them muddies the
+              transition. The `key={stage}` change is what triggers the
+              presence cycle. */}
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={stage}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: DURATION.base, ease: EASE.soft }}
+            >
+              {children}
+            </motion.div>
+          </AnimatePresence>
         </main>
         <p
           style={{
