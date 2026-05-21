@@ -5,6 +5,15 @@ Working branch: `Adding-skill-in-webflow`.
 
 ## 2026-05-22
 
+### Card layout — text no longer covers the pet's face
+Per the skill, every caption container is *"centered in the lower portion of
+the frame."* The renderer was placing opening/closing title panels at 38% frame
+height — directly over the pet's face — a skill violation. Now ALL card text
+(opening, closing, caption) sits in the lower portion, leaving the face clear.
+Also removed the internal dev label ("OPENING TITLE" / "CLOSING CARD") that was
+being burned into the card image, and the full-frame dark scrim that dimmed the
+whole pet (the container panel carries its own legibility).
+
 ### Suno polling — handle CALLBACK_EXCEPTION
 Audited the Suno integration. `src/lib/suno.ts` only treated `SUCCESS` as done.
 Because the integration sends a placeholder `callBackUrl` and polls instead,

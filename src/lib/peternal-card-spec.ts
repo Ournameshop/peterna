@@ -134,17 +134,17 @@ export function renderCardSvg(opts: RenderCardSvgOpts): string {
   const textBlockH = lines.length * lineHeight;
   const panelH = textBlockH + paddingV * 2;
 
-  // Clamp baseY so the panel always fits inside the frame with a 10-unit margin.
-  const baseY = isCenter
-    ? vbH * 0.38
-    : Math.min(vbH * 0.72, vbH - panelH - 10);
+  // The skill places EVERY caption container "centered in the lower portion of
+  // the frame" — opening/closing titles included — so the pet's face (the upper
+  // part of the frame) is never covered. Clamp so the panel always fits, with a
+  // 10-unit bottom margin.
+  const baseY = Math.min(vbH * 0.72, vbH - panelH - 10);
 
   const panelY = baseY;
 
   // Font family strings for SVG attributes — double-quotes MUST be &quot; so the
   // font name doesn't break the surrounding XML attribute delimiter.
   const serifFamily = '&quot;Cormorant Garamond&quot;, Georgia, serif';
-  const sansFamily = '&quot;Inter&quot;, sans-serif';
   const monoFamily = '&quot;JetBrains Mono&quot;, monospace';
   const textFontFamily = isPixelMono ? monoFamily : serifFamily;
 
@@ -154,12 +154,6 @@ export function renderCardSvg(opts: RenderCardSvgOpts): string {
     : mode === 'stone' ? 20
     : mode === 'banner' ? 40
     : 20;
-
-  // Eyebrow label text
-  const eyebrowText = cardType === 'opening' ? 'OPENING TITLE'
-    : cardType === 'closing' ? 'CLOSING CARD'
-    : cardType === 'caption_overlay' ? ''
-    : 'CAPTION';
 
   // For caption_overlay: transparent canvas, only the panel + text, positioned lower-third
   if (cardType === 'caption_overlay') {
@@ -223,13 +217,11 @@ export function renderCardSvg(opts: RenderCardSvgOpts): string {
   </defs>
   <!-- Polaroid white frame -->
   <rect x="40" y="40" width="${vbW - 80}" height="${vbH - 120}" rx="20" fill="#F8F4EC" filter="url(#sh)"/>
-  <!-- Scene area -->
+  <!-- Scene area — the pet photo, kept clear (text lives in the white margin) -->
   ${backgroundImageHref
-    ? `<image href="${backgroundImageHref}" x="80" y="80" width="${vbW - 160}" height="${photoH - 40}" preserveAspectRatio="xMidYMid slice" clip-path="url(#photoClip)"/>
-  <rect x="80" y="80" width="${vbW - 160}" height="${photoH - 40}" rx="10" fill="rgba(0,0,0,0.30)"/>`
+    ? `<image href="${backgroundImageHref}" x="80" y="80" width="${vbW - 160}" height="${photoH - 40}" preserveAspectRatio="xMidYMid slice" clip-path="url(#photoClip)"/>`
     : `<rect x="80" y="80" width="${vbW - 160}" height="${photoH - 40}" rx="10" fill="url(#sg)"/>`
   }
-  <ellipse cx="${vbW / 2}" cy="${vbH * 0.3}" rx="280" ry="200" fill="rgba(255,240,200,0.1)"/>
   <!-- Caption in bottom white margin -->
   <text
     x="${vbW / 2}"
@@ -260,16 +252,12 @@ export function renderCardSvg(opts: RenderCardSvgOpts): string {
       <feDropShadow dx="0" dy="3" stdDeviation="10" flood-color="rgba(0,0,0,0.25)"/>
     </filter>
   </defs>
-  <!-- Scene background -->
+  <!-- Scene background — full-bleed pet image, kept clear (no scrim, no bloom,
+       no dev label); the container panel below carries all legibility. -->
   ${backgroundImageHref
-    ? `<image href="${backgroundImageHref}" x="0" y="0" width="${vbW}" height="${vbH}" preserveAspectRatio="xMidYMid slice"/>
-  <rect x="0" y="0" width="${vbW}" height="${vbH}" fill="rgba(0,0,0,0.30)"/>`
+    ? `<image href="${backgroundImageHref}" x="0" y="0" width="${vbW}" height="${vbH}" preserveAspectRatio="xMidYMid slice"/>`
     : `<rect x="0" y="0" width="${vbW}" height="${vbH}" fill="url(#sg)"/>`
   }
-  <!-- Bloom -->
-  <ellipse cx="${vbW / 2}" cy="${vbH * 0.35}" rx="${vbW * 0.4}" ry="${vbH * 0.3}" fill="rgba(255,240,200,0.12)"/>
-  <!-- Eyebrow -->
-  ${eyebrowText ? `<text x="${vbW / 2}" y="${panelY - 22}" text-anchor="middle" font-family="${sansFamily}" font-size="22" fill="rgba(255,255,255,0.5)" letter-spacing="8">${eyebrowText}</text>` : ''}
   <!-- Container panel -->
   <rect x="${panelX}" y="${panelY}" width="${panelW}" height="${panelH}"
     rx="${rx}" fill="${containerStyle.bg}"
