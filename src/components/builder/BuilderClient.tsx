@@ -30,6 +30,15 @@ import type {
   CharacterSheetApproveResponse,
   CharacterSheetRenderRequest,
   CharacterSheetRenderResponse,
+  CinematographyApproveRequest,
+  CinematographyApproveResponse,
+  CinematographyDeriveRequest,
+  CinematographyDeriveResponse,
+  CinematographyUpdateRequest,
+  CinematographyUpdateResponse,
+  DpStyleOverlayId,
+  FrameVisionWire,
+  MotionBriefWire,
   PreviewApproveRequest,
   PreviewApproveResponse,
   PreviewRenderRequest,
@@ -114,6 +123,10 @@ import StoryboardView, {
 } from "./StoryboardView";
 import WordsEditor, { type WordsEditorState } from "./WordsEditor";
 import CardPreviewView, { type CardPreviewAction } from "./CardPreviewView";
+import CinematographyView, {
+  type CinematographyAction,
+} from "./CinematographyView";
+import { type CinematographyFieldName } from "./CinematographyTable";
 
 // Orchestrates the Stage 1 wizard. Owns the state machine + the side-effects
 // (PATCH on transition, vision-pass kick on photos-and-name).
@@ -245,6 +258,15 @@ export default function BuilderClient({
     Map<number, { key: string; createdAt: number }>
   >(new Map());
   const rerollInFlightRef = useRef(false);
+  // Stage 5.7 cinematography — same dedupe pattern as the other expensive
+  // routes. The derive call runs N vision-pass calls plus the engine pass,
+  // so a stuck client double-firing is costly. We reuse the key on transient
+  // re-entries; deliberate user actions ("Reapply", "Start over") clear it.
+  const cinematographyIdemRef = useRef<{ key: string; createdAt: number } | null>(
+    null,
+  );
+  const cinematographyInFlightRef = useRef(false);
+  const [cinematographyInFlight, setCinematographyInFlight] = useState(false);
 
   // Bootstrap: if we don't yet have a session, create one and reflect into URL.
   useEffect(() => {
@@ -1009,6 +1031,215 @@ export default function BuilderClient({
       setSubmitting(false);
     }
   }, [state.data.session_id]);
+
+  // ---------------------------------------------------------------------------
+  // Stage 5.7 — Cinematography Engine: derive / patch / approve.
+  // ---------------------------------------------------------------------------
+
+  const getCinematographyIdempotencyKey = useCallback(
+    (freshIntent: boolean): string => {
+      const now = Date.now();
+      const cur = cinematographyIdemRef.current;
+      if (!freshIntent && cur && now - cur.createdAt < DEDUPE_WINDOW_MS) {
+        return cur.key;
+      }
+      const key = crypto.randomUUID();
+      cinematographyIdemRef.current = { key, createdAt: now };
+      return key;
+    },
+    [],
+  );
+
+  const deriveCinematography = useCallback(
+    async (overlay: DpStyleOverlayId, freshIntent: boolean) => {
+      if (!state.data.session_id) return;
+      if (cinematographyInFlightRef.current) return;
+      cinematographyInFlightRef.current = true;
+      setCinematographyInFlight(true);
+
+      const idempotencyKey = getCinematographyIdempotencyKey(freshIntent);
+      const body: CinematographyDeriveRequest = {
+        session_id: state.data.session_id,
+        dp_style_overlay: overlay,
+      };
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[builder] POST /api/cinematography/derive", body);
+      }
+      try {
+        const res = await fetch("/api/cinematography/derive", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Idempotency-Key": idempotencyKey,
+          },
+          body: JSON.stringify(body),
+        });
+        const json = (await res
+          .json()
+          .catch(() => null)) as CinematographyDeriveResponse | null;
+        if (json && json.ok) {
+          dispatch({
+            type: "cinematography_derived",
+            frame_vision: json.frame_vision as FrameVisionWire[],
+            briefs: json.briefs as MotionBriefWire[],
+          });
+        } else if (process.env.NODE_ENV !== "production") {
+          console.warn(
+            "[builder] /api/cinematography/derive failed",
+            res.status,
+            json,
+          );
+        }
+      } catch (err) {
+        if (process.env.NODE_ENV !== "production") {
+          console.warn(
+            "[builder] /api/cinematography/derive network error",
+            err,
+          );
+        }
+      } finally {
+        cinematographyInFlightRef.current = false;
+        setCinematographyInFlight(false);
+      }
+    },
+    [getCinematographyIdempotencyKey, state.data.session_id],
+  );
+
+  const patchCinematographyField = useCallback(
+    async (
+      beatIdx: number,
+      field: CinematographyFieldName,
+      nextValue: string,
+    ) => {
+      const sessionId = state.data.session_id;
+      if (!sessionId) return;
+
+      // Optimistically update the local brief so the chip flips immediately;
+      // the PATCH races the user's next tap.
+      const briefs = state.data.cinematography_briefs ?? [];
+      const current = briefs.find((b) => b.beat_idx === beatIdx);
+      if (!current) return;
+      const fieldValue: MotionBriefWire[keyof MotionBriefWire] =
+        field === "lens_mm"
+          ? (Number(nextValue) as MotionBriefWire["lens_mm"])
+          : (nextValue as MotionBriefWire[keyof MotionBriefWire]);
+      const nextBrief: MotionBriefWire = {
+        ...current,
+        [field]: fieldValue,
+      } as MotionBriefWire;
+      dispatch({
+        type: "cinematography_field_edited",
+        beatIdx,
+        brief: nextBrief,
+      });
+
+      const body: CinematographyUpdateRequest = {
+        session_id: sessionId,
+        beat_idx: beatIdx,
+        field_overrides: { [field]: fieldValue } as Partial<
+          Omit<MotionBriefWire, "beat_idx">
+        >,
+      };
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[builder] PATCH /api/cinematography", body);
+      }
+      try {
+        const res = await fetch("/api/cinematography", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const json = (await res
+          .json()
+          .catch(() => null)) as CinematographyUpdateResponse | null;
+        if (!json || !json.ok) {
+          if (process.env.NODE_ENV !== "production") {
+            console.warn(
+              "[builder] /api/cinematography PATCH failed",
+              res.status,
+              json,
+            );
+          }
+        }
+      } catch (err) {
+        if (process.env.NODE_ENV !== "production") {
+          console.warn(
+            "[builder] /api/cinematography PATCH network error",
+            err,
+          );
+        }
+      }
+    },
+    [state.data.session_id, state.data.cinematography_briefs],
+  );
+
+  const approveCinematography = useCallback(async () => {
+    const sessionId = state.data.session_id;
+    if (!sessionId) return;
+    setSubmitting(true);
+    const body: CinematographyApproveRequest = { session_id: sessionId };
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[builder] POST /api/cinematography/approve", body);
+    }
+    try {
+      const res = await fetch("/api/cinematography/approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const json = (await res
+        .json()
+        .catch(() => null)) as CinematographyApproveResponse | null;
+      if (json && json.ok) {
+        dispatch({ type: "cinematography_approved" });
+      } else if (res.status === 404) {
+        // Backend not up — advance optimistically.
+        dispatch({ type: "cinematography_approved" });
+      } else if (process.env.NODE_ENV !== "production") {
+        console.warn(
+          "[builder] /api/cinematography/approve failed",
+          res.status,
+          json,
+        );
+      }
+    } catch (err) {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn(
+          "[builder] /api/cinematography/approve network error",
+          err,
+        );
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }, [state.data.session_id]);
+
+  // Auto-fire derive whenever we land on cinematography_render with no
+  // briefs yet. Same auto-render pattern as Stage 2/3/5/5.6.
+  useEffect(() => {
+    if (state.stage !== "cinematography_render") return;
+    if (state.data.cinematography_briefs) return;
+    if (cinematographyInFlightRef.current) return;
+    const overlay = state.data.cinematography_dp_overlay ?? "none";
+    void deriveCinematography(overlay, false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    state.stage,
+    state.data.cinematography_briefs,
+    state.data.cinematography_dp_overlay,
+  ]);
+
+  // Defensive snap-back: if the user deep-links into cinematography_review
+  // without briefs (refresh before session-GET hydrates), bounce them back to
+  // the render stage so the auto-derive effect picks them up.
+  useEffect(() => {
+    if (
+      state.stage === "cinematography_review" &&
+      !state.data.cinematography_briefs
+    ) {
+      dispatch({ type: "goto", stage: "cinematography_render" });
+    }
+  }, [state.stage, state.data.cinematography_briefs]);
 
   // Auto-fire the card-preview render whenever we land on card_preview_render
   // with no cards yet. Mirrors the auto-render pattern from Stage 2/3/5.
@@ -1932,12 +2163,115 @@ export default function BuilderClient({
       }
 
       case "card_preview_complete":
-      case "cinematography_brief":
-        // Phase 6 entry — placeholder screen until the cinematography UI lands.
+        // Hand-off between Stage 5.6 approve and Stage 5.7 entry. Most users
+        // won't see this — approveCardPreview dispatches twice so the reducer
+        // ends up on cinematography_brief immediately. Kept for deep-links.
         return (
           <CinematographyHandoffPanel
             petName={petName}
-            isComplete={state.stage === "cinematography_brief"}
+            isComplete={false}
+          />
+        );
+
+      // ----------------------------------------------------------------------
+      // Stage 5.7 — Cinematography Engine: picker → loading → review.
+      // ----------------------------------------------------------------------
+      case "cinematography_brief":
+        return (
+          <CinematographyView
+            petName={petName}
+            mode="picker"
+            defaultOverlay={state.data.cinematography_dp_overlay ?? "none"}
+            disabled={submitting || cinematographyInFlight}
+            onApplyOverlay={(overlay) => {
+              cinematographyIdemRef.current = null; // fresh intent
+              dispatch({
+                type: "cinematography_derive_started",
+                overlay,
+              });
+            }}
+            onFieldChange={() => {}}
+            onReviewAction={() => {}}
+          />
+        );
+
+      case "cinematography_render":
+        return (
+          <CinematographyView
+            petName={petName}
+            mode="loading"
+            disabled
+            onApplyOverlay={() => {}}
+            onFieldChange={() => {}}
+            onReviewAction={() => {}}
+          />
+        );
+
+      case "cinematography_review": {
+        const briefs = state.data.cinematography_briefs;
+        if (!briefs || briefs.length === 0) {
+          return (
+            <CinematographyView
+              petName={petName}
+              mode="loading"
+              disabled
+              onApplyOverlay={() => {}}
+              onFieldChange={() => {}}
+              onReviewAction={() => {}}
+            />
+          );
+        }
+        return (
+          <CinematographyView
+            petName={petName}
+            mode="review"
+            briefs={briefs}
+            beats={state.data.beat_sheet}
+            defaultOverlay={state.data.cinematography_dp_overlay ?? "none"}
+            disabled={submitting || cinematographyInFlight}
+            onApplyOverlay={() => {}}
+            onFieldChange={(beatIdx, field, next) => {
+              void patchCinematographyField(beatIdx, field, next);
+            }}
+            onReviewAction={(action: CinematographyAction) => {
+              if (action === "approve") {
+                void approveCinematography();
+                return;
+              }
+              if (action === "regenerate") {
+                // "Reapply derivation" — re-run the engine with the same
+                // overlay. Fresh idempotency key so the backend treats this
+                // as a deliberate retry rather than a stuck-client dupe.
+                cinematographyIdemRef.current = null;
+                const overlay =
+                  state.data.cinematography_dp_overlay ?? "none";
+                dispatch({
+                  type: "cinematography_derive_started",
+                  overlay,
+                });
+                return;
+              }
+              if (action === "restart") {
+                // "Start over" — bounce back to the picker and clear overlay
+                // + briefs so the user can pick a different DP look.
+                cinematographyIdemRef.current = null;
+                dispatch({ type: "cinematography_restart" });
+                return;
+              }
+            }}
+          />
+        );
+      }
+
+      case "cinematography_complete":
+        // Soft pause before Phase 7 entry — the video generation UI isn't
+        // wired yet, so we render a calm "next up" line. No CTA: Phase 7
+        // will own its own entry surface (mirrors the words/storyboard
+        // complete pattern).
+        return (
+          <CinematographyHandoffPanel
+            petName={petName}
+            isComplete
           />
         );
 
@@ -2291,9 +2625,15 @@ function WordsCompletePanel({
   );
 }
 
-// Stage 5.6-complete hand-off — placeholder for Stage 5.7 (cinematography
-// brief, Phase 6). Renders a calm "next up" line until the cinematography UI
-// lands. No CTA — Phase 6 owns its own entry surface.
+// Stage 5.6 → 5.7 hand-off and Stage 5.7 → 6 hand-off.
+//
+// `isComplete=false` is the card_preview_complete soft pause — "cards locked,
+// cinematography next." Most users skip this screen because approveCardPreview
+// dispatches twice and lands directly on `cinematography_brief`.
+//
+// `isComplete=true` is the cinematography_complete soft pause — "cinematography
+// locked, video next." Phase 7 (video generation) is not yet wired so we
+// render a calm "next up" line without a CTA.
 function CinematographyHandoffPanel({
   petName,
   isComplete,
@@ -2301,19 +2641,27 @@ function CinematographyHandoffPanel({
   petName: string | null;
   isComplete: boolean;
 }) {
-  const headline = "Cards locked in.";
-  const body = substitutePetName(
-    "Next, we'll plan the cinematography for every beat of [PET_NAME]'s tribute — the lens, the camera move, the lighting. We'll show you the full plan before any video renders.",
-    petName,
-  );
+  const headline = isComplete
+    ? "Cinematography locked in."
+    : "Cards locked in.";
+  const body = isComplete
+    ? substitutePetName(
+        "Every beat now has a lens, a camera move, lighting, and audio. Next, we'll render the video clips that bring [PET_NAME]'s tribute to life.",
+        petName,
+      )
+    : substitutePetName(
+        "Next, we'll plan the cinematography for every beat of [PET_NAME]'s tribute — the lens, the camera move, the lighting. We'll show you the full plan before any video renders.",
+        petName,
+      );
   return (
-    <section aria-label="Card preview complete" style={handoffSection}>
+    <section
+      aria-label={isComplete ? "Cinematography complete" : "Card preview complete"}
+      style={handoffSection}
+    >
       <p style={handoffHeadline}>{headline}</p>
       <p style={handoffBody}>{body}</p>
       {isComplete ? (
-        <p style={handoffPending}>
-          The cinematography brief is coming next.
-        </p>
+        <p style={handoffPending}>The video render is coming next.</p>
       ) : null}
     </section>
   );
