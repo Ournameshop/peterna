@@ -89,6 +89,11 @@ export type SessionWire = {
 
   character_sheet_asset_id: string | null;
   combination_preview_asset_id: string | null;
+
+  // Phase 4a — beat sheet array, set by /api/beat-sheet/generate or PATCH.
+  // Null until Stage 4 starts; replaced wholesale on user edits.
+  beat_sheet: BeatWire[] | null;
+  beat_sheet_approved_at: string | null;  // ISO timestamp; null until approve
 };
 
 // -----------------------------------------------------------------------------
@@ -125,6 +130,8 @@ export type SessionPatchBody = Partial<{
   is_returning_user: boolean;
 
   inferred_profile: InferredProfile;
+
+  beat_sheet: BeatWire[];
 }>;
 
 // -----------------------------------------------------------------------------
@@ -276,6 +283,64 @@ export type PreviewApproveResponse =
       | 'asset-not-found'
       | 'asset-wrong-kind'
     >;
+
+// -----------------------------------------------------------------------------
+// Phase 4a — Beat Sheet (Stage 4) wire types.
+// -----------------------------------------------------------------------------
+
+/**
+ * A single beat in the tribute. N = beat_count (8/12/16) — derived from
+ * target_minutes (2/3/4). Beats are stored as a jsonb array on
+ * sessions.beat_sheet (added via Drizzle migration in Phase 4a).
+ */
+export type BeatWire = {
+  idx: number;                  // 0..N-1
+  archetype: string;            // 'opening' | 'rising' | 'turning' | 'peak' | 'descent' | 'closing' | ...
+  scene_description: string;    // long-form prompt material for Stage 5 storyboard render
+  caption: string;              // ≤15 words, per spec — voice from format's caption_voice_pairing
+  notes?: string;               // user-edited free-text annotations
+};
+
+// POST /api/beat-sheet/generate — produces the N-beat array from the locked
+// format/theme/style/character-sheet + intake context. Idempotency-Key honored.
+export type BeatSheetGenerateRequest = {
+  session_id: string;
+};
+
+export type BeatSheetGenerateResponse =
+  | ApiOk<{ beats: BeatWire[] }>
+  | ApiErr<
+      | 'invalid-input'
+      | 'session-not-found'
+      | 'cookie-mismatch'
+      | 'no-session'
+      | 'render-in-flight'
+      | 'session-budget-exceeded'
+      | 'render_failed'
+      | 'content-policy-violation'
+      | 'incomplete-stage-3'
+    >;
+
+// PATCH /api/beat-sheet — user-edited beats persist back. Whole-array replace
+// (the array is small; partial updates aren't worth the complexity).
+export type BeatSheetUpdateRequest = {
+  session_id: string;
+  beats: BeatWire[];
+};
+
+export type BeatSheetUpdateResponse =
+  | ApiOk<{ session: SessionWire }>
+  | ApiErr<'invalid-input' | 'session-not-found' | 'cookie-mismatch'>;
+
+// POST /api/beat-sheet/approve — locks the beat sheet, advances stage to
+// 'storyboard_render'. Does not write a separate asset row.
+export type BeatSheetApproveRequest = {
+  session_id: string;
+};
+
+export type BeatSheetApproveResponse =
+  | ApiOk<{ session: SessionWire }>
+  | ApiErr<'invalid-input' | 'session-not-found' | 'cookie-mismatch' | 'no-beats'>;
 
 // -----------------------------------------------------------------------------
 // Helper: PhotoAsset re-export so frontend imports come from one place.

@@ -1,7 +1,7 @@
 import 'server-only';
 
 import type { Session } from '@/lib/db/schema';
-import type { SessionWire } from '@/lib/builder/wire-types';
+import type { BeatWire, SessionWire } from '@/lib/builder/wire-types';
 import type { StageTag } from '@/lib/builder/state';
 import type { InferredProfile } from '@/lib/builder/state';
 
@@ -49,5 +49,13 @@ export function serializeSession(s: Session): SessionWire {
 
     character_sheet_asset_id: s.characterSheetAssetId,
     combination_preview_asset_id: s.combinationPreviewAssetId,
+
+    beat_sheet: (s.beatSheet as BeatWire[] | null) ?? null,
+    beat_sheet_approved_at:
+      s.beatSheetApprovedAt instanceof Date
+        ? s.beatSheetApprovedAt.toISOString()
+        : s.beatSheetApprovedAt
+          ? String(s.beatSheetApprovedAt)
+          : null,
   };
 }

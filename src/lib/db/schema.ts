@@ -49,6 +49,10 @@ export const sessions = pgTable(
     // Self-referencing FKs to assets resolved at table-creation time via raw SQL in the migration.
     characterSheetAssetId: uuid('character_sheet_asset_id'),
     combinationPreviewAssetId: uuid('combination_preview_asset_id'),
+
+    // Stage 4 — beat sheet (array of BeatWire). Null until /api/beat-sheet/generate runs.
+    beatSheet: jsonb('beat_sheet'),
+    beatSheetApprovedAt: timestamp('beat_sheet_approved_at', { withTimezone: true }),
   },
   (table) => [
     index('sessions_resume_token_idx').on(table.resumeToken),
