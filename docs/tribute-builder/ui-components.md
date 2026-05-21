@@ -84,7 +84,7 @@ combination_preview_review       (GATE 2 for Phase 1)
 stage_3_complete
 ```
 
-The reducer enforces legal transitions. Same reducer is imported by `PATCH /api/session/[id]` to reject illegal skip-ahead — single source of truth.
+The reducer enforces legal transitions. `PATCH /api/session/[id]` imports `legalNextStages(current: StageTag): Set<StageTag>` from the same module to validate `stage` transitions server-side; the helper enumerates the reducer's outputs by probing every non-`goto` event from the current stage. Single source of truth — adding a transition in the reducer automatically lifts it into the server-side allowlist.
 
 URL drives state: `/builder?step=<state-tag>&session=<id>`. Page reload restores from `GET /api/session/[id]`. Back-button is restricted past approved gates via `pushState` (no `replaceState` after a gate).
 
