@@ -68,6 +68,11 @@ export const STAGE_BANNERS = {
     headline:
       "Stage 5.6: Card preview — the opening, the closing, and a caption in [PET_NAME]'s world",
   },
+  cinematography: {
+    emoji: '🎬',
+    headline:
+      "Stage 5.7: Cinematography — how each scene will move",
+  },
 } as const;
 
 /**
@@ -732,6 +737,133 @@ export const CARD_PREVIEW = {
     "There's no wrong answer here — we can keep tuning until the type, the music, and the words feel right.",
 } as const;
 
+// -----------------------------------------------------------------------------
+// Stage 5.7 — Cinematography Engine (v2.0).
+//
+// Two screens:
+//   - cinematography_brief: the DP overlay picker. The user picks one of 5
+//     real-cinematographer styles (or "no specific style"), then taps
+//     "Apply this look" which runs the derive call (vision-pass per frame
+//     + per-beat brief derivation + consistency pass + DP bias).
+//   - cinematography_review: the per-beat brief table. The user can edit
+//     individual fields inline, or tap "Looks great" / "Reapply derivation" /
+//     "Start over."
+//
+// Loading copy uses the pet's name per spec rule "Loading copy uses the pet's
+// name."
+// -----------------------------------------------------------------------------
+
+export const CINEMATOGRAPHY = {
+  picker: {
+    headline: 'How should [PET_NAME]’s tribute move?',
+    subhead:
+      "Pick a cinematographer’s look, or let the engine decide. Either way, we'll show you the per-scene plan before any video renders.",
+    pick_hint:
+      "Bias only — we still apply the tribute’s motion rules. You'll see every choice and can override anything.",
+    submit: 'Apply this look',
+    submit_default: 'Compose the cinematography',
+  },
+  loading:
+    "Composing the cinematography for [PET_NAME]…",
+  loading_hint:
+    "Reading every storyboard frame, choosing the lens, camera move, lighting, and audio for each scene. About a minute.",
+  review: {
+    headline: 'How [PET_NAME]’s tribute will move.',
+    subhead:
+      'One row per beat. Tap any cell to override a choice — or just tap “Looks great” and we’ll start the renders.',
+    pills: {
+      approve: 'Looks great',
+      regenerate: 'Reapply derivation',
+      restart: 'Start over',
+    },
+    pills_hint:
+      "Overrides stay in place when you reapply. Start over clears all of them and resets the DP look.",
+  },
+  /** Header labels for the brief table — column order is left-to-right
+   *  reading like a shot list. */
+  columns: {
+    beat: 'Beat',
+    archetype: 'Type',
+    lens: 'Lens',
+    camera_move: 'Camera',
+    motion: 'Motion',
+    lighting: 'Lighting',
+    dof: 'DoF',
+    shot: 'Shot',
+    audio: 'Audio',
+  },
+  /** Short, user-facing chip labels for every legal field value. Engine wire
+   *  values are snake_case enums; these map them to scannable display strings. */
+  field_labels: {
+    lens_mm: {
+      24: '24mm',
+      35: '35mm',
+      50: '50mm',
+      85: '85mm',
+      105: '105mm',
+    },
+    camera_move: {
+      locked_off: 'Locked off',
+      slow_push: 'Slow push',
+      slow_pull: 'Slow pull',
+      slow_rise: 'Slow rise',
+      slow_fall: 'Slow fall',
+      slow_pan_L: 'Slow pan L',
+      slow_pan_R: 'Slow pan R',
+      slow_orbit: 'Slow orbit',
+      parallax_dolly: 'Parallax dolly',
+      handheld_float: 'Handheld float',
+      dreamy_drift: 'Dreamy drift',
+    },
+    move_intensity: {
+      barely_perceptible: 'Barely there',
+      gentle: 'Gentle',
+      pronounced: 'Pronounced',
+    },
+    subject_motion: {
+      locked: 'Locked',
+      breath_only: 'Breath only',
+      loop_idle: 'Loop idle',
+      loop_action: 'Loop action',
+      one_shot_action: 'One-shot',
+    },
+    lighting_motion: {
+      static: 'Static',
+      drifting_sunbeam: 'Drifting sun',
+      leaf_dapple_breeze: 'Leaf dapple',
+      candle_flicker: 'Candle',
+      dust_motes: 'Dust motes',
+      rim_light_pulse: 'Rim pulse',
+    },
+    dof_behavior: {
+      locked_shallow: 'Locked shallow',
+      locked_deep: 'Locked deep',
+      rack_to_subject: 'Rack to subject',
+      rack_to_environment: 'Rack to env',
+      rack_to_caption: 'Rack to caption',
+    },
+    shot_structure: {
+      single_sustained: 'Single sustained',
+      two_shot_cut: 'Two-shot cut',
+      three_shot_montage: 'Three-shot',
+    },
+    ambient_audio: {
+      birdsong: 'Birdsong',
+      wind_grass: 'Wind & grass',
+      hearth_crackle: 'Hearth',
+      soft_rain: 'Soft rain',
+      water_lapping: 'Water',
+      silence: 'Silence',
+      breath_only: 'Breath only',
+    },
+    audio_intensity: {
+      bed_only: 'Bed only',
+      present: 'Present',
+      forward: 'Forward',
+    },
+  },
+} as const;
+
 /**
  * One barrel export for components that want the full object.
  */
@@ -779,4 +911,5 @@ export const COPY = {
   WORDS_EDITOR,
   WORDS_COMPLETE,
   CARD_PREVIEW,
+  CINEMATOGRAPHY,
 } as const;

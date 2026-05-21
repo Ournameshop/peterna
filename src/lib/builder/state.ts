@@ -19,6 +19,9 @@ import type {
 import type {
   BeatWire,
   CardPreviewWire,
+  DpStyleOverlayId,
+  FrameVisionWire,
+  MotionBriefWire,
   StoryboardFrameWire,
 } from './wire-types';
 
@@ -85,8 +88,19 @@ export type StageTag =
   | 'card_preview_render'
   | 'card_preview_review'
   | 'card_preview_complete'
-  // Stage 5.7 placeholder — cinematography brief entry (Phase 6).
-  | 'cinematography_brief';
+  // Stage 5.7 — Cinematography Engine (v2.0). Four sub-stages:
+  //   - cinematography_brief: DP overlay picker (5 DPs + "none"). The user
+  //     picks a look; tapping "Apply this look" fires the derive call.
+  //   - cinematography_render: derive in flight (Part 1 vision pass on every
+  //     storyboard frame + Part 2 per-beat brief derivation + Part 3
+  //     consistency pass + Part 4 DP bias). ~N vision calls — not cheap.
+  //   - cinematography_review: the per-beat brief table. Inline edits PATCH
+  //     individual field overrides; "Looks great" approves.
+  //   - cinematography_complete: soft pause before Phase 7 entry.
+  | 'cinematography_brief'
+  | 'cinematography_render'
+  | 'cinematography_review'
+  | 'cinematography_complete';
 
 // -----------------------------------------------------------------------------
 // Session data carried alongside the stage. Mirrors the columns on `sessions`
@@ -193,6 +207,20 @@ export type WizardData = {
   // Stage 5.6 — Card preview. Three stills: opening card, closing card, and
   // one in-scene caption frame. Null until /api/card-preview/render returns.
   card_preview_cards: CardPreviewWire[] | null;
+
+  // Stage 5.7 — Cinematography Engine.
+  //
+  // `cinematography_dp_overlay` is the user's picker selection from the
+  // `cinematography_brief` screen — defaults to 'none' (rules-only derivation).
+  // Null until the user has visited the picker; we treat null and 'none'
+  // identically when calling /api/cinematography/derive.
+  cinematography_dp_overlay: DpStyleOverlayId | null;
+  /** Part 1 output — per-frame vision pass. Returned by /derive; not edited. */
+  cinematography_frame_vision: FrameVisionWire[] | null;
+  /** Part 2 + 3 + 4 output — per-beat motion briefs. The user can override
+   *  individual fields via PATCH /api/cinematography; we replace the matching
+   *  row in place on each successful patch. */
+  cinematography_briefs: MotionBriefWire[] | null;
 };
 
 export type WizardState = {
@@ -236,6 +264,9 @@ export const INITIAL_WIZARD_DATA: WizardData = {
   narration_voice_id: null,
   narration_text: null,
   card_preview_cards: null,
+  cinematography_dp_overlay: null,
+  cinematography_frame_vision: null,
+  cinematography_briefs: null,
 };
 
 export function createInitialState(sessionId: string | null = null): WizardState {
@@ -352,6 +383,21 @@ export type WizardEvent =
   | { type: 'card_preview_approved' }
   | { type: 'card_preview_restart_words' }
   | { type: 'card_preview_restart_all' }
+  // Stage 5.7 — Cinematography Engine
+  | { type: 'cinematography_overlay_chosen'; overlay: DpStyleOverlayId }
+  | { type: 'cinematography_derive_started'; overlay: DpStyleOverlayId }
+  | {
+      type: 'cinematography_derived';
+      frame_vision: FrameVisionWire[];
+      briefs: MotionBriefWire[];
+    }
+  | {
+      type: 'cinematography_field_edited';
+      beatIdx: number;
+      brief: MotionBriefWire;
+    }
+  | { type: 'cinematography_approved' }
+  | { type: 'cinematography_restart' }
   | { type: 'session_loaded'; state: WizardState }
   | { type: 'goto'; stage: StageTag };
 
@@ -1041,8 +1087,96 @@ export function reduceState(state: WizardState, event: WizardEvent): WizardState
       return state;
     }
 
-    case 'cinematography_brief':
-      // Phase 6 entry — placeholder; no further events handled here.
+    // Stage 5.7 — Cinematography Engine.
+    case 'cinematography_brief': {
+      // DP overlay picker. The user picks an overlay, then taps "Apply this
+      // look." We only persist the overlay choice in state on submit (the
+      // picker UI holds the in-progress selection locally).
+      if (event.type === 'cinematography_overlay_chosen') {
+        return {
+          ...state,
+          data: { ...state.data, cinematography_dp_overlay: event.overlay },
+        };
+      }
+      if (event.type === 'cinematography_derive_started') {
+        return {
+          stage: 'cinematography_render',
+          data: {
+            ...state.data,
+            cinematography_dp_overlay: event.overlay,
+            // Clear any prior result so the loading state renders cleanly
+            // on a re-derivation.
+            cinematography_frame_vision: null,
+            cinematography_briefs: null,
+          },
+        };
+      }
+      return state;
+    }
+
+    case 'cinematography_render': {
+      if (event.type === 'cinematography_derived') {
+        return {
+          stage: 'cinematography_review',
+          data: {
+            ...state.data,
+            cinematography_frame_vision: event.frame_vision,
+            cinematography_briefs: event.briefs,
+          },
+        };
+      }
+      return state;
+    }
+
+    case 'cinematography_review': {
+      if (event.type === 'cinematography_field_edited') {
+        // Replace the matching brief row in place. The reducer is pure —
+        // the BuilderClient fires the PATCH and dispatches this with the
+        // returned (or optimistically updated) brief.
+        const briefs = state.data.cinematography_briefs ?? [];
+        const next = briefs.map((b) =>
+          b.beat_idx === event.beatIdx ? event.brief : b,
+        );
+        return {
+          ...state,
+          data: { ...state.data, cinematography_briefs: next },
+        };
+      }
+      if (event.type === 'cinematography_approved') {
+        return { ...state, stage: 'cinematography_complete' };
+      }
+      if (event.type === 'cinematography_derive_started') {
+        // "Reapply derivation" — re-run the engine with the same (or a
+        // changed) overlay. Clears briefs so the loading state renders cleanly.
+        return {
+          stage: 'cinematography_render',
+          data: {
+            ...state.data,
+            cinematography_dp_overlay: event.overlay,
+            cinematography_frame_vision: null,
+            cinematography_briefs: null,
+          },
+        };
+      }
+      if (event.type === 'cinematography_restart') {
+        // "Start over" — bounce back to the picker, clear overlay + briefs.
+        return {
+          stage: 'cinematography_brief',
+          data: {
+            ...state.data,
+            cinematography_dp_overlay: null,
+            cinematography_frame_vision: null,
+            cinematography_briefs: null,
+          },
+        };
+      }
+      return state;
+    }
+
+    case 'cinematography_complete':
+      // Soft pause before Phase 7 entry. Phase 7 isn't wired yet; no events
+      // forward from here. Kept as a distinct stage so the BuilderClient can
+      // render a calm "next up" panel and so the URL reflects completion.
       return state;
 
     default: {
@@ -1109,8 +1243,11 @@ export const ALL_STAGE_TAGS = [
   'card_preview_render',
   'card_preview_review',
   'card_preview_complete',
-  // Stage 5.7 placeholder
+  // Stage 5.7 — Cinematography Engine
   'cinematography_brief',
+  'cinematography_render',
+  'cinematography_review',
+  'cinematography_complete',
 ] as const satisfies readonly StageTag[];
 
 const STAGE_TAG_SET: ReadonlySet<string> = new Set<string>(ALL_STAGE_TAGS);
@@ -1223,6 +1360,29 @@ const PROBE_EVENTS: WizardEvent[] = [
   { type: 'card_preview_approved' },
   { type: 'card_preview_restart_words' },
   { type: 'card_preview_restart_all' },
+  // Stage 5.7 — Cinematography Engine
+  { type: 'cinematography_overlay_chosen', overlay: 'none' },
+  { type: 'cinematography_derive_started', overlay: 'none' },
+  { type: 'cinematography_derived', frame_vision: [], briefs: [] },
+  {
+    type: 'cinematography_field_edited',
+    beatIdx: 0,
+    brief: {
+      beat_idx: 0,
+      lens_mm: 50,
+      lens_character: 'standard',
+      camera_move: 'locked_off',
+      move_intensity: 'gentle',
+      subject_motion: 'breath_only',
+      lighting_motion: 'static',
+      dof_behavior: 'locked_shallow',
+      shot_structure: 'single_sustained',
+      ambient_audio: 'silence',
+      audio_intensity: 'bed_only',
+    },
+  },
+  { type: 'cinematography_approved' },
+  { type: 'cinematography_restart' },
 ];
 
 export function legalNextStages(current: StageTag): Set<StageTag> {
@@ -1281,7 +1441,8 @@ export function bannerKeyForStage(
   | 'beat_sheet'
   | 'storyboard'
   | 'words'
-  | 'card_preview' {
+  | 'card_preview'
+  | 'cinematography' {
   if (stage.startsWith('intake_')) return 'intake';
   if (
     stage.startsWith('character_sheet_') ||
@@ -1304,10 +1465,17 @@ export function bannerKeyForStage(
   if (
     stage === 'card_preview_render' ||
     stage === 'card_preview_review' ||
-    stage === 'card_preview_complete' ||
-    stage === 'cinematography_brief'
+    stage === 'card_preview_complete'
   ) {
     return 'card_preview';
+  }
+  if (
+    stage === 'cinematography_brief' ||
+    stage === 'cinematography_render' ||
+    stage === 'cinematography_review' ||
+    stage === 'cinematography_complete'
+  ) {
+    return 'cinematography';
   }
   return 'format_theme_style';
 }
