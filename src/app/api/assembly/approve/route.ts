@@ -14,8 +14,9 @@ export const maxDuration = 30;
  * POST /api/assembly/approve (Stage 7 — Assembly)
  *
  * Body: `AssemblyApproveRequest` — `{ session_id }`. Sets
- * `video_approved_at = now()` and advances stage to `eulogy_pdf` — the
- * Phase 8 entry point.
+ * `video_approved_at = now()` and advances stage to `assembly_complete` —
+ * the Stage 7 → 8 hand-off panel. From there the user taps "See the
+ * eulogy" which fires `eulogy_render_started` and lands on `eulogy_render`.
  *
  * Preconditions: `assembled_video_asset_id` must be set on the session
  * (i.e. `/api/assembly/render` already produced the final cut). Returns
@@ -51,7 +52,7 @@ export async function POST(req: Request): Promise<Response> {
     .update(sessions)
     .set({
       videoApprovedAt: new Date(),
-      stage: 'eulogy_pdf',
+      stage: 'assembly_complete',
       updatedAt: new Date(),
     })
     .where(eq(sessions.id, sessionId))

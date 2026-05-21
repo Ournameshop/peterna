@@ -118,8 +118,25 @@ export type StageTag =
   | 'assembly_render'
   | 'assembly_review'
   | 'assembly_complete'
-  // Stage 8 — Eulogy PDF (Phase 8 placeholder).
-  | 'eulogy_pdf';
+  // Stage 8 — Eulogy PDF.
+  //
+  //   - eulogy_render: POST /api/eulogy/render is in flight. "Composing the
+  //     eulogy for [PET_NAME]…" while the server templates + uploads the PDF.
+  //   - eulogy_review: the PDF is embedded inline (iframe) with a GateReview
+  //     pill row: approve / re-render / edit the words.
+  //   - eulogy_complete: soft pause between Stage 8 and Phase 9 (delivery).
+  | 'eulogy_render'
+  | 'eulogy_review'
+  | 'eulogy_complete'
+  // Phase 9 (added beyond the spec) — Final delivery.
+  //
+  //   - delivery_ready: POST /api/delivery/finalize is fired (idempotent),
+  //     then we show the share URL + copy-to-clipboard + email form.
+  //   - delivery_emailed: terminal state after a successful email send. Not
+  //     auto-entered — the form lets the user send and stay on the same
+  //     screen; this stage exists for deep-link / analytics continuity.
+  | 'delivery_ready'
+  | 'delivery_emailed';
 
 // -----------------------------------------------------------------------------
 // Session data carried alongside the stage. Mirrors the columns on `sessions`
@@ -252,6 +269,25 @@ export type WizardData = {
   // Stage 7 — Assembly. Final MP4 asset, set once /api/assembly/render returns.
   assembly_asset_id: string | null;
   assembly_public_url: string | null;
+
+  // Stage 8 — Eulogy PDF. The asset id + public URL of the rendered one-page
+  // PDF, set once /api/eulogy/render returns. The review screen embeds
+  // `eulogy_pdf_url` in an <iframe>; the "Download the eulogy" button on the
+  // public delivery page links to the same URL.
+  eulogy_pdf_asset_id: string | null;
+  eulogy_pdf_url: string | null;
+
+  // Phase 9 — Final delivery.
+  //
+  // `delivery_share_slug` is the user-shareable slug (the public delivery URL
+  // is `/tribute/<slug>`); `delivery_share_url` is the absolute URL the
+  // backend computes (host-aware so emails carry a clickable link). Both are
+  // set by /api/delivery/finalize. `delivery_emailed_to` is the last
+  // successfully emailed recipient — surfaced as a "Sent to <addr>"
+  // confirmation under the email form.
+  delivery_share_slug: string | null;
+  delivery_share_url: string | null;
+  delivery_emailed_to: string | null;
 };
 
 export type WizardState = {
@@ -301,6 +337,11 @@ export const INITIAL_WIZARD_DATA: WizardData = {
   video_clips: null,
   assembly_asset_id: null,
   assembly_public_url: null,
+  eulogy_pdf_asset_id: null,
+  eulogy_pdf_url: null,
+  delivery_share_slug: null,
+  delivery_share_url: null,
+  delivery_emailed_to: null,
 };
 
 export function createInitialState(sessionId: string | null = null): WizardState {
@@ -453,6 +494,30 @@ export type WizardEvent =
       publicUrl: string;
     }
   | { type: 'assembly_approved' }
+  // Stage 8 — Eulogy PDF.
+  //
+  // `eulogy_render_started` is dispatched both on the hand-off CTA ("See the
+  // eulogy") and from the review screen's "Re-render the PDF" pill — the
+  // BuilderClient distinguishes the two by current stage (the reducer just
+  // re-enters the render stage either way). `eulogy_rendered` lands the
+  // asset; `eulogy_approved` advances to `eulogy_complete`.
+  | { type: 'eulogy_render_started' }
+  | { type: 'eulogy_rendered'; assetId: string; publicUrl: string }
+  | { type: 'eulogy_approved' }
+  // Phase 9 — Final delivery.
+  //
+  // `delivery_finalize_started` is the hand-off out of eulogy_complete — it
+  // moves the user into the `delivery_ready` stage so the BuilderClient's
+  // auto-finalize effect can fire POST /api/delivery/finalize.
+  // `delivery_finalized` lands the slug + absolute share URL.
+  // `delivery_emailed_event` records a successful email send.
+  | { type: 'delivery_finalize_started' }
+  | {
+      type: 'delivery_finalized';
+      shareSlug: string;
+      shareUrl: string;
+    }
+  | { type: 'delivery_emailed_event'; sentTo: string }
   | { type: 'session_loaded'; state: WizardState }
   | { type: 'goto'; stage: StageTag };
 
@@ -1323,14 +1388,96 @@ export function reduceState(state: WizardState, event: WizardEvent): WizardState
     }
 
     case 'assembly_complete': {
-      // Soft pause before Phase 8 entry. Phase 8 (eulogy PDF) is not wired
-      // here; the CTA dispatches `goto: eulogy_pdf` for deep-link continuity.
+      // Soft pause before Phase 8 entry. The CTA dispatches
+      // `eulogy_render_started` and lands the user on the render loading panel.
+      if (event.type === 'eulogy_render_started') {
+        return {
+          stage: 'eulogy_render',
+          data: { ...state.data, eulogy_pdf_url: null },
+        };
+      }
       return state;
     }
 
-    case 'eulogy_pdf':
-      // Phase 8 placeholder — no transitions defined yet.
+    // Stage 8 — Eulogy PDF.
+    case 'eulogy_render': {
+      if (event.type === 'eulogy_rendered') {
+        return {
+          stage: 'eulogy_review',
+          data: {
+            ...state.data,
+            eulogy_pdf_asset_id: event.assetId,
+            eulogy_pdf_url: event.publicUrl,
+          },
+        };
+      }
       return state;
+    }
+
+    case 'eulogy_review': {
+      if (event.type === 'eulogy_approved') {
+        return { ...state, stage: 'eulogy_complete' };
+      }
+      if (event.type === 'eulogy_render_started') {
+        // "Re-render the PDF" — clear the locally cached URL so the loading
+        // state renders cleanly, bounce back to render so the auto-fire
+        // effect kicks the request.
+        return {
+          stage: 'eulogy_render',
+          data: {
+            ...state.data,
+            eulogy_pdf_asset_id: null,
+            eulogy_pdf_url: null,
+          },
+        };
+      }
+      return state;
+    }
+
+    case 'eulogy_complete': {
+      // Soft pause between Stage 8 and Phase 9 (final delivery). The CTA
+      // dispatches `delivery_finalize_started` which moves the user to
+      // delivery_ready and the BuilderClient fires the finalize call.
+      if (event.type === 'delivery_finalize_started') {
+        return { ...state, stage: 'delivery_ready' };
+      }
+      return state;
+    }
+
+    // Phase 9 — Final delivery.
+    case 'delivery_ready': {
+      if (event.type === 'delivery_finalized') {
+        return {
+          ...state,
+          data: {
+            ...state.data,
+            delivery_share_slug: event.shareSlug,
+            delivery_share_url: event.shareUrl,
+          },
+        };
+      }
+      if (event.type === 'delivery_emailed_event') {
+        // Email-send success — record the recipient locally so the form can
+        // surface a "Sent to <addr>" confirmation. Stay on the same screen;
+        // the user may want to send to a second address.
+        return {
+          stage: 'delivery_emailed',
+          data: { ...state.data, delivery_emailed_to: event.sentTo },
+        };
+      }
+      return state;
+    }
+
+    case 'delivery_emailed': {
+      if (event.type === 'delivery_emailed_event') {
+        // Allow additional sends — replace the recipient and stay here.
+        return {
+          ...state,
+          data: { ...state.data, delivery_emailed_to: event.sentTo },
+        };
+      }
+      return state;
+    }
 
     default: {
       // Exhaustiveness check
@@ -1408,8 +1555,13 @@ export const ALL_STAGE_TAGS = [
   'assembly_render',
   'assembly_review',
   'assembly_complete',
-  // Stage 8 — Eulogy PDF (Phase 8 placeholder)
-  'eulogy_pdf',
+  // Stage 8 — Eulogy PDF
+  'eulogy_render',
+  'eulogy_review',
+  'eulogy_complete',
+  // Phase 9 — Final delivery
+  'delivery_ready',
+  'delivery_emailed',
 ] as const satisfies readonly StageTag[];
 
 const STAGE_TAG_SET: ReadonlySet<string> = new Set<string>(ALL_STAGE_TAGS);
@@ -1566,6 +1718,14 @@ const PROBE_EVENTS: WizardEvent[] = [
     publicUrl: 'probe',
   },
   { type: 'assembly_approved' },
+  // Stage 8 — Eulogy PDF
+  { type: 'eulogy_render_started' },
+  { type: 'eulogy_rendered', assetId: 'probe', publicUrl: 'probe' },
+  { type: 'eulogy_approved' },
+  // Phase 9 — Final delivery
+  { type: 'delivery_finalize_started' },
+  { type: 'delivery_finalized', shareSlug: 'probe', shareUrl: 'probe' },
+  { type: 'delivery_emailed_event', sentTo: 'probe@example.com' },
 ];
 
 export function legalNextStages(current: StageTag): Set<StageTag> {
@@ -1628,7 +1788,8 @@ export function bannerKeyForStage(
   | 'cinematography'
   | 'video'
   | 'assembly'
-  | 'eulogy' {
+  | 'eulogy'
+  | 'delivery' {
   if (stage.startsWith('intake_')) return 'intake';
   if (
     stage.startsWith('character_sheet_') ||
@@ -1673,8 +1834,15 @@ export function bannerKeyForStage(
   ) {
     return 'assembly';
   }
-  if (stage === 'eulogy_pdf') {
+  if (
+    stage === 'eulogy_render' ||
+    stage === 'eulogy_review' ||
+    stage === 'eulogy_complete'
+  ) {
     return 'eulogy';
+  }
+  if (stage === 'delivery_ready' || stage === 'delivery_emailed') {
+    return 'delivery';
   }
   return 'format_theme_style';
 }
