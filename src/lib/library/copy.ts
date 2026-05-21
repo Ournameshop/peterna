@@ -199,6 +199,139 @@ export const SHELL_COPY = {
   stuck_footer: 'Having trouble? Refresh — your work is saved.',
 } as const;
 
+// -----------------------------------------------------------------------------
+// Stage 2 — Character Sheet copy.
+//
+// Tone rules (HARD, from copy-and-content.md):
+//   - No cost language. Re-rolls are framed as "let's get it right," not as
+//     expensive or limited.
+//   - "Looks like" / "I see" — the UI never asserts "this is your pet."
+//   - Loading copy uses the pet's name: "Drawing [PET_NAME]…" never "Generating image…"
+// -----------------------------------------------------------------------------
+
+/**
+ * Stage 2.0 hand-off panel — sits between intake_complete and the first render.
+ * The user taps "Start the character sheet" to fire the render. This screen
+ * is where the wizard explicitly sets the user's expectation for the
+ * first GATE moment.
+ */
+export const STAGE_2_INTRO = {
+  headline: "Now let's bring [PET_NAME] to life on the page.",
+  body: "We'll draw a four-view character sheet of [PET_NAME] using the photos you shared. We'll review it together, and you can ask for changes as many times as it takes — there's no rush.",
+  start_button: 'Start the character sheet',
+} as const;
+
+/**
+ * Stage 2.1 — render loading state.
+ *
+ * Pet name is REQUIRED in the loading line per spec ("Drawing [PET_NAME]…").
+ * Never "Generating image…" or vendor names.
+ */
+export const CHARACTER_SHEET_LOADING = {
+  drawing: 'Drawing [PET_NAME]…',
+  drawing_hint:
+    'Sketching four views — front, three-quarter, side, and full body. This takes a moment.',
+} as const;
+
+/**
+ * Stage 2.2 — character sheet review (GATE 1).
+ *
+ * Pills are framed in collaborative language: "let's get it right" — never
+ * "are you sure" / "this will use credits" / cost-pressure.
+ */
+export const CHARACTER_SHEET_REVIEW = {
+  headline: "Here's [PET_NAME].",
+  subhead: 'Take a look at all four views. Tell us what to keep and what to adjust.',
+  pills: {
+    approve: 'Looks great',
+    refine: 'Needs tweaks',
+    restart: 'Start over',
+  },
+  // Subtle helper rendered next to the pill row so the gate doesn't read as
+  // a binary "approve / reject" — it reads as a conversation.
+  pills_hint:
+    "There's no wrong answer here. We can keep tuning until it feels right.",
+} as const;
+
+/**
+ * Stage 2.3 — refinement panel (sub-state of the review screen).
+ *
+ * The chip labels themselves live in `src/lib/builder/refinements.ts` (each
+ * chip carries its own user-facing label). This block holds the framing
+ * copy around the chip group.
+ */
+export const CHARACTER_SHEET_REFINEMENT = {
+  headline: 'What should we adjust?',
+  subhead:
+    'Tap anything that needs a tweak — pick as many as you want. Add a note below if you want to describe something specific.',
+  notes_label: 'Anything else?',
+  notes_placeholder:
+    "e.g. The fur on her chest should be more white, and her tail is longer than this.",
+  // Action labels
+  submit: "Redraw [PET_NAME] with these notes",
+  cancel: "Never mind — go back",
+} as const;
+
+/**
+ * Stage 2.4 lock — small confirmation when the user approves.
+ * Not user-visible mid-flight; rendered as a brief inline status.
+ */
+export const CHARACTER_SHEET_APPROVED = {
+  status: "Locked in. We'll use this likeness everywhere from here on.",
+} as const;
+
+/**
+ * Stage 2.5 — Length picker.
+ *
+ * Labels are emotionally framed first; minutes/beats are secondary
+ * clarification per spec §2.5.
+ */
+export const LENGTH_FRAMING = {
+  question: "How long should [PET_NAME]'s tribute be?",
+  hint: 'You can change this later if you want to.',
+  pills: {
+    short: {
+      label: 'A short keepsake',
+      description: '2 minutes · 8 beats',
+    },
+    full: {
+      label: 'A full tribute',
+      description:
+        '3 minutes · 12 beats · sweet spot for emotional pacing without overstaying',
+      badge: 'Recommended',
+    },
+    extended: {
+      label: 'An extended remembrance',
+      description: '4 minutes · 16 beats',
+    },
+  },
+} as const;
+
+/**
+ * Stage 2.6 — Aspect picker.
+ */
+export const ASPECT_FRAMING = {
+  question: "Where will [PET_NAME]'s tribute live?",
+  hint: '',
+  pills: {
+    phone: {
+      label: 'On my phone',
+      description: 'Vertical 9:16 · easiest to share and watch',
+      badge: 'Recommended',
+    },
+    tv: {
+      label: 'On a TV or computer',
+      description:
+        'Horizontal 16:9 · best for family viewing, YouTube, projecting at a memorial',
+    },
+    social: {
+      label: 'Social feeds',
+      description: 'Square 1:1 · best for Instagram, Facebook',
+    },
+  },
+} as const;
+
+
 /**
  * One barrel export for components that want the full object.
  */
@@ -218,4 +351,11 @@ export const COPY = {
   CREATOR_FRAMING,
   YEARS_FRAMING,
   SHELL_COPY,
+  STAGE_2_INTRO,
+  CHARACTER_SHEET_LOADING,
+  CHARACTER_SHEET_REVIEW,
+  CHARACTER_SHEET_REFINEMENT,
+  CHARACTER_SHEET_APPROVED,
+  LENGTH_FRAMING,
+  ASPECT_FRAMING,
 } as const;

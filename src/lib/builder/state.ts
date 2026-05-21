@@ -83,6 +83,13 @@ export type PhotoAsset = {
   public_url: string;
 };
 
+export type CharacterSheetAsset = {
+  asset_id: string;
+  public_url: string;
+};
+
+export type AspectRatio = '9:16' | '16:9' | '1:1';
+
 export type WizardData = {
   session_id: string | null;
   pet_name: string | null;
@@ -98,6 +105,18 @@ export type WizardData = {
   creator_name: string | null;
   years_label: string | null;
   is_returning_user: boolean;
+
+  // Stage 2 — Character Sheet
+  character_sheet: CharacterSheetAsset | null;
+  // The refinements the user picked on the most recent attempt, kept in
+  // state so the refinement screen can pre-fill them when re-entering.
+  pending_refinements: string[];
+  pending_refinement_notes: string | null;
+
+  // Stage 2.5 / 2.6
+  target_minutes: number | null;
+  beat_count: number | null;
+  aspect_ratio: AspectRatio | null;
 };
 
 export type WizardState = {
@@ -120,6 +139,12 @@ export const INITIAL_WIZARD_DATA: WizardData = {
   creator_name: null,
   years_label: null,
   is_returning_user: false,
+  character_sheet: null,
+  pending_refinements: [],
+  pending_refinement_notes: null,
+  target_minutes: null,
+  beat_count: null,
+  aspect_ratio: null,
 };
 
 export function createInitialState(sessionId: string | null = null): WizardState {
@@ -155,6 +180,26 @@ export type WizardEvent =
   | { type: 'favorites_chosen'; favorites: FavoriteThingId[] }
   | { type: 'creator_submitted'; creatorName: string | null }
   | { type: 'years_submitted'; yearsLabel: string | null }
+  // Stage 2 — Character Sheet
+  | { type: 'character_sheet_render_started' }
+  | {
+      type: 'character_sheet_rendered';
+      asset: CharacterSheetAsset;
+    }
+  | { type: 'character_sheet_approved' }
+  | {
+      type: 'character_sheet_refinement_requested';
+      refinements: string[];
+      notes: string | null;
+    }
+  | { type: 'character_sheet_restart' } // "Start over" — re-render with no refinements
+  // Stage 2.5 + 2.6 pickers
+  | {
+      type: 'length_chosen';
+      targetMinutes: number;
+      beatCount: number;
+    }
+  | { type: 'aspect_chosen'; aspectRatio: AspectRatio }
   | { type: 'session_loaded'; state: WizardState }
   | { type: 'goto'; stage: StageTag };
 
@@ -383,15 +428,108 @@ export function reduceState(state: WizardState, event: WizardEvent): WizardState
       return state;
     }
 
-    // Stage 2 + Stage 3 stages: not wired in Phase 1. Reducer accepts them as
-    // valid states but events that would advance through them aren't defined
-    // yet — return state unchanged.
-    case 'intake_complete':
-    case 'character_sheet_render':
-    case 'character_sheet_review':
-    case 'character_sheet_refinement':
-    case 'length_pick':
-    case 'aspect_pick':
+    case 'intake_complete': {
+      // Intake-complete is a soft pause screen; the user advances by tapping
+      // the "Start the character sheet" button, which fires a render start.
+      if (event.type === 'character_sheet_render_started') {
+        return { ...state, stage: 'character_sheet_render' };
+      }
+      return state;
+    }
+
+    // Stage 2 — Character Sheet
+    case 'character_sheet_render': {
+      if (event.type === 'character_sheet_rendered') {
+        return {
+          stage: 'character_sheet_review',
+          data: {
+            ...state.data,
+            character_sheet: event.asset,
+            // Clear pending refinements on a fresh render landing.
+            pending_refinements: [],
+            pending_refinement_notes: null,
+          },
+        };
+      }
+      return state;
+    }
+
+    case 'character_sheet_review': {
+      if (event.type === 'character_sheet_approved') {
+        return { ...state, stage: 'length_pick' };
+      }
+      if (event.type === 'character_sheet_refinement_requested') {
+        // Two paths into a re-render: refinement (with corrections) and
+        // restart (no refinements). Both land back on render.
+        return {
+          stage: 'character_sheet_render',
+          data: {
+            ...state.data,
+            pending_refinements: event.refinements,
+            pending_refinement_notes: event.notes,
+          },
+        };
+      }
+      if (event.type === 'character_sheet_restart') {
+        return {
+          stage: 'character_sheet_render',
+          data: {
+            ...state.data,
+            pending_refinements: [],
+            pending_refinement_notes: null,
+          },
+        };
+      }
+      return state;
+    }
+
+    case 'character_sheet_refinement': {
+      // The refinement panel is a sub-view of the review screen in the
+      // current UI (slides in below the gate review). It can still be a
+      // top-level stage if a deep-link lands here. Mirror review behaviors.
+      if (event.type === 'character_sheet_refinement_requested') {
+        return {
+          stage: 'character_sheet_render',
+          data: {
+            ...state.data,
+            pending_refinements: event.refinements,
+            pending_refinement_notes: event.notes,
+          },
+        };
+      }
+      if (event.type === 'character_sheet_approved') {
+        return { ...state, stage: 'length_pick' };
+      }
+      return state;
+    }
+
+    // Stage 2.5 — Length picker
+    case 'length_pick': {
+      if (event.type === 'length_chosen') {
+        return {
+          stage: 'aspect_pick',
+          data: {
+            ...state.data,
+            target_minutes: event.targetMinutes,
+            beat_count: event.beatCount,
+          },
+        };
+      }
+      return state;
+    }
+
+    // Stage 2.6 — Aspect picker
+    case 'aspect_pick': {
+      if (event.type === 'aspect_chosen') {
+        return {
+          stage: 'curators_pick_or_manual',
+          data: { ...state.data, aspect_ratio: event.aspectRatio },
+        };
+      }
+      return state;
+    }
+
+    // Stage 3 stages: not yet wired in this phase — leave inert.
     case 'curators_pick_or_manual':
     case 'curator_style_confirm':
     case 'format_pick':
@@ -492,6 +630,21 @@ const PROBE_EVENTS: WizardEvent[] = [
   { type: 'favorites_chosen', favorites: [] },
   { type: 'creator_submitted', creatorName: null },
   { type: 'years_submitted', yearsLabel: null },
+  // Stage 2 transitions
+  { type: 'character_sheet_render_started' },
+  {
+    type: 'character_sheet_rendered',
+    asset: { asset_id: 'probe', public_url: 'probe' },
+  },
+  { type: 'character_sheet_approved' },
+  {
+    type: 'character_sheet_refinement_requested',
+    refinements: [],
+    notes: null,
+  },
+  { type: 'character_sheet_restart' },
+  { type: 'length_chosen', targetMinutes: 3, beatCount: 12 },
+  { type: 'aspect_chosen', aspectRatio: '9:16' },
 ];
 
 export function legalNextStages(current: StageTag): Set<StageTag> {
