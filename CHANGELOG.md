@@ -123,12 +123,13 @@ per-beat captions composited into the assembled video; A/V sync corrected.
 
 ## Known issues / pending
 
-- **fal.ai account is out of balance.** Video generation (Seedance) and the
-  compose output upload still need a top-up at fal.ai/dashboard/billing.
-- **Image likeness via Gemini is weaker than fal `gpt-image-2`.** When fal
-  is topped up, image generation should be switched back to `gpt-image-2`
-  (keeping Gemini as a fallback).
+- **Share link deferred.** "Get my memorial page link" (and "Add to family
+  channel") remain no-op stubs. PostgreSQL is provisioned on the staging box
+  (database `peterna`, `tributes` table) and `DATABASE_URL` is set in both
+  environments — dormant and harmless until the feature is built later.
+- **Music library has no audio files.** A Suno-generated per-tribute bed is
+  the current stopgap; the skill-faithful fix (curated track files) is
+  deferred — audio to be sourced separately.
 - `origin/staging` branch is behind the deployed code — staging runs the
   latest (built directly on the box); merge `Adding-skill-in-webflow` →
   `staging` to keep the CI pipeline in sync.
-- P1 caption-burn and the compose route require `ffmpeg` on the deploy host.
