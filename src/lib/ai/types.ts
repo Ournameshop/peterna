@@ -56,6 +56,13 @@ export type VisionPassInput = {
   photos: string[];
   schema: object;
   sessionId: string;
+  /**
+   * Final prompt text with `[PET_NAME]` substituted. Composed by the route handler from
+   * `VISION_PASS_PROMPT` in `@/lib/library/vision-pass`. Required — the vendor-layer no longer
+   * embeds the template so the same caller can swap in stage-specific tweaks later without
+   * touching this module.
+   */
+  prompt: string;
 };
 
 export type VisionPassResult = {
