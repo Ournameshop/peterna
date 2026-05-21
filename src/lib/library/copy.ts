@@ -50,6 +50,10 @@ export const STAGE_BANNERS = {
     headline:
       "Stage 3: Choosing the kind of tribute, the world it lives in, and how it's painted",
   },
+  beat_sheet: {
+    emoji: '📝',
+    headline: 'Stage 4: Beat sheet — drafting the story of the tribute',
+  },
 } as const;
 
 /**
@@ -434,6 +438,102 @@ export const COMBINATION_PREVIEW = {
 export const STAGE_3_COMPLETE = {
   headline: "Locked in. We'll carry this look into every beat.",
   body: "Next, we'll sketch the story — a beat-by-beat outline of [PET_NAME]'s tribute. You'll get to review and edit every beat before any of them become real frames.",
+  /** CTA on the stage_3_complete screen that fires the Stage 4 generate. */
+  start_button: 'Draft the beat sheet',
+} as const;
+
+// -----------------------------------------------------------------------------
+// Stage 4 — Beat Sheet copy.
+//
+// Tone rules carry over: no cost language, no apology, no vendor names. Beat
+// regeneration is framed as "let's draft a different story," never as "this
+// will use credits." The caption length warning is soft: warn, don't block.
+// -----------------------------------------------------------------------------
+
+/**
+ * Stage 4.1 — loading state while the beat sheet generates.
+ *
+ * Pet name is REQUIRED in the loading line per spec.
+ */
+export const BEAT_SHEET_LOADING = {
+  drafting: 'Drafting the story of [PET_NAME]…',
+  drafting_hint:
+    "Outlining the beats, one moment at a time — what we'll open with, the memories that carry it, and how it closes.",
+} as const;
+
+/**
+ * Stage 4.2 — beat sheet review (the editable list + approval pills).
+ *
+ * Per spec rule, "Beat N of M" is the only place we use numerals on
+ * scene-card labels. Author-facing labels in the review UI are fine; the
+ * page-numeral prohibition is about the rendered tribute itself.
+ */
+export const BEAT_SHEET_REVIEW = {
+  headline: "Here's the story for [PET_NAME].",
+  subhead:
+    "Each beat is a moment in the tribute. Edit the caption or the scene description if anything doesn't feel right.",
+  /** Substituted with the beat index (1-based) and total. */
+  beat_label_template: 'Beat [N] of [M]',
+  /** Field labels inside each beat card. */
+  caption_label: 'Caption',
+  caption_helper: 'Under 15 words — this appears in the frame.',
+  scene_label: 'Scene description',
+  scene_helper:
+    "What the frame shows. The model uses this to draw the storyboard.",
+  /** Edit / done toggle on each beat card. */
+  edit_button: 'Edit',
+  done_button: 'Done',
+  /** Pill row (passed to <GateReview>). */
+  pills: {
+    approve: 'Approve and continue',
+    regenerate: 'Rewrite the whole sheet',
+    restart: 'Start over',
+  },
+  pills_hint:
+    "Edit any beat above, or rewrite the whole sheet if the story isn't landing.",
+} as const;
+
+/**
+ * Soft-validation warning when a caption exceeds 15 words.
+ * Warn, don't block — the user may have a strong reason.
+ */
+export const BEAT_SHEET_CAPTION_WARNING = {
+  /** Substituted: [N] = current word count. */
+  over_limit:
+    'This caption runs [N] words — captions read best under 15. You can keep it if you want.',
+} as const;
+
+/**
+ * Stage 4 archetype display labels — small uppercase tag rendered on each beat
+ * card. The wire archetype strings (`opening`, `peak`, `closing`, …) map to
+ * these display labels; unknown archetypes fall back to the raw string.
+ *
+ * Per spec §"Beat structure by length," the archetypes used in 8/12/16-beat
+ * sheets are: open(ing), memory, connection, ceremonial, release, close/closing.
+ */
+export const BEAT_ARCHETYPE_LABELS: Readonly<Record<string, string>> = {
+  open: 'OPENING',
+  opening: 'OPENING',
+  memory: 'MEMORY',
+  connection: 'CONNECTION',
+  ceremonial: 'CEREMONIAL',
+  release: 'RELEASE',
+  close: 'CLOSING',
+  closing: 'CLOSING',
+  // Less common archetypes the model may emit on extended sheets.
+  rising: 'RISING',
+  turning: 'TURNING',
+  peak: 'PEAK',
+  descent: 'DESCENT',
+};
+
+/**
+ * Stage 4-complete handoff — sits between beat_sheet_complete and Stage 5
+ * (storyboard render). The Stage 5 CTA itself is not wired in Phase 4a.
+ */
+export const BEAT_SHEET_COMPLETE = {
+  headline: "Story locked. Every beat is ready.",
+  body: "Next, we'll draw one frame for each beat of [PET_NAME]'s tribute. You'll review the storyboard before any of it becomes real video.",
 } as const;
 
 /**
@@ -470,4 +570,9 @@ export const COPY = {
   STYLE_FRAMING,
   COMBINATION_PREVIEW,
   STAGE_3_COMPLETE,
+  BEAT_SHEET_LOADING,
+  BEAT_SHEET_REVIEW,
+  BEAT_SHEET_CAPTION_WARNING,
+  BEAT_ARCHETYPE_LABELS,
+  BEAT_SHEET_COMPLETE,
 } as const;
