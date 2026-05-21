@@ -13,6 +13,7 @@ import {
   reduceState,
   createInitialState,
   needsPronunciationCheck,
+  type AspectRatio,
   type StageTag,
   type WizardState,
   type WizardEvent,
@@ -20,6 +21,10 @@ import {
   type PhotoAsset,
 } from "@/lib/builder/state";
 import type {
+  CharacterSheetApproveRequest,
+  CharacterSheetApproveResponse,
+  CharacterSheetRenderRequest,
+  CharacterSheetRenderResponse,
   SessionCreateResponse,
   SessionPatchBody,
   VisionPassResponse,
@@ -35,8 +40,10 @@ import {
   FAVORITES_FRAMING,
   CREATOR_FRAMING,
   YEARS_FRAMING,
+  STAGE_2_INTRO,
   substitutePetName,
 } from "@/lib/library/copy";
+import { getRefinementInstructions } from "@/lib/builder/refinements";
 import {
   GENDER_OPTIONS,
   type GenderId,
@@ -59,6 +66,9 @@ import PhotoUrlField from "./PhotoUrlField";
 import PillPicker, { type Pill } from "./PillPicker";
 import TextField from "./TextField";
 import ConfirmationCard from "./ConfirmationCard";
+import CharacterSheetView from "./CharacterSheetView";
+import LengthPicker from "./LengthPicker";
+import AspectPicker from "./AspectPicker";
 
 // Orchestrates the Stage 1 wizard. Owns the state machine + the side-effects
 // (PATCH on transition, vision-pass kick on photos-and-name).
@@ -151,6 +161,14 @@ export default function BuilderClient({
   const [submitting, setSubmitting] = useState(false);
   const [visionInFlight, setVisionInFlight] = useState(false);
   const visionStartedRef = useRef(false);
+  const [renderInFlight, setRenderInFlight] = useState(false);
+  // Idempotency-Key dedupe: hold onto the key for ~5s so a double-tap on
+  // "Start over" or "Redraw" within that window sends the SAME key — backend
+  // short-circuits to the existing row instead of double-billing. Distinct
+  // re-render intents (the user comes back later, picks new refinements,
+  // and submits again) get a new key.
+  const renderIdemRef = useRef<{ key: string; createdAt: number } | null>(null);
+  const renderInFlightRef = useRef(false);
 
   // Bootstrap: if we don't yet have a session, create one and reflect into URL.
   useEffect(() => {
@@ -265,6 +283,163 @@ export default function BuilderClient({
     },
     [state],
   );
+
+  // ---------------------------------------------------------------------------
+  // Stage 2 — Character sheet render
+  //
+  // Idempotency-Key strategy:
+  //   - On a fresh render intent (user just landed on character_sheet_render or
+  //     deliberately tapped "Start over" / "Redraw with notes"), generate a new
+  //     UUID v4 (browser-native crypto.randomUUID()) and hold it in a ref.
+  //   - If the same effect re-fires within the 5-second dedupe window (e.g.
+  //     React StrictMode double-invocation, transient state churn), reuse the
+  //     key so the backend short-circuits to the existing row.
+  //   - A fresh user action ("Start over" pressed a second time after the prior
+  //     render already returned) gets a new key — the user means "do it again."
+  // ---------------------------------------------------------------------------
+
+  const DEDUPE_WINDOW_MS = 5_000;
+
+  const getIdempotencyKey = useCallback((freshIntent: boolean): string => {
+    const now = Date.now();
+    const cur = renderIdemRef.current;
+    if (!freshIntent && cur && now - cur.createdAt < DEDUPE_WINDOW_MS) {
+      return cur.key;
+    }
+    const key = crypto.randomUUID();
+    renderIdemRef.current = { key, createdAt: now };
+    return key;
+  }, []);
+
+  const renderCharacterSheet = useCallback(
+    async (refinements: string[], freshIntent: boolean) => {
+      if (!state.data.session_id) return;
+      if (renderInFlightRef.current) return; // 1-in-flight guard
+      renderInFlightRef.current = true;
+      setRenderInFlight(true);
+
+      const idempotencyKey = getIdempotencyKey(freshIntent);
+
+      // Convert refinement chip IDs into the imperative instructions the
+      // backend's `build-character-sheet.ts` will append to the prompt.
+      // The textarea contents (state.data.pending_refinement_notes) get
+      // appended as-is, verbatim, after the chip-derived instructions.
+      const chipInstructions = getRefinementInstructions(refinements);
+      const notes = state.data.pending_refinement_notes;
+      const allRefinements: string[] = notes
+        ? [...chipInstructions, notes]
+        : chipInstructions;
+
+      const body: CharacterSheetRenderRequest = {
+        session_id: state.data.session_id,
+        refinements: allRefinements.length > 0 ? allRefinements : undefined,
+      };
+
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[builder] POST /api/character-sheet/render", body);
+      }
+
+      try {
+        const res = await fetch("/api/character-sheet/render", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Idempotency-Key": idempotencyKey,
+          },
+          body: JSON.stringify(body),
+        });
+        const json = (await res
+          .json()
+          .catch(() => null)) as CharacterSheetRenderResponse | null;
+        if (json && json.ok) {
+          dispatch({
+            type: "character_sheet_rendered",
+            asset: { asset_id: json.asset_id, public_url: json.public_url },
+          });
+        } else if (process.env.NODE_ENV !== "production") {
+          console.warn("[builder] character-sheet/render failed", res.status, json);
+        }
+      } catch (err) {
+        if (process.env.NODE_ENV !== "production") {
+          console.warn("[builder] character-sheet/render network error", err);
+        }
+      } finally {
+        renderInFlightRef.current = false;
+        setRenderInFlight(false);
+      }
+    },
+    [getIdempotencyKey, state.data.session_id, state.data.pending_refinement_notes],
+  );
+
+  const approveCharacterSheet = useCallback(async () => {
+    const sessionId = state.data.session_id;
+    const asset = state.data.character_sheet;
+    if (!sessionId || !asset) return;
+
+    setSubmitting(true);
+    const body: CharacterSheetApproveRequest = {
+      session_id: sessionId,
+      asset_id: asset.asset_id,
+    };
+
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[builder] POST /api/character-sheet/approve", body);
+    }
+
+    try {
+      const res = await fetch("/api/character-sheet/approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const json = (await res
+        .json()
+        .catch(() => null)) as CharacterSheetApproveResponse | null;
+      if (json && json.ok) {
+        dispatch({ type: "character_sheet_approved" });
+      } else {
+        // 404 (backend not up yet) — advance optimistically so the wizard can
+        // still walk in local dev. Backend will overwrite on PATCH.
+        if (res.status === 404) {
+          dispatch({ type: "character_sheet_approved" });
+        } else if (process.env.NODE_ENV !== "production") {
+          console.warn("[builder] character-sheet/approve failed", res.status, json);
+        }
+      }
+    } catch (err) {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn("[builder] character-sheet/approve network error", err);
+      }
+      // Fall through — the user can retry. We don't auto-advance on network
+      // failure since the gate is meant to be deliberate.
+    } finally {
+      setSubmitting(false);
+    }
+  }, [state.data.session_id, state.data.character_sheet]);
+
+  // Fire a render automatically whenever we land on character_sheet_render
+  // with no asset yet. This covers: initial entry from intake_complete,
+  // re-entry from "Start over" or refinement-submitted in the reducer.
+  //
+  // If the user deep-links to character_sheet_review (or refinement) without
+  // an asset in state (e.g. page refresh before session-GET-restore lands —
+  // outside Phase 2 scope, Phase 1 doesn't restore the asset URL), snap back
+  // to character_sheet_render so the auto-render effect picks them up.
+  useEffect(() => {
+    if (
+      (state.stage === "character_sheet_review" ||
+        state.stage === "character_sheet_refinement") &&
+      !state.data.character_sheet
+    ) {
+      dispatch({ type: "goto", stage: "character_sheet_render" });
+      return;
+    }
+    if (state.stage !== "character_sheet_render") return;
+    if (state.data.character_sheet) return; // already have one, no need to fire
+    if (renderInFlightRef.current) return;
+    void renderCharacterSheet(state.data.pending_refinements, false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.stage, state.data.character_sheet]);
 
   // -------------------------------------------------------------------------
   // Stage-specific render
@@ -641,7 +816,105 @@ export default function BuilderClient({
             petName={petName}
             traits={state.data.personality_traits}
             favorites={state.data.favorite_things}
+            onStart={() => {
+              void dispatchAndSave({ type: "character_sheet_render_started" });
+            }}
           />
+        );
+
+      case "character_sheet_render":
+        return (
+          <CharacterSheetView
+            petName={petName}
+            mode="loading"
+            onApprove={() => {}}
+            onRequestRefinement={() => {}}
+            onRestart={() => {}}
+            disabled
+          />
+        );
+
+      case "character_sheet_review":
+      case "character_sheet_refinement": {
+        const asset = state.data.character_sheet;
+        if (!asset) {
+          // Fallback — should not happen, but keep a calm loading state.
+          return (
+            <CharacterSheetView
+              petName={petName}
+              mode="loading"
+              onApprove={() => {}}
+              onRequestRefinement={() => {}}
+              onRestart={() => {}}
+              disabled
+            />
+          );
+        }
+        return (
+          <CharacterSheetView
+            petName={petName}
+            mode="review"
+            imageUrl={asset.public_url}
+            initialRefinements={state.data.pending_refinements}
+            initialNotes={state.data.pending_refinement_notes}
+            disabled={submitting || renderInFlight}
+            onApprove={() => {
+              void approveCharacterSheet();
+            }}
+            onRequestRefinement={(refinements, notes) => {
+              // Fresh intent — generate a new idempotency key for this render.
+              renderIdemRef.current = null;
+              dispatch({
+                type: "character_sheet_refinement_requested",
+                refinements,
+                notes,
+              });
+              // The render effect will fire on the stage transition into
+              // character_sheet_render; we don't need to call it directly.
+            }}
+            onRestart={() => {
+              // Fresh intent — clear the idempotency key so the next render
+              // is treated as a new request, not a double-tap.
+              renderIdemRef.current = null;
+              dispatch({ type: "character_sheet_restart" });
+            }}
+          />
+        );
+      }
+
+      case "length_pick":
+        return (
+          <LengthPicker
+            petName={petName}
+            onChosen={(targetMinutes, beatCount) => {
+              void dispatchAndSave(
+                { type: "length_chosen", targetMinutes, beatCount },
+                { target_minutes: targetMinutes, beat_count: beatCount },
+              );
+            }}
+          />
+        );
+
+      case "aspect_pick":
+        return (
+          <AspectPicker
+            petName={petName}
+            onChosen={(ratio: AspectRatio) => {
+              void dispatchAndSave(
+                { type: "aspect_chosen", aspectRatio: ratio },
+                { aspect_ratio: ratio },
+              );
+            }}
+          />
+        );
+
+      case "curators_pick_or_manual":
+        // Phase 3 entry. The Stage 3 screens aren't built in this phase; we
+        // land here, reflect the stage in the URL, and show a calm hand-off
+        // panel that tells the user we're working on the next step. The
+        // Phase 3 frontend agent will replace this body.
+        return (
+          <Stage3Placeholder petName={petName} aspectRatio={state.data.aspect_ratio} />
         );
 
       default:
@@ -760,10 +1033,12 @@ function CompletePanel({
   petName,
   traits,
   favorites,
+  onStart,
 }: {
   petName: string | null;
   traits: ReadonlyArray<string>;
   favorites: ReadonlyArray<string>;
+  onStart: () => void;
 }) {
   const name = petName ?? "your pet";
   const fragments = useMemo(() => {
@@ -787,9 +1062,134 @@ function CompletePanel({
     return list;
   }, [traits, favorites]);
 
+  const headline = substitutePetName(STAGE_2_INTRO.headline, petName);
+  const body = substitutePetName(STAGE_2_INTRO.body, petName);
+
   return (
     <section
       aria-label="Intake complete"
+      style={{
+        background: "#FFFBF3",
+        border: `1px solid rgba(0,0,0,0.06)`,
+        borderRadius: 18,
+        padding: "36px 24px",
+        textAlign: "center",
+        display: "flex",
+        flexDirection: "column",
+        gap: 18,
+      }}
+    >
+      <p
+        style={{
+          margin: 0,
+          fontStyle: "italic",
+          fontSize: 28,
+          lineHeight: 1.4,
+        }}
+      >
+        Thank you for telling us about {name}.
+      </p>
+      {fragments.length > 0 ? (
+        <p
+          style={{
+            margin: 0,
+            fontSize: 15,
+            lineHeight: 1.6,
+            opacity: 0.78,
+            maxWidth: 540,
+            marginLeft: "auto",
+            marginRight: "auto",
+          }}
+        >
+          {fragments.join(" ")}
+        </p>
+      ) : null}
+
+      <hr
+        aria-hidden="true"
+        style={{
+          margin: "8px auto",
+          width: 64,
+          border: "none",
+          borderTop: "1px solid rgba(0,0,0,0.08)",
+        }}
+      />
+
+      <p
+        style={{
+          margin: 0,
+          fontSize: 18,
+          lineHeight: 1.5,
+          fontStyle: "italic",
+        }}
+      >
+        {headline}
+      </p>
+      <p
+        style={{
+          margin: 0,
+          fontSize: 14,
+          lineHeight: 1.6,
+          opacity: 0.78,
+          maxWidth: 540,
+          marginLeft: "auto",
+          marginRight: "auto",
+        }}
+      >
+        {body}
+      </p>
+
+      <div style={{ display: "flex", justifyContent: "center", marginTop: 4 }}>
+        <button
+          type="button"
+          onClick={onStart}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            padding: "12px 24px",
+            borderRadius: 999,
+            fontFamily: "inherit",
+            fontSize: 14,
+            fontWeight: 500,
+            border: "none",
+            cursor: "pointer",
+            background: "#2A211B",
+            color: "#F8F1E4",
+          }}
+        >
+          {STAGE_2_INTRO.start_button}
+        </button>
+      </div>
+
+      <p
+        style={{
+          margin: 0,
+          marginTop: 6,
+          fontSize: 13,
+          opacity: 0.55,
+        }}
+      >
+        {COPY.SHELL_COPY.stuck_footer}
+      </p>
+    </section>
+  );
+}
+
+// Phase 3 hand-off placeholder. Renders a calm "next step" panel so the user
+// who advances all the way through Stage 2 in Phase 2 testing doesn't crash
+// into a default loading spinner. The Phase 3 frontend agent will replace
+// this with the Curator's Pick grid.
+function Stage3Placeholder({
+  petName,
+  aspectRatio,
+}: {
+  petName: string | null;
+  aspectRatio: string | null;
+}) {
+  const name = petName ?? "your pet";
+  return (
+    <section
+      aria-label="Next up"
       style={{
         background: "#FFFBF3",
         border: `1px solid rgba(0,0,0,0.06)`,
@@ -805,16 +1205,16 @@ function CompletePanel({
         style={{
           margin: 0,
           fontStyle: "italic",
-          fontSize: 28,
+          fontSize: 24,
           lineHeight: 1.4,
         }}
       >
-        Thank you for telling us about {name}.
+        Next up — choosing the kind of tribute for {name}.
       </p>
       <p
         style={{
           margin: 0,
-          fontSize: 15,
+          fontSize: 14,
           lineHeight: 1.6,
           opacity: 0.78,
           maxWidth: 540,
@@ -822,19 +1222,9 @@ function CompletePanel({
           marginRight: "auto",
         }}
       >
-        {fragments.length > 0
-          ? fragments.join(" ")
-          : `We'll start working on ${name}'s likeness next.`}
-      </p>
-      <p
-        style={{
-          margin: 0,
-          marginTop: 6,
-          fontSize: 13,
-          opacity: 0.55,
-        }}
-      >
-        {COPY.SHELL_COPY.stuck_footer}
+        We&apos;ll show you a small handful of pre-set tributes shaped by what you
+        told us, and a path to pick everything yourself if you&apos;d rather.
+        {aspectRatio ? ` (We'll keep ${name}'s tribute at ${aspectRatio}.)` : null}
       </p>
     </section>
   );

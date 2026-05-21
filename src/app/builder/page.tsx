@@ -22,9 +22,13 @@ export const metadata: Metadata = {
     "A gentle, guided builder for the tribute you'll make of the pet you loved.",
 };
 
-// All known Stage 1 tags we accept from the URL on entry. Anything else
-// snaps to the welcome screen — the reducer rejects illegal entries.
+// Stage tags we accept from the URL on entry. Anything else snaps to the
+// welcome screen — the reducer rejects illegal entries. Covers Stages 1 + 2
+// (Phase 2 ships Stage 2 + Stage 2.5/2.6). Stage 3 entry point
+// (curators_pick_or_manual) is included so the post-aspect-pick transition
+// has a valid URL target for the back/refresh button.
 const VALID_INTAKE_STAGES = new Set<StageTag>([
+  // Stage 1
   "intake_welcome",
   "intake_returning_user_check",
   "intake_photos",
@@ -40,6 +44,14 @@ const VALID_INTAKE_STAGES = new Set<StageTag>([
   "intake_creator",
   "intake_years",
   "intake_complete",
+  // Stage 2
+  "character_sheet_render",
+  "character_sheet_review",
+  "character_sheet_refinement",
+  "length_pick",
+  "aspect_pick",
+  // Stage 3 entry (placeholder body in Phase 2)
+  "curators_pick_or_manual",
 ]);
 
 type PageProps = {
