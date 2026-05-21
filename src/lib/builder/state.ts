@@ -413,6 +413,101 @@ export function reduceState(state: WizardState, event: WizardEvent): WizardState
 }
 
 // -----------------------------------------------------------------------------
+// All known stage tags, derived as a runtime array for membership checks.
+// Keep in sync with the `StageTag` union above.
+// -----------------------------------------------------------------------------
+
+export const ALL_STAGE_TAGS = [
+  // Stage 1 — Intake
+  'intake_welcome',
+  'intake_returning_user_check',
+  'intake_photos',
+  'intake_name',
+  'intake_name_pronunciation',
+  'intake_vision_review',
+  'intake_memory',
+  'intake_memory_freetext',
+  'intake_gender',
+  'intake_relationship',
+  'intake_traits',
+  'intake_favorites',
+  'intake_creator',
+  'intake_years',
+  'intake_complete',
+  // Stage 2 — Character sheet
+  'character_sheet_render',
+  'character_sheet_review',
+  'character_sheet_refinement',
+  'length_pick',
+  'aspect_pick',
+  // Stage 3 — Format/Theme/Style
+  'curators_pick_or_manual',
+  'curator_style_confirm',
+  'format_pick',
+  'theme_category_pick',
+  'theme_pick',
+  'style_pick',
+  'combination_preview_render',
+  'combination_preview_review',
+  'stage_3_complete',
+] as const satisfies readonly StageTag[];
+
+const STAGE_TAG_SET: ReadonlySet<string> = new Set<string>(ALL_STAGE_TAGS);
+
+export function isStageTag(value: unknown): value is StageTag {
+  return typeof value === 'string' && STAGE_TAG_SET.has(value);
+}
+
+// -----------------------------------------------------------------------------
+// legalNextStages — derived from the reducer.
+//
+// Returns the set of stages reachable from `current` via *any* non-`goto`,
+// non-`session_loaded` event. Used by the server-side PATCH validator to reject
+// illegal skip-ahead. The reducer remains the single source of truth — this
+// helper just enumerates its outputs without duplicating transition tables.
+//
+// Same-stage is always legal (idempotent PATCH). `intake_welcome` allows
+// `intake_photos` as a forward edge (the welcome screen also hosts the photo
+// uploader below the panel — see reducer's `photos_uploaded` case).
+// -----------------------------------------------------------------------------
+
+const PROBE_EVENTS: WizardEvent[] = [
+  { type: 'start_intake' },
+  { type: 'returning_user_answered', isReturning: false },
+  { type: 'returning_user_answered', isReturning: true },
+  { type: 'photos_uploaded', photos: [] },
+  { type: 'photos_skipped' },
+  { type: 'name_submitted', petName: 'probe', pronunciationNeeded: false },
+  { type: 'name_submitted', petName: 'probe', pronunciationNeeded: true },
+  { type: 'pronunciation_submitted', pronunciation: null },
+  { type: 'vision_pass_complete', profile: {} },
+  { type: 'vision_pass_failed' },
+  { type: 'profile_confirmed' },
+  { type: 'memory_prompt_chosen', promptId: 'sound_smell_feeling' },
+  { type: 'memory_answered', promptId: null, answer: null },
+  { type: 'memory_skipped' },
+  { type: 'gender_chosen', gender: 'male' },
+  { type: 'relationship_chosen', relationship: 'childhood' },
+  { type: 'traits_chosen', traits: [] },
+  { type: 'favorites_chosen', favorites: [] },
+  { type: 'creator_submitted', creatorName: null },
+  { type: 'years_submitted', yearsLabel: null },
+];
+
+export function legalNextStages(current: StageTag): Set<StageTag> {
+  const seen = new Set<StageTag>([current]);
+  const probeState: WizardState = {
+    stage: current,
+    data: { ...INITIAL_WIZARD_DATA },
+  };
+  for (const ev of PROBE_EVENTS) {
+    const next = reduceState(probeState, ev);
+    if (next.stage !== current) seen.add(next.stage);
+  }
+  return seen;
+}
+
+// -----------------------------------------------------------------------------
 // Helper: which stage belongs to which top-level stage banner?
 // -----------------------------------------------------------------------------
 
