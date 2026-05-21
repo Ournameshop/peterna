@@ -19,6 +19,11 @@ import {
   type InferredProfile,
   type PhotoAsset,
 } from "@/lib/builder/state";
+import type {
+  SessionCreateResponse,
+  SessionPatchBody,
+  VisionPassResponse,
+} from "@/lib/builder/wire-types";
 import {
   COPY,
   RETURNING_USER,
@@ -71,28 +76,18 @@ type Props = {
   initialState?: WizardState;
 };
 
-type SessionPatch = Partial<{
-  pet_name: string;
-  pet_name_pronunciation: string | null;
-  pet_gender: GenderId;
-  relationship: RelationshipId;
-  personality_traits: PersonalityTraitId[];
-  favorite_things: FavoriteThingId[];
-  creator_name: string | null;
-  years_label: string | null;
-  memory_prompt_type: MemoryPromptId | null;
-  memory_prompt_answer: string | null;
-  is_returning_user: boolean;
-  inferred_profile: InferredProfile;
-  stage: StageTag;
-}>;
+// `SessionPatch` is the shared wire contract — see `wire-types.ts#SessionPatchBody`.
+// Both this file and the PATCH handler at `src/app/api/session/[id]/route.ts` import
+// from that module so adding a field touches one place, not two.
+type SessionPatch = SessionPatchBody;
 
 async function patchSession(
   sessionId: string | null,
   patch: SessionPatch,
 ): Promise<void> {
   if (!sessionId) return;
-  // Dev breadcrumb: this is the contract the backend agent will see.
+  // Dev breadcrumb: this is the contract the backend sees. Snake_case wire format
+  // (per `wire-types.ts#SessionPatchBody`) — the field names are type-checked.
   if (process.env.NODE_ENV !== "production") {
     console.log("[builder] PATCH /api/session/" + sessionId, patch);
   }
@@ -102,7 +97,9 @@ async function patchSession(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(patch),
     });
-    // 404 is expected until the backend lands; treat as a no-op.
+    // 404 is expected during local dev before the backend is wired. 400 with
+    // `invalid-stage-transition` means our optimistic client-side reducer
+    // disagreed with the server — log it; user-visible recovery is reload (Phase 1).
     if (!res.ok && res.status !== 404) {
       const body = await res.text().catch(() => "");
       if (process.env.NODE_ENV !== "production") {
@@ -127,9 +124,7 @@ async function ensureSession(): Promise<{
       body: "{}",
     });
     if (!res.ok) return null;
-    const json = (await res.json()) as
-      | { ok: true; session_id: string; resume_token: string }
-      | { ok: false; error: string };
+    const json = (await res.json()) as SessionCreateResponse;
     if (json.ok) return { session_id: json.session_id, resume_token: json.resume_token };
     return null;
   } catch {
@@ -208,27 +203,31 @@ export default function BuilderClient({
     if (state.data.inferred_profile) return;
     visionStartedRef.current = true;
     let cancelled = false;
+    // Bug-5: one idempotency key per effect-fire. The server's unique index on
+    // `renders(session_id, stage, idempotency_key)` short-circuits duplicate
+    // vendor calls within the dedup window — so a re-render that re-runs this
+    // effect (e.g. on transient state churn) won't double-bill us.
+    const idempotencyKey = crypto.randomUUID();
     (async () => {
       if (cancelled) return;
       setVisionInFlight(true);
       try {
         const res = await fetch("/api/vision-pass", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "Idempotency-Key": idempotencyKey,
+          },
           body: JSON.stringify({ session_id: state.data.session_id }),
         });
-        const json = (await res.json().catch(() => null)) as
-          | { ok: true; inferred_profile: InferredProfile; confidence?: unknown }
-          | { ok: true; vision_failure: true }
-          | { ok: false; error: string }
-          | null;
+        const json = (await res.json().catch(() => null)) as VisionPassResponse | null;
         if (json && "ok" in json && json.ok === true) {
           if ("vision_failure" in json && json.vision_failure) {
             dispatch({ type: "vision_pass_failed" });
           } else if ("inferred_profile" in json) {
             dispatch({
               type: "vision_pass_complete",
-              profile: json.inferred_profile,
+              profile: json.inferred_profile as InferredProfile,
             });
           }
         }

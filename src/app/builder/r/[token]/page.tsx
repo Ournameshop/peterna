@@ -2,14 +2,16 @@ import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 
+import type { ResumeResponse } from "@/lib/builder/wire-types";
+
 // Resume-link target.
 //
 // Loads /api/session/resume/[token] server-side; on success, redirects to
 // /builder?session=<id>&step=<saved-stage>. On failure, redirects to
 // /builder (which creates a fresh session).
 //
-// Backend wires the resume endpoint; until then we attempt the call and
-// fall through to a clean /builder load if it 404s.
+// Wire shape: see `src/lib/builder/wire-types.ts#ResumeResponse`. The route
+// returns `{ session_id, stage, resume_token }` — B4 in qa-phase1-report.md.
 //
 // Per AGENTS.md (Next 16): params is a Promise in async Server Components.
 
@@ -20,10 +22,6 @@ export const metadata: Metadata = {
 type PageProps = {
   params: Promise<{ token: string }>;
 };
-
-type ResumeResponse =
-  | { ok: true; session_id: string; stage?: string }
-  | { ok: false; error: string };
 
 export default async function ResumePage({ params }: PageProps) {
   const { token } = await params;

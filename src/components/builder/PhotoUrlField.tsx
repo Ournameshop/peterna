@@ -14,6 +14,7 @@ import { Upload, X } from "lucide-react";
 import { C, FONT_SANS } from "@/lib/peterna-tokens";
 import { PHOTO_PROMPT, substitutePetName } from "@/lib/library/copy";
 import type { PhotoAsset } from "@/lib/builder/state";
+import type { IngestUrlResponse, UploadResponse } from "@/lib/builder/wire-types";
 
 // Pattern A — Photo + URL combo. File dropzone + URL textarea coexist.
 //
@@ -38,6 +39,10 @@ type UploadStatus = {
   label: string;
   state: "queued" | "uploading" | "ok" | "error";
   publicUrl?: string;
+  // Bug-8: track the server-side asset_id so a double-tap on Remove drops the
+  // right uploadedAssets entry instead of orphaning it. Pre-fix the code keyed
+  // removal off publicUrl, which mismatches when statuses are out of date.
+  assetId?: string;
   error?: string;
 };
 
@@ -150,30 +155,26 @@ export default function PhotoUrlField({
         method: "POST",
         body: form,
       });
-      const json = (await res.json().catch(() => null)) as
-        | { ok: true; asset_id: string; public_url: string }
-        | { ok: false; error: string }
-        | null;
+      const json = (await res.json().catch(() => null)) as UploadResponse | null;
 
       if (res.ok && json && json.ok === true) {
+        const assetId = json.asset_id;
+        const publicUrl = json.public_url;
         setStatuses((prev) =>
           prev.map((s) =>
             s.id === localId
               ? {
                   ...s,
                   state: "ok",
-                  publicUrl: json.public_url,
-                  // Store the server-side asset_id by hijacking `label`?
-                  // Better: keep two parallel arrays — we'll attach asset_id
-                  // via a hidden field below.
+                  publicUrl,
+                  assetId,
                 }
               : s,
           ),
         );
-        // also stash the asset_id alongside via a sibling state record
         setUploadedAssets((prev) => [
           ...prev,
-          { asset_id: json.asset_id, public_url: json.public_url },
+          { asset_id: assetId, public_url: publicUrl },
         ]);
       } else {
         const msg =
@@ -220,14 +221,22 @@ export default function PhotoUrlField({
   }
 
   function removeStatus(id: string) {
-    setStatuses((prev) => prev.filter((s) => s.id !== id));
-    // Also drop from uploadedAssets if it matched (best-effort by public_url).
-    const target = statuses.find((s) => s.id === id);
-    if (target?.publicUrl) {
-      setUploadedAssets((prev) =>
-        prev.filter((a) => a.public_url !== target.publicUrl),
-      );
-    }
+    // Bug-8: read the target out of the latest state by routing both updates
+    // through the setter callbacks. React batches setState; closing over
+    // `statuses` here would race on double-clicks. We pluck the asset_id out
+    // of the previous statuses inside the setter, then drop from
+    // uploadedAssets keyed on asset_id (the stable server-side identity).
+    let removedAssetId: string | undefined;
+    setStatuses((prev) => {
+      const target = prev.find((s) => s.id === id);
+      removedAssetId = target?.assetId;
+      return prev.filter((s) => s.id !== id);
+    });
+    setUploadedAssets((prev) =>
+      removedAssetId
+        ? prev.filter((a) => a.asset_id !== removedAssetId)
+        : prev,
+    );
   }
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
@@ -246,14 +255,7 @@ export default function PhotoUrlField({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ session_id: sessionId, urls }),
         });
-        const json = (await res.json().catch(() => null)) as
-          | {
-              ok: true;
-              assets: { asset_id: string; public_url: string }[];
-              failed?: { url: string; reason: string }[];
-            }
-          | { ok: false; error: string }
-          | null;
+        const json = (await res.json().catch(() => null)) as IngestUrlResponse | null;
 
         if (res.ok && json && json.ok === true) {
           urlAssets = json.assets.map((a) => ({
