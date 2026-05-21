@@ -63,6 +63,13 @@ export type VisionPassInput = {
    * touching this module.
    */
   prompt: string;
+  /**
+   * Optional `Idempotency-Key` header value (UUID, ideally v7) supplied by the route handler.
+   * When present, this is the key the `renders` row is inserted with — so the DB's unique
+   * index on `(session_id, stage, idempotency_key)` short-circuits duplicate vendor calls
+   * inside the dedup window (Bug-5). When absent, a fresh UUID is generated.
+   */
+  idempotencyKey?: string;
 };
 
 export type VisionPassResult = {

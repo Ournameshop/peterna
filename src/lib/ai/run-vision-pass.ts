@@ -52,7 +52,10 @@ type RawVisionOutput = {
  */
 export async function runVisionPass(input: VisionPassInput): Promise<VisionPassResult> {
   const attempts: VendorAttempt[] = [];
-  const idempotencyKey = randomUUID();
+  // Bug-5: prefer the caller-supplied idempotency key (typically from the
+  // `Idempotency-Key` request header). When absent, mint a fresh UUID so the
+  // `renders` insert still succeeds — but no dedup protection in that case.
+  const idempotencyKey = input.idempotencyKey ?? randomUUID();
 
   // Stage 1.4 prompt is composed by the caller (see /api/vision-pass). `input.schema` is the
   // JSON schema both vendors structure-output against.
