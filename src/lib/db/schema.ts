@@ -148,6 +148,50 @@ export const sessions = pgTable(
 export type User = typeof users.$inferSelect;
 export type MagicLinkToken = typeof magicLinkTokens.$inferSelect;
 
+// Phase 12 — background job queue using Postgres-as-queue (no Redis/BullMQ
+// dep). Workers SELECT FOR UPDATE SKIP LOCKED to claim jobs atomically.
+export const renderJobs = pgTable(
+  'render_jobs',
+  {
+    id: uuid('id').primaryKey(),
+    sessionId: uuid('session_id').notNull().references(() => sessions.id, { onDelete: 'cascade' }),
+    kind: text('kind').notNull(),  // 'video_clip' | 'video_batch' | 'assembly'
+    payload: jsonb('payload').notNull(),  // { beat_idx?, ... }
+    status: text('status').notNull().default('queued'),  // queued | running | done | failed
+    attempts: integer('attempts').notNull().default(0),
+    lockedAt: timestamp('locked_at', { withTimezone: true }),
+    lockedBy: text('locked_by'),  // worker id (process.env.HOSTNAME + pid)
+    startedAt: timestamp('started_at', { withTimezone: true }),
+    finishedAt: timestamp('finished_at', { withTimezone: true }),
+    error: text('error'),
+    result: jsonb('result'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('render_jobs_session_id_idx').on(table.sessionId),
+    index('render_jobs_status_idx').on(table.status, table.createdAt),
+  ],
+);
+
+// Phase 12 — Web Push subscriptions per browser/device per user.
+export const pushSubscriptions = pgTable(
+  'push_subscriptions',
+  {
+    id: uuid('id').primaryKey(),
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
+    sessionId: uuid('session_id').references(() => sessions.id, { onDelete: 'cascade' }),
+    endpoint: text('endpoint').notNull().unique(),
+    p256dh: text('p256dh').notNull(),
+    auth: text('auth').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    lastNotifiedAt: timestamp('last_notified_at', { withTimezone: true }),
+  },
+);
+
+export type RenderJob = typeof renderJobs.$inferSelect;
+export type PushSubscription = typeof pushSubscriptions.$inferSelect;
+
 export const assets = pgTable(
   'assets',
   {

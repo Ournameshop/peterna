@@ -57,6 +57,13 @@
       "when": 1779400663052,
       "tag": "0007_lazy_the_stranger",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1779403148690,
+      "tag": "0008_fluffy_gunslinger",
+      "breakpoints": true
     }
   ]
 }

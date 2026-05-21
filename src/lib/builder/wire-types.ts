@@ -873,6 +873,34 @@ export type TributeClaimResponse =
   | ApiErr<'unauthenticated' | 'nothing-to-claim'>;
 
 // -----------------------------------------------------------------------------
+// Phase 12 — Async job queue + completion notifications.
+// -----------------------------------------------------------------------------
+
+/** Job summary over the wire — frontend polls /api/video/status which reads jobs. */
+export type RenderJobStatus = 'queued' | 'running' | 'done' | 'failed';
+
+// POST /api/push/subscribe — saves a Web Push subscription so we can notify
+// the user when a render queue completes. Browser passes the standard
+// PushSubscription JSON.
+export type PushSubscribeRequest = {
+  session_id?: string;             // present for anonymous sessions
+  endpoint: string;
+  keys: { p256dh: string; auth: string };
+};
+
+export type PushSubscribeResponse =
+  | ApiOk<{ subscribed: true }>
+  | ApiErr<'invalid-input'>;
+
+// POST /api/push/unsubscribe — removes a subscription by endpoint.
+export type PushUnsubscribeRequest = { endpoint: string };
+export type PushUnsubscribeResponse = ApiOk<{ unsubscribed: true }> | ApiErr;
+
+// GET /api/push/vapid-public-key — returns the public key the client uses
+// when subscribing.
+export type PushVapidKeyResponse = ApiOk<{ public_key: string }> | ApiErr;
+
+// -----------------------------------------------------------------------------
 // Helper: PhotoAsset re-export so frontend imports come from one place.
 // -----------------------------------------------------------------------------
 
