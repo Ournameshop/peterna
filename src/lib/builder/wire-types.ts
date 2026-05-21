@@ -833,6 +833,46 @@ export type AuthMeResponse =
 export type AuthSignoutResponse = ApiOk<{ signed_out: true }> | ApiErr;
 
 // -----------------------------------------------------------------------------
+// Phase 11 — Memorial Management (dashboard) wire types.
+// -----------------------------------------------------------------------------
+
+/** Compact tribute summary for the dashboard list. */
+export type TributeListItem = {
+  session_id: string;
+  pet_name: string | null;
+  stage: StageTag;
+  created_at: string;
+  updated_at: string;
+  share_slug: string | null;          // null until Phase 9 finalize
+  share_url: string | null;           // built from PUBLIC_BASE_URL + slug
+  character_sheet_url: string | null;  // thumbnail for the card
+  assembled_video_url: string | null;  // null until Phase 7 done
+  is_complete: boolean;                // delivery_ready_at non-null
+};
+
+// GET /api/dashboard/tributes — lists tributes for the signed-in user.
+// Anonymous users get 401; the dashboard page itself redirects on miss.
+export type DashboardListResponse =
+  | ApiOk<{ tributes: TributeListItem[] }>
+  | ApiErr<'unauthenticated'>;
+
+// POST /api/dashboard/tributes/[id]/rename — updates pet_name.
+export type TributeRenameRequest = {
+  pet_name: string;
+};
+
+export type TributeRenameResponse =
+  | ApiOk<{ tribute: TributeListItem }>
+  | ApiErr<'invalid-input' | 'unauthenticated' | 'not-found'>;
+
+// POST /api/dashboard/tributes/claim — links the current anonymous session
+// (peterna_session cookie) to the signed-in user. Used when a user signs in
+// mid-build to preserve their work.
+export type TributeClaimResponse =
+  | ApiOk<{ claimed: number }>
+  | ApiErr<'unauthenticated' | 'nothing-to-claim'>;
+
+// -----------------------------------------------------------------------------
 // Helper: PhotoAsset re-export so frontend imports come from one place.
 // -----------------------------------------------------------------------------
 
