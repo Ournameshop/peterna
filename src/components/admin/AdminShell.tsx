@@ -28,7 +28,7 @@ type Props = {
   active: AdminTabKey;
   user: UserWire;
   title: string;
-  subtitle?: string;
+  subtitle?: ReactNode;
   actions?: ReactNode;
   children: ReactNode;
 };
