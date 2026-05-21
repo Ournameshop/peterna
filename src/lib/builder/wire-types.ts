@@ -193,6 +193,47 @@ export type VisionPassResponse =
   | ApiErr;
 
 // -----------------------------------------------------------------------------
+// Phase 2 — Character Sheet (Stage 2) wire types.
+// -----------------------------------------------------------------------------
+
+// POST /api/character-sheet/render
+export type CharacterSheetRenderRequest = {
+  session_id: string;
+  refinements?: string[];     // spec §2.3 corrections appended to the prompt
+  extra_photos?: string[];    // optional additional reference photo asset IDs
+};
+
+export type CharacterSheetRenderResponse =
+  | ApiOk<{ render_id: string; asset_id: string; public_url: string }>
+  | ApiErr<
+      | 'invalid-input'
+      | 'session-not-found'
+      | 'cookie-mismatch'
+      | 'no-session'
+      | 'render-in-flight'
+      | 'session-budget-exceeded'
+      | 'render_failed'
+      | 'content-policy-violation'
+      | 'no-photos'
+    >;
+
+// POST /api/character-sheet/approve
+export type CharacterSheetApproveRequest = {
+  session_id: string;
+  asset_id: string;
+};
+
+export type CharacterSheetApproveResponse =
+  | ApiOk<{ session: SessionWire }>
+  | ApiErr<
+      | 'invalid-input'
+      | 'session-not-found'
+      | 'cookie-mismatch'
+      | 'asset-not-found'
+      | 'asset-wrong-kind'
+    >;
+
+// -----------------------------------------------------------------------------
 // Helper: PhotoAsset re-export so frontend imports come from one place.
 // -----------------------------------------------------------------------------
 
