@@ -1160,6 +1160,52 @@ export const AUTH = {
   },
 } as const;
 
+// -----------------------------------------------------------------------------
+// Phase 12 — Web Push opt-in.
+//
+// Surfaced when the user kicks off a render (Stage 6) and again, subtly, on the
+// delivery-ready screen if they didn't subscribe earlier. Copy stays calm and
+// grief-aware — no urgency, no growth-hacky language. One notification per
+// tribute (the "ready" moment); the backend dedupes.
+//
+// iOS Safari note: Web Push works on iOS 16.4+ only inside installed PWAs.
+// Outside that, we never show the prompt — the email fallback covers it.
+// -----------------------------------------------------------------------------
+
+export const NOTIFICATIONS = {
+  prompt: {
+    /** Substituted with the pet's name. */
+    headline_template:
+      "Want a quick browser notification when [PET_NAME]'s tribute is ready? We'll only send one.",
+    body:
+      "Renders take a few minutes. We can ping this browser the moment it's done — or you can keep the tab open. Either works.",
+    accept: 'Yes, let me know',
+    decline: "No, I'll keep this tab open",
+  },
+  success: {
+    /** Shown after the user grants permission + we POST the subscription. */
+    headline_template:
+      "You'll get a notification when [PET_NAME]'s tribute is ready.",
+    body: "We'll only ping you once — the moment everything's finished.",
+  },
+  denied: {
+    /** Permission was explicitly denied. We back off and remind them email exists. */
+    body: "No problem — we'll email you when it's ready instead.",
+  },
+  /** iOS Safari / unsupported browser fallback. */
+  unsupported: {
+    body: "This browser can't show notifications, so we'll email you instead.",
+  },
+  /** Subtle delivery-screen prompt (only if not previously asked). */
+  delivery_prompt: {
+    headline: 'Notify me when my next tribute is ready',
+    body:
+      "We can ping this browser the moment a future tribute finishes rendering — only on the day it's done.",
+    accept: 'Turn on notifications',
+    decline: 'Not now',
+  },
+} as const;
+
 /**
  * One barrel export for components that want the full object.
  */
@@ -1217,4 +1263,5 @@ export const COPY = {
   EULOGY_COMPLETE,
   DELIVERY,
   AUTH,
+  NOTIFICATIONS,
 } as const;
