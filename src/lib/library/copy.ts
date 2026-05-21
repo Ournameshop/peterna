@@ -54,6 +54,10 @@ export const STAGE_BANNERS = {
     emoji: '📝',
     headline: 'Stage 4: Beat sheet — drafting the story of the tribute',
   },
+  storyboard: {
+    emoji: '🖼️',
+    headline: 'Stage 5: Storyboard — one frame for every beat',
+  },
 } as const;
 
 /**
@@ -529,11 +533,106 @@ export const BEAT_ARCHETYPE_LABELS: Readonly<Record<string, string>> = {
 
 /**
  * Stage 4-complete handoff — sits between beat_sheet_complete and Stage 5
- * (storyboard render). The Stage 5 CTA itself is not wired in Phase 4a.
+ * (storyboard render). Tapping `start_button` fires `storyboard_render_started`.
  */
 export const BEAT_SHEET_COMPLETE = {
   headline: "Story locked. Every beat is ready.",
   body: "Next, we'll draw one frame for each beat of [PET_NAME]'s tribute. You'll review the storyboard before any of it becomes real video.",
+  start_button: 'Draw the storyboard',
+} as const;
+
+// -----------------------------------------------------------------------------
+// Stage 5 — Storyboard copy.
+//
+// Tone rules carry over: no cost language, no apology, no vendor names. Per
+// the v2.3 spec §5: reroll is "let's try this scene differently" — never
+// "regenerate" / "re-render" / cost-pressure. The grid is emotional —
+// captions truncate to one line by default and expand on tap.
+// -----------------------------------------------------------------------------
+
+/**
+ * Stage 5.1 — render loading state.
+ *
+ * Pet name is REQUIRED in the loading line per spec ("Drawing the
+ * storyboard for [PET_NAME]…"). Loading takes about a minute since N
+ * frames render in parallel.
+ */
+export const STORYBOARD_LOADING = {
+  drawing: 'Drawing the storyboard for [PET_NAME]…',
+  drawing_hint:
+    "One frame per beat — this takes about a minute. We're painting them all together.",
+} as const;
+
+/**
+ * Stage 5.2 — storyboard review (GATE 2).
+ *
+ * Pills are framed in collaborative language. No "regenerate this frame" —
+ * we say "let's try this scene differently" via the per-frame review.
+ */
+export const STORYBOARD_REVIEW = {
+  headline: "Here's the storyboard for [PET_NAME].",
+  subhead:
+    'One frame for each beat. Tap any frame to try it differently, or approve the full sequence when it feels right.',
+  /** Pill row at the bottom of the grid (gate-level). */
+  pills: {
+    approve: 'Approve the storyboard',
+    restart: 'Start over',
+  },
+  pills_hint:
+    "Each frame can be tried again on its own — tap one to take a closer look.",
+} as const;
+
+/**
+ * Stage 5.2a — per-frame card copy.
+ *
+ * Author-facing scene labels are allowed ("Scene N of M"). Captions are
+ * truncated to one line by default; tapping "See details" expands them.
+ */
+export const STORYBOARD_FRAME = {
+  /** Substituted with the beat index (1-based) and total. */
+  scene_label_template: 'Scene [N] of [M]',
+  /** Aria label for each frame card. Substituted with N and M. */
+  card_aria_template: 'Storyboard frame [N] of [M]',
+  /** Inline truncation indicator on collapsed captions. */
+  caption_expand: 'See details',
+  caption_collapse: 'Hide details',
+  /** Tap-to-open mini-gate pills. */
+  pills: {
+    keep: 'Looks good',
+    reroll: 'Try this scene differently',
+    details: 'See details',
+  },
+  /** Mini-gate refinement panel framing. */
+  refine_headline: 'What should we change about this scene?',
+  refine_subhead:
+    'Pick any details that need adjusting, or describe what to try instead. We can keep tuning this frame on its own.',
+  refine_notes_label: 'Anything specific?',
+  refine_notes_placeholder:
+    "e.g. Try a wider shot, with the sun coming in from the left.",
+  refine_submit: 'Try this scene again',
+  refine_cancel: "Never mind — keep this one",
+} as const;
+
+/**
+ * Stage 5.2b — per-frame reroll loading panel.
+ *
+ * Shown when a single frame is being re-rendered. Other frames in the grid
+ * stay visible — only the rerolling card shifts to its own loading state.
+ */
+export const STORYBOARD_REROLL_LOADING = {
+  /** Substituted with the 1-based scene number. */
+  drawing: 'Trying scene [N] again…',
+  drawing_hint: "This takes a moment. We'll bring you right back to the grid.",
+} as const;
+
+/**
+ * Stage 5-complete handoff — soft pause between storyboard_complete and the
+ * Stage 5.5 entry (Phase 5). The Stage 5.5 CTA itself is a Phase 5 concern.
+ */
+export const STORYBOARD_COMPLETE = {
+  headline: 'Storyboard locked. Every frame is ready.',
+  body: "Next, we'll write the words that carry the tribute — the opening line, the captions, and how it closes.",
+  start_button: 'Write the words',
 } as const;
 
 /**
@@ -575,4 +674,9 @@ export const COPY = {
   BEAT_SHEET_CAPTION_WARNING,
   BEAT_ARCHETYPE_LABELS,
   BEAT_SHEET_COMPLETE,
+  STORYBOARD_LOADING,
+  STORYBOARD_REVIEW,
+  STORYBOARD_FRAME,
+  STORYBOARD_REROLL_LOADING,
+  STORYBOARD_COMPLETE,
 } as const;
