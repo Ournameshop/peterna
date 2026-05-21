@@ -1,8 +1,10 @@
 "use client";
 
 import { type CSSProperties } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { C, FONT_DISPLAY, FONT_SANS } from "@/lib/peterna-tokens";
 import { ASSEMBLY, substitutePetName } from "@/lib/library/copy";
+import { DURATION, EASE, fadeIn } from "@/lib/builder/motion-tokens";
 import GateReview, { type GateAction } from "./GateReview";
 
 // Stage 7 — Assembly.
@@ -48,7 +50,19 @@ export default function AssemblyView({
   onAction,
 }: Props) {
   if (mode === "loading" || !videoUrl) {
-    return <StitchingLoadingPanel petName={petName} />;
+    return (
+      <AnimatePresence mode="wait">
+        <motion.div
+          key="loading"
+          variants={fadeIn()}
+          initial="hidden"
+          animate="visible"
+          exit="exit"
+        >
+          <StitchingLoadingPanel petName={petName} />
+        </motion.div>
+      </AnimatePresence>
+    );
   }
 
   const headline = substitutePetName(ASSEMBLY.review.headline, petName);
@@ -78,29 +92,59 @@ export default function AssemblyView({
   const playerMaxWidth = clampMaxWidth(aspectRatio);
 
   return (
-    <GateReview
-      headline={headline}
-      subhead={subhead}
-      actions={actions}
-      onAction={(id) => onAction(id as AssemblyAction)}
-      pillsHint={ASSEMBLY.review.pills_hint}
-      disabled={disabled}
-      ariaLabel="Final tribute review"
-    >
-      <div style={{ ...playerWrap, maxWidth: playerMaxWidth }}>
-        <video
-          src={videoUrl}
-          controls
-          playsInline
-          preload="metadata"
-          // The browser owns the native poster — no thumbnail prop because the
-          // first frame is usually the title card and that's exactly what we
-          // want as the static frame.
-          style={videoStyle}
-          aria-label={`Final tribute video for ${petName ?? "your pet"}`}
-        />
-      </div>
-    </GateReview>
+    <AnimatePresence mode="wait">
+      <motion.div
+        key="review"
+        variants={fadeIn()}
+        initial="hidden"
+        animate="visible"
+        exit="exit"
+      >
+        <GateReview
+          headline={headline}
+          subhead={subhead}
+          actions={actions}
+          onAction={(id) => onAction(id as AssemblyAction)}
+          pillsHint={ASSEMBLY.review.pills_hint}
+          disabled={disabled}
+          ariaLabel="Final tribute review"
+          staggerPills
+        >
+          {/* The final cut — reveal with the long ease-out + breath pulse so
+              the user feels the artifact settle. */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.97, y: 6 }}
+            animate={{
+              opacity: 1,
+              scale: [0.97, 1, 1.005, 1],
+              y: 0,
+              transition: {
+                opacity: { duration: DURATION.long, ease: EASE.reveal },
+                y: { duration: DURATION.long, ease: EASE.reveal },
+                scale: {
+                  duration: DURATION.long + DURATION.slow,
+                  ease: EASE.reveal,
+                  times: [0, 0.6, 0.8, 1],
+                },
+              },
+            }}
+            style={{ ...playerWrap, maxWidth: playerMaxWidth }}
+          >
+            <video
+              src={videoUrl}
+              controls
+              playsInline
+              preload="metadata"
+              // The browser owns the native poster — no thumbnail prop because the
+              // first frame is usually the title card and that's exactly what we
+              // want as the static frame.
+              style={videoStyle}
+              aria-label={`Final tribute video for ${petName ?? "your pet"}`}
+            />
+          </motion.div>
+        </GateReview>
+      </motion.div>
+    </AnimatePresence>
   );
 }
 

@@ -1,11 +1,13 @@
 "use client";
 
 import Image from "next/image";
+import { AnimatePresence, motion } from "framer-motion";
 import { C, FONT_DISPLAY, FONT_SANS } from "@/lib/peterna-tokens";
 import {
   COMBINATION_PREVIEW,
   substitutePetName,
 } from "@/lib/library/copy";
+import { DURATION, EASE, fadeIn } from "@/lib/builder/motion-tokens";
 import GateReview, { type GateAction } from "./GateReview";
 
 // Stage 3.5 — Combination Preview review (GATE 2).
@@ -59,7 +61,19 @@ export default function CombinationPreviewReview({
   onAction,
 }: Props) {
   if (mode === "loading" || !imageUrl) {
-    return <PreviewLoadingPanel petName={petName} />;
+    return (
+      <AnimatePresence mode="wait">
+        <motion.div
+          key="loading"
+          variants={fadeIn()}
+          initial="hidden"
+          animate="visible"
+          exit="exit"
+        >
+          <PreviewLoadingPanel petName={petName} />
+        </motion.div>
+      </AnimatePresence>
+    );
   }
 
   const headline = substitutePetName(COMBINATION_PREVIEW.headline, petName);
@@ -93,20 +107,31 @@ export default function CombinationPreviewReview({
   ];
 
   return (
-    <GateReview
-      headline={headline}
-      subhead={subhead}
-      actions={actions}
-      onAction={(actionId) => onAction(actionId as PreviewReviewAction)}
-      pillsHint={COMBINATION_PREVIEW.pills_hint}
-      disabled={disabled}
-    >
-      <PreviewFrame
-        imageUrl={imageUrl}
-        petName={petName}
-        aspectRatio={aspectRatio}
-      />
-    </GateReview>
+    <AnimatePresence mode="wait">
+      <motion.div
+        key="review"
+        variants={fadeIn()}
+        initial="hidden"
+        animate="visible"
+        exit="exit"
+      >
+        <GateReview
+          headline={headline}
+          subhead={subhead}
+          actions={actions}
+          onAction={(actionId) => onAction(actionId as PreviewReviewAction)}
+          pillsHint={COMBINATION_PREVIEW.pills_hint}
+          disabled={disabled}
+          staggerPills
+        >
+          <PreviewFrame
+            imageUrl={imageUrl}
+            petName={petName}
+            aspectRatio={aspectRatio}
+          />
+        </GateReview>
+      </motion.div>
+    </AnimatePresence>
   );
 }
 
@@ -156,7 +181,24 @@ function PreviewFrame({
         gap: 10,
       }}
     >
-      <div
+      {/* Reveal (Stage 3.5 — first look at the pet IN their world). Long
+          ease-out scale+fade, then a single ~1.005 breath pulse. */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.97, y: 6 }}
+        animate={{
+          opacity: 1,
+          scale: [0.97, 1, 1.005, 1],
+          y: 0,
+          transition: {
+            opacity: { duration: DURATION.long, ease: EASE.reveal },
+            y: { duration: DURATION.long, ease: EASE.reveal },
+            scale: {
+              duration: DURATION.long + DURATION.slow,
+              ease: EASE.reveal,
+              times: [0, 0.6, 0.8, 1],
+            },
+          },
+        }}
         style={{
           width: "100%",
           aspectRatio: css,
@@ -178,7 +220,7 @@ function PreviewFrame({
           style={{ objectFit: "contain" }}
           unoptimized
         />
-      </div>
+      </motion.div>
     </figure>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useState, type CSSProperties } from "react";
 import Image from "next/image";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { Check } from "lucide-react";
 import { C, FONT_DISPLAY, FONT_SANS } from "@/lib/peterna-tokens";
 import {
@@ -12,6 +12,11 @@ import {
   substitutePetName,
 } from "@/lib/library/copy";
 import { REFINEMENT_CHIPS } from "@/lib/builder/refinements";
+import {
+  DURATION,
+  EASE,
+  fadeIn,
+} from "@/lib/builder/motion-tokens";
 import GateReview, { type GateAction } from "./GateReview";
 
 // Stage 2 — Character Sheet view.
@@ -64,16 +69,22 @@ export default function CharacterSheetView({
   const [picked, setPicked] = useState<string[]>([...initialRefinements]);
   const [notes, setNotes] = useState<string>(initialNotes ?? "");
 
-  if (mode === "loading") {
+  // We always render the AnimatePresence wrapper so the loading→review
+  // transition can choreograph (spinner fade out → sheet reveal in).
+  if (mode === "loading" || !imageUrl) {
     return (
-      <DrawingLoadingPanel petName={petName} />
+      <AnimatePresence mode="wait">
+        <motion.div
+          key="loading"
+          variants={fadeIn()}
+          initial="hidden"
+          animate="visible"
+          exit="exit"
+        >
+          <DrawingLoadingPanel petName={petName} />
+        </motion.div>
+      </AnimatePresence>
     );
-  }
-
-  if (!imageUrl) {
-    // Defensive — the parent should not pass review-mode without an imageUrl,
-    // but if it happens, render a quiet "preparing…" state instead of crashing.
-    return <DrawingLoadingPanel petName={petName} />;
   }
 
   const headline = substitutePetName(CHARACTER_SHEET_REVIEW.headline, petName);
@@ -124,34 +135,45 @@ export default function CharacterSheetView({
   }
 
   return (
-    <GateReview
-      headline={headline}
-      subhead={subhead}
-      actions={actions}
-      onAction={handleAction}
-      pillsHint={CHARACTER_SHEET_REVIEW.pills_hint}
-      disabled={disabled}
-      extraBody={
-        showRefinement ? (
-          <RefinementPanel
-            petName={petName}
-            picked={picked}
-            notes={notes}
-            disabled={disabled}
-            onTogglePick={togglePick}
-            onNotesChange={setNotes}
-            onSubmit={submitRefinement}
-            onCancel={() => {
-              setShowRefinement(false);
-              setPicked([]);
-              setNotes("");
-            }}
-          />
-        ) : null
-      }
-    >
-      <CharacterSheetImage imageUrl={imageUrl} petName={petName} />
-    </GateReview>
+    <AnimatePresence mode="wait">
+      <motion.div
+        key="review"
+        variants={fadeIn()}
+        initial="hidden"
+        animate="visible"
+        exit="exit"
+      >
+        <GateReview
+          headline={headline}
+          subhead={subhead}
+          actions={actions}
+          onAction={handleAction}
+          pillsHint={CHARACTER_SHEET_REVIEW.pills_hint}
+          disabled={disabled}
+          staggerPills
+          extraBody={
+            showRefinement ? (
+              <RefinementPanel
+                petName={petName}
+                picked={picked}
+                notes={notes}
+                disabled={disabled}
+                onTogglePick={togglePick}
+                onNotesChange={setNotes}
+                onSubmit={submitRefinement}
+                onCancel={() => {
+                  setShowRefinement(false);
+                  setPicked([]);
+                  setNotes("");
+                }}
+              />
+            ) : null
+          }
+        >
+          <CharacterSheetImage imageUrl={imageUrl} petName={petName} />
+        </GateReview>
+      </motion.div>
+    </AnimatePresence>
   );
 }
 
@@ -184,7 +206,26 @@ function CharacterSheetImage({
         gap: 10,
       }}
     >
-      <div
+      {/* Reveal: long ease-out scale+fade, then a single ~1.005 breath
+          pulse so the artifact feels like it settles rather than holds
+          stiff. We bake both into one animate keyframe sequence:
+          opacity 0→1 + scale 0.97 → 1 → 1.005 → 1. */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.97, y: 6 }}
+        animate={{
+          opacity: 1,
+          scale: [0.97, 1, 1.005, 1],
+          y: 0,
+          transition: {
+            opacity: { duration: DURATION.long, ease: EASE.reveal },
+            y: { duration: DURATION.long, ease: EASE.reveal },
+            scale: {
+              duration: DURATION.long + DURATION.slow,
+              ease: EASE.reveal,
+              times: [0, 0.6, 0.8, 1],
+            },
+          },
+        }}
         style={{
           width: "100%",
           aspectRatio: "1 / 1",
@@ -206,7 +247,7 @@ function CharacterSheetImage({
           style={{ objectFit: "contain" }}
           unoptimized
         />
-      </div>
+      </motion.div>
     </figure>
   );
 }

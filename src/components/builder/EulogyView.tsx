@@ -1,8 +1,10 @@
 "use client";
 
 import { type CSSProperties } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { C, FONT_DISPLAY, FONT_SANS } from "@/lib/peterna-tokens";
 import { EULOGY, substitutePetName } from "@/lib/library/copy";
+import { DURATION, EASE, fadeIn } from "@/lib/builder/motion-tokens";
 import GateReview, { type GateAction } from "./GateReview";
 
 // Stage 8 — Eulogy PDF.
@@ -51,7 +53,19 @@ export default function EulogyView({
   onAction,
 }: Props) {
   if (mode === "loading" || !pdfUrl) {
-    return <ComposingLoadingPanel petName={petName} />;
+    return (
+      <AnimatePresence mode="wait">
+        <motion.div
+          key="loading"
+          variants={fadeIn()}
+          initial="hidden"
+          animate="visible"
+          exit="exit"
+        >
+          <ComposingLoadingPanel petName={petName} />
+        </motion.div>
+      </AnimatePresence>
+    );
   }
 
   const headline = substitutePetName(EULOGY.review.headline, petName);
@@ -76,45 +90,73 @@ export default function EulogyView({
   ];
 
   return (
-    <GateReview
-      headline={headline}
-      subhead={subhead}
-      actions={actions}
-      onAction={(id) => onAction(id as EulogyAction)}
-      pillsHint={EULOGY.review.pills_hint}
-      disabled={disabled}
-      ariaLabel={`Eulogy review for ${petName ?? "your pet"}`}
-    >
-      <div style={pdfFrameWrap}>
-        <iframe
-          // `#view=FitH` is a PDF.js / native PDF viewer fragment that asks
-          // the embedded viewer to fit-to-width. Browsers that don't honor
-          // it fall back to their default zoom, which is also fine.
-          src={`${pdfUrl}#view=FitH`}
-          title={`Eulogy PDF for ${petName ?? "your pet"}`}
-          style={pdfFrameStyle}
-          // The eulogy is a same-origin asset on our R2 bucket — no
-          // sandbox needed, but we add `loading="lazy"` so the iframe
-          // doesn't block render on this page.
-          loading="lazy"
-        />
-        <p style={pdfFallback}>
-          {/* Fallback for browsers (mostly mobile) that won't inline-render
-              PDFs. The link opens in a new tab where the device's default PDF
-              viewer takes over. */}
-          PDF not loading?{" "}
-          <a
-            href={pdfUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={pdfFallbackLink}
+    <AnimatePresence mode="wait">
+      <motion.div
+        key="review"
+        variants={fadeIn()}
+        initial="hidden"
+        animate="visible"
+        exit="exit"
+      >
+        <GateReview
+          headline={headline}
+          subhead={subhead}
+          actions={actions}
+          onAction={(id) => onAction(id as EulogyAction)}
+          pillsHint={EULOGY.review.pills_hint}
+          disabled={disabled}
+          ariaLabel={`Eulogy review for ${petName ?? "your pet"}`}
+          staggerPills
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.97, y: 6 }}
+            animate={{
+              opacity: 1,
+              scale: [0.97, 1, 1.005, 1],
+              y: 0,
+              transition: {
+                opacity: { duration: DURATION.long, ease: EASE.reveal },
+                y: { duration: DURATION.long, ease: EASE.reveal },
+                scale: {
+                  duration: DURATION.long + DURATION.slow,
+                  ease: EASE.reveal,
+                  times: [0, 0.6, 0.8, 1],
+                },
+              },
+            }}
+            style={pdfFrameWrap}
           >
-            Open it in a new tab
-          </a>
-          .
-        </p>
-      </div>
-    </GateReview>
+            <iframe
+              // `#view=FitH` is a PDF.js / native PDF viewer fragment that asks
+              // the embedded viewer to fit-to-width. Browsers that don't honor
+              // it fall back to their default zoom, which is also fine.
+              src={`${pdfUrl}#view=FitH`}
+              title={`Eulogy PDF for ${petName ?? "your pet"}`}
+              style={pdfFrameStyle}
+              // The eulogy is a same-origin asset on our R2 bucket — no
+              // sandbox needed, but we add `loading="lazy"` so the iframe
+              // doesn't block render on this page.
+              loading="lazy"
+            />
+            <p style={pdfFallback}>
+              {/* Fallback for browsers (mostly mobile) that won't inline-render
+                  PDFs. The link opens in a new tab where the device's default PDF
+                  viewer takes over. */}
+              PDF not loading?{" "}
+              <a
+                href={pdfUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={pdfFallbackLink}
+              >
+                Open it in a new tab
+              </a>
+              .
+            </p>
+          </motion.div>
+        </GateReview>
+      </motion.div>
+    </AnimatePresence>
   );
 }
 
