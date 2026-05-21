@@ -98,6 +98,15 @@ export type SessionWire = {
   // Phase 4b — storyboard frame asset IDs (length N, one per beat).
   storyboard_frame_asset_ids: string[] | null;
   storyboard_approved_at: string | null;
+
+  // Phase 5 — The Words (5.5) + Card Preview (5.6).
+  opening_title_card_text: string | null;
+  closing_card_text: string | null;
+  music_track_id: string | null;
+  narration_voice_id: string | null;
+  narration_text: string | null;
+  card_preview_asset_ids: string[] | null;  // length 3: [opening, closing, in_scene]
+  card_preview_approved_at: string | null;
 };
 
 // -----------------------------------------------------------------------------
@@ -136,6 +145,12 @@ export type SessionPatchBody = Partial<{
   inferred_profile: InferredProfile;
 
   beat_sheet: BeatWire[];
+
+  opening_title_card_text: string | null;
+  closing_card_text: string | null;
+  music_track_id: string | null;
+  narration_voice_id: string | null;
+  narration_text: string | null;
 }>;
 
 // -----------------------------------------------------------------------------
@@ -409,6 +424,72 @@ export type StoryboardApproveRequest = {
 export type StoryboardApproveResponse =
   | ApiOk<{ session: SessionWire }>
   | ApiErr<'invalid-input' | 'session-not-found' | 'cookie-mismatch' | 'incomplete-storyboard'>;
+
+// -----------------------------------------------------------------------------
+// Phase 5 — The Words (Stage 5.5) + Card Preview (Stage 5.6) wire types.
+// -----------------------------------------------------------------------------
+
+// PATCH /api/words — user updates opening/closing card text, music, narration.
+// Captions per-beat are still owned by /api/beat-sheet PATCH.
+export type WordsUpdateRequest = {
+  session_id: string;
+  opening_title_card_text?: string | null;
+  closing_card_text?: string | null;
+  music_track_id?: string | null;
+  narration_voice_id?: string | null;
+  narration_text?: string | null;
+};
+
+export type WordsUpdateResponse =
+  | ApiOk<{ session: SessionWire }>
+  | ApiErr<'invalid-input' | 'session-not-found' | 'cookie-mismatch'>;
+
+// POST /api/words/approve — locks Words and advances to card_preview_render.
+export type WordsApproveRequest = {
+  session_id: string;
+};
+
+export type WordsApproveResponse =
+  | ApiOk<{ session: SessionWire }>
+  | ApiErr<'invalid-input' | 'session-not-found' | 'cookie-mismatch'>;
+
+/** Card preview frame — one of the three stills rendered at Stage 5.6. */
+export type CardPreviewWire = {
+  kind: 'opening' | 'closing' | 'in_scene_caption';
+  asset_id: string;
+  public_url: string;
+};
+
+// POST /api/card-preview/render — renders 3 stills (opening title, closing,
+// in-scene caption) at the session's aspect_ratio so the user can see the
+// typography in their world BEFORE any video render fires (v2.3 addition).
+export type CardPreviewRenderRequest = {
+  session_id: string;
+};
+
+export type CardPreviewRenderResponse =
+  | ApiOk<{ cards: CardPreviewWire[] }>
+  | ApiErr<
+      | 'invalid-input'
+      | 'session-not-found'
+      | 'cookie-mismatch'
+      | 'no-session'
+      | 'render-in-flight'
+      | 'session-budget-exceeded'
+      | 'render_failed'
+      | 'content-policy-violation'
+      | 'no-words'
+    >;
+
+// POST /api/card-preview/approve — locks the cards and advances to
+// 'cinematography_brief' (Phase 6 entry).
+export type CardPreviewApproveRequest = {
+  session_id: string;
+};
+
+export type CardPreviewApproveResponse =
+  | ApiOk<{ session: SessionWire }>
+  | ApiErr<'invalid-input' | 'session-not-found' | 'cookie-mismatch' | 'incomplete-cards'>;
 
 // -----------------------------------------------------------------------------
 // Helper: PhotoAsset re-export so frontend imports come from one place.

@@ -59,6 +59,20 @@ export const sessions = pgTable(
     // Replaced wholesale when a beat is rerolled (entry at beat_idx swaps).
     storyboardFrameAssetIds: text('storyboard_frame_asset_ids').array(),
     storyboardApprovedAt: timestamp('storyboard_approved_at', { withTimezone: true }),
+
+    // Stage 5.5 — "The Words." Title card + closing card text, optional music
+    // and narration. Captions per-beat live on `beat_sheet[].caption` (Phase 4a).
+    openingTitleCardText: text('opening_title_card_text'),
+    closingCardText: text('closing_card_text'),
+    musicTrackId: text('music_track_id'),
+    narrationVoiceId: text('narration_voice_id'),
+    narrationText: text('narration_text'),
+
+    // Stage 5.6 (v2.3) — Card preview. Renders 3 stills before any video fires:
+    // opening title card, closing card, one representative in-scene caption frame.
+    // Array length 3, indexed: 0=opening, 1=closing, 2=in_scene_caption.
+    cardPreviewAssetIds: text('card_preview_asset_ids').array(),
+    cardPreviewApprovedAt: timestamp('card_preview_approved_at', { withTimezone: true }),
   },
   (table) => [
     index('sessions_resume_token_idx').on(table.resumeToken),

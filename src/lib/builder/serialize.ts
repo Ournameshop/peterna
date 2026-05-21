@@ -65,5 +65,18 @@ export function serializeSession(s: Session): SessionWire {
         : s.storyboardApprovedAt
           ? String(s.storyboardApprovedAt)
           : null,
+
+    opening_title_card_text: s.openingTitleCardText,
+    closing_card_text: s.closingCardText,
+    music_track_id: s.musicTrackId,
+    narration_voice_id: s.narrationVoiceId,
+    narration_text: s.narrationText,
+    card_preview_asset_ids: s.cardPreviewAssetIds ?? null,
+    card_preview_approved_at:
+      s.cardPreviewApprovedAt instanceof Date
+        ? s.cardPreviewApprovedAt.toISOString()
+        : s.cardPreviewApprovedAt
+          ? String(s.cardPreviewApprovedAt)
+          : null,
   };
 }
