@@ -272,6 +272,7 @@ export interface NarrationVoice {
   name: string;
   description: string;
   defaultFor: ArtStyleId[];
+  minimaxVoiceId: string;
 }
 
 export interface LengthOption {
@@ -1414,24 +1415,28 @@ export const narrationVoices: readonly NarrationVoice[] = [
     name: 'Warm female alto',
     description: 'Soft, intimate, slightly breathy. Best for tender letter delivery.',
     defaultFor: ['watercolor', 'storybook_illustration'],
+    minimaxVoiceId: 'Calm_Woman',
   },
   {
     id: 'warm_male_baritone',
     name: 'Warm male baritone',
     description: 'Gentle, steady, lower register. Best for ceremonial tributes.',
     defaultFor: ['cinematic_realism'],
+    minimaxVoiceId: 'Deep_Voice_Man',
   },
   {
     id: 'soft_female_mezzo',
     name: 'Soft female mezzo',
     description: 'Mid-register warmth, conversational.',
     defaultFor: [],
+    minimaxVoiceId: 'Wise_Woman',
   },
   {
     id: 'user_recorded',
     name: 'My own voice',
     description: 'User records and uploads their own narration audio.',
     defaultFor: [],
+    minimaxVoiceId: 'Wise_Woman',
   },
 ] as const;
 

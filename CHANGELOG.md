@@ -5,6 +5,24 @@ Working branch: `Adding-skill-in-webflow`.
 
 ## 2026-05-22
 
+### Video pipeline — fixed "no text" and "no narration"
+End-to-end audit of the tribute video generation. Confirmed user-reported
+failures fixed:
+- **No text:** `/api/card/render` returned card images as `data:` URLs, which
+  `/api/video/compose` rejected (https-only validation) — cards were never
+  assembled. Card PNGs are now uploaded to fal storage and returned as https
+  URLs.
+- **No narration:** the script was built from the 6 raw (usually blank)
+  narration answers, so narration was skipped entirely; the selected voice was
+  never sent. Added `composeNarration()` (always produces real prose), mapped
+  the library voices to valid Minimax presets, and the chosen voice is now sent.
+- **Download:** cross-origin `a.click()` could open the file in a tab — now
+  fetches a blob and downloads reliably; stale composed-URL cache removed.
+- **Skill balance:** compose now trims each beat to `perBeatMs` so total length
+  honors the chosen 2/3/4-minute target; preview pacing matches export.
+- **Narration not cut off:** compose holds the last frame (`tpad`) so a long
+  voiceover is never truncated; errors surface in a visible panel.
+
 ### Image generation reverted to fal `gpt-image-2`
 The fal.ai account was topped up (credit check confirmed it's no longer
 locked). Reverted `/api/image/edit` from Gemini 2.5 Flash Image back to fal

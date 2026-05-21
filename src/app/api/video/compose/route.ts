@@ -13,7 +13,9 @@
 //   3. Build ONE ffmpeg command with a filter_complex that:
 //      - Scales/pads every input to the target canvas (W×H, 30fps, yuv420p)
 //      - Concatenates all visual inputs with concat filter
-//      - Maps optional audio (narration XOR music), re-encodes to aac 192k
+//      - Mixes optional audio (narration + music bed, music ducked -18dB),
+//        loops the music bed and pads narration to the video length,
+//        re-encodes to aac 192k
 //   4. Upload out.mp4 to fal.storage, return { url }
 //   5. Clean ALL temp files in finally block
 //
@@ -26,7 +28,7 @@
 //   musicUrl?: string | null,
 //   narrationUrl?: string | null,
 //   aspectRatio: "9:16" | "16:9" | "1:1",
-//   perBeatMs?: number,   // accepted for API compatibility but unused — beat clips play full length
+//   perBeatMs?: number,   // trims each beat video to this duration so total length ≈ targetMinutes
 //   cardMs?: number,      // default 3000 — image display duration (ms)
 //   captionMs?: number,   // default 2500 — caption card display duration (ms)
 // }
@@ -56,7 +58,7 @@ interface ReqBody {
   musicUrl?: string | null;
   narrationUrl?: string | null;
   aspectRatio?: "9:16" | "16:9" | "1:1";
-  perBeatMs?: number; // unused — beat clips play their full intrinsic length
+  perBeatMs?: number;
   cardMs?: number;
   captionMs?: number;
 }
@@ -64,7 +66,7 @@ interface ReqBody {
 interface Segment {
   kind: "image" | "video";
   url: string;
-  durationSec?: number; // only for images
+  durationSec?: number; // images: display duration; videos: trim duration (perBeatSec)
 }
 
 // Accepts only https URLs.
@@ -130,6 +132,7 @@ export async function POST(req: Request) {
 
   const cardMs    = body.cardMs    ?? 3000;
   const captionMs = body.captionMs ?? 2500;
+  const perBeatMs = body.perBeatMs ?? null;
   const aspectRatio = body.aspectRatio ?? "9:16";
   const { W, H } = canvasForAspectRatio(aspectRatio);
 
@@ -153,7 +156,7 @@ export async function POST(req: Request) {
       if (!validateStorageUrl(beat.videoUrl)) {
         return NextResponse.json({ error: `invalid videoUrl for beat ${beat.index}` }, { status: 400 });
       }
-      segments.push({ kind: "video", url: beat.videoUrl });
+      segments.push({ kind: "video", url: beat.videoUrl, durationSec: perBeatMs ? perBeatMs / 1000 : undefined });
     }
   }
   if (body.closingCardUrl) {
@@ -167,9 +170,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "no media segments to assemble" }, { status: 400 });
   }
 
-  const audioUrl = body.narrationUrl || body.musicUrl || null;
-  if (audioUrl && !validateStorageUrl(audioUrl)) {
-    return NextResponse.json({ error: "invalid audio url" }, { status: 400 });
+  // Narration and music are independent tracks. When both are present they are
+  // mixed: narration at full level, music ducked to -18dB beneath it (skill rule).
+  const narrationUrl = body.narrationUrl || null;
+  const musicUrl = body.musicUrl || null;
+  if (narrationUrl && !validateStorageUrl(narrationUrl)) {
+    return NextResponse.json({ error: "invalid narration url" }, { status: 400 });
+  }
+  if (musicUrl && !validateStorageUrl(musicUrl)) {
+    return NextResponse.json({ error: "invalid music url" }, { status: 400 });
   }
 
   const now = Date.now();
@@ -188,29 +197,41 @@ export async function POST(req: Request) {
       localPaths.push(p);
     }
 
-    let audioPath: string | null = null;
-    if (audioUrl) {
-      const ext = audioUrl.includes(".mp3") ? "mp3" : "m4a";
-      audioPath = await downloadToTmp(audioUrl, `compose_audio_${now}.${ext}`);
-      tmpFiles.push(audioPath);
+    // ffmpeg probes input format from content, so the extension is cosmetic.
+    let narrationPath: string | null = null;
+    let musicPath: string | null = null;
+    if (narrationUrl) {
+      narrationPath = await downloadToTmp(narrationUrl, `compose_narration_${now}.mp3`);
+      tmpFiles.push(narrationPath);
+    }
+    if (musicUrl) {
+      musicPath = await downloadToTmp(musicUrl, `compose_music_${now}.mp3`);
+      tmpFiles.push(musicPath);
     }
 
     // Build ffmpeg args array programmatically
     const args: string[] = ["-y"];
 
-    // Inputs: image segments get -loop 1 -t <duration>, video segments just -i
+    // Inputs: image segments get -loop 1 -t <duration>.
+    // Video segments get -t <durationSec> when perBeatMs was supplied (Fix 6), otherwise play full length.
     for (let i = 0; i < segments.length; i++) {
       const seg = segments[i];
       if (seg.kind === "image") {
         args.push("-loop", "1", "-t", String(seg.durationSec!), "-i", localPaths[i]);
+      } else if (seg.durationSec != null) {
+        args.push("-t", String(seg.durationSec), "-i", localPaths[i]);
       } else {
         args.push("-i", localPaths[i]);
       }
     }
 
-    // Audio input last
-    if (audioPath) {
-      args.push("-i", audioPath);
+    // Audio inputs last. Narration plays once; the music bed loops to fill the
+    // full tribute length (-stream_loop must precede its -i).
+    if (narrationPath) {
+      args.push("-i", narrationPath);
+    }
+    if (musicPath) {
+      args.push("-stream_loop", "-1", "-i", musicPath);
     }
 
     // Build filter_complex: scale/pad each input to canvas, then concat
@@ -222,19 +243,53 @@ export async function POST(req: Request) {
       );
     }
     const concatInputs = segments.map((_, k) => `[v${k}]`).join("");
-    filterParts.push(`${concatInputs}concat=n=${segments.length}:v=1:a=0[outv]`);
+    // When narration is present, pad the video timeline by holding the last
+    // frame so the voiceover is never cut mid-sentence (Fix 8).
+    // tpad=stop_mode=clone holds the last frame for up to 300 s of extra narration.
+    if (narrationPath) {
+      filterParts.push(`${concatInputs}concat=n=${segments.length}:v=1:a=0[concatv]`);
+      filterParts.push(`[concatv]tpad=stop_mode=clone:stop_duration=300[outv]`);
+    } else {
+      filterParts.push(`${concatInputs}concat=n=${segments.length}:v=1:a=0[outv]`);
+    }
+
+    // Audio mix. Input indices: narration (if any) then music (if any) follow
+    // the segment inputs. Music is ducked to -18dB (≈0.126 linear) beneath
+    // narration. apad / -stream_loop keep each track running.
+    // When narration is present we do NOT use -shortest so the voiceover can
+    // finish; instead the tpad above extends the video to cover it and we use
+    // duration=first on amix so the narration length drives the output (Fix 8).
+    // When only music is present, -shortest clips music to video length.
+    const narrationIndex = narrationPath ? segments.length : -1;
+    const musicIndex = musicPath ? segments.length + (narrationPath ? 1 : 0) : -1;
+    const hasAudio = narrationPath !== null || musicPath !== null;
+
+    if (narrationPath && musicPath) {
+      filterParts.push(
+        `[${narrationIndex}:a]volume=1.0[na]`,
+        `[${musicIndex}:a]volume=0.126[ma]`,
+        `[na][ma]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[aout]`
+      );
+    } else if (narrationPath) {
+      filterParts.push(`[${narrationIndex}:a]volume=1.0[aout]`);
+    } else if (musicPath) {
+      filterParts.push(`[${musicIndex}:a]volume=1.0[aout]`);
+    }
 
     args.push("-filter_complex", filterParts.join(";"));
     args.push("-map", "[outv]");
 
-    if (audioPath) {
-      const audioInputIndex = segments.length; // audio is the last input
+    if (hasAudio) {
       args.push(
-        "-map", `${audioInputIndex}:a`,
+        "-map", "[aout]",
         "-c:a", "aac",
         "-b:a", "192k",
-        "-shortest"
       );
+      // Clip to audio when only music (no narration) — music should not outlast video.
+      // When narration is present the tpad holds last frame to match voiceover length.
+      if (!narrationPath) {
+        args.push("-shortest");
+      }
     } else {
       args.push("-an");
     }

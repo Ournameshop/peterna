@@ -14,9 +14,9 @@ import { resolveText } from '@/lib/peternal-resolvers';
 type Segment =
   | { kind: 'card'; cardType: 'opening' | 'closing'; text: string; imageUrl?: string; duration: 3000 }
   | { kind: 'captionCard'; beatIndex: number; url: string; duration: 2500 }
-  | { kind: 'video'; beatIndex: number; url: string }
-  | { kind: 'image'; beatIndex: number; url: string; duration: 4000 }
-  | { kind: 'scene'; beatIndex: number; duration: 4000 };
+  | { kind: 'video'; beatIndex: number; url: string; duration: number }
+  | { kind: 'image'; beatIndex: number; url: string; duration: number }
+  | { kind: 'scene'; beatIndex: number; duration: number };
 
 function buildSegments(
   beatSheet: import('../state').Beat[],
@@ -26,6 +26,7 @@ function buildSegments(
   cardPreviewImages: { opening: string | null; closing: string | null; caption: string | null },
   openingText: string,
   closingText: string,
+  perBeatMs: number,
 ): Segment[] {
   const segs: Segment[] = [];
   segs.push({
@@ -41,11 +42,11 @@ function buildSegments(
       segs.push({ kind: 'captionCard', beatIndex: i, url: captionCardImages[i], duration: 2500 });
     }
     if (beatVideos[i]) {
-      segs.push({ kind: 'video', beatIndex: i, url: beatVideos[i] });
+      segs.push({ kind: 'video', beatIndex: i, url: beatVideos[i], duration: perBeatMs });
     } else if (storyboardImages[i]) {
-      segs.push({ kind: 'image', beatIndex: i, url: storyboardImages[i], duration: 4000 });
+      segs.push({ kind: 'image', beatIndex: i, url: storyboardImages[i], duration: perBeatMs });
     } else {
-      segs.push({ kind: 'scene', beatIndex: i, duration: 4000 });
+      segs.push({ kind: 'scene', beatIndex: i, duration: perBeatMs });
     }
   }
   segs.push({
@@ -61,9 +62,11 @@ function buildSegments(
 export default function TributePlayer() {
   const { state } = useBuilder();
 
-  // Continuous audio bed in the preview: music bed when narration is off.
-  // Narration is generated only at export time and is not previewed here.
-  const activeBedUrl = state.words.narration === 'off' ? (state.musicBedUrl ?? null) : null;
+  // Continuous music bed in the preview. Narration is generated only at export
+  // time and is not previewed, so the music bed plays here regardless of the
+  // narration setting. When the user chose silence, no bed exists and the beat
+  // clips' own ambient audio carries the preview instead.
+  const activeBedUrl = state.musicBedUrl ?? null;
 
   const petName = state.petName || 'them';
   const gender = state.gender ?? 'neutral';
@@ -95,6 +98,15 @@ export default function TributePlayer() {
   const frameMaxWidth: number =
     aspectId === '16:9' ? 760 : aspectId === '1:1' ? 460 : 326;
 
+  // Compute per-beat duration matching the compose timeline (same formula as FinishedTribute).
+  const captionCardCount = Object.keys(state.captionCardImages).length;
+  const cardsSeconds = 6 + captionCardCount * 2.5;
+  const beatLength = state.beatSheet.length || 1;
+  const perBeatSeconds = Math.min(
+    15,
+    Math.max(4, Math.round((state.targetMinutes * 60 - cardsSeconds) / beatLength)),
+  );
+
   const segments = buildSegments(
     state.beatSheet,
     state.beatVideos,
@@ -103,6 +115,7 @@ export default function TributePlayer() {
     state.cardPreviewImages,
     openingText,
     closingText,
+    perBeatSeconds * 1000,
   );
   const total = segments.length;
 
@@ -129,14 +142,12 @@ export default function TributePlayer() {
     });
   }, [total]);
 
-  // When segment changes, handle timed segments
+  // When segment changes, set a timer for all timed segments (including video, capped at perBeatMs).
   useEffect(() => {
     clearTimer();
     const seg = segments[segIdx];
-    if (!seg) return;
-    if (playing && seg.kind !== 'video') {
-      timerRef.current = setTimeout(advance, (seg as { duration: number }).duration);
-    }
+    if (!seg || !playing) return;
+    timerRef.current = setTimeout(advance, (seg as { duration: number }).duration);
     return clearTimer;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [segIdx, playing]);
@@ -174,7 +185,7 @@ export default function TributePlayer() {
   useEffect(() => {
     clearTimer();
     const seg = segments[segIdx];
-    if (!seg || !playing || seg.kind === 'video') return;
+    if (!seg || !playing) return;
     timerRef.current = setTimeout(advance, (seg as { duration: number }).duration);
     return clearTimer;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -310,7 +321,9 @@ export default function TributePlayer() {
           />
         )}
 
-        {/* Video segment — muted because the music bed is the sole audio source */}
+        {/* Video segment — muted while a music bed plays (the bed is the sole
+            audio source); unmuted when the user chose silence so the clip's
+            own ambient audio carries the preview. */}
         {seg && seg.kind === 'video' && (
           <video
             ref={videoRef}
@@ -318,7 +331,7 @@ export default function TributePlayer() {
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
             playsInline
             preload="auto"
-            muted
+            muted={activeBedUrl !== null}
           />
         )}
 

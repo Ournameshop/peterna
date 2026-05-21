@@ -10,7 +10,7 @@ import type { StageProps } from './types';
 import type { BuilderState } from '../state';
 import { resolveText } from '@/lib/peternal-resolvers';
 import { downloadEulogyPdf } from '@/lib/peternal-eulogy-pdf';
-import { musicTracks, themes } from '@/lib/peternal-library';
+import { musicTracks, themes, narrationVoices } from '@/lib/peternal-library';
 import TributePlayer from './TributePlayer';
 
 // ---------------------------------------------------------------------------
@@ -44,6 +44,53 @@ function composeEulogy(state: BuilderState): string {
   return body;
 }
 
+// ---------------------------------------------------------------------------
+// composeNarration — builds a flowing narration script from state.
+// Always returns a non-empty string even when all optional questions are blank.
+// ---------------------------------------------------------------------------
+function composeNarration(state: BuilderState): string {
+  const name = state.petName || 'them';
+  const gender = state.gender ?? 'neutral';
+  const ctx = { gender, petName: name };
+  const relationship = state.relationship ?? 'unspecified';
+  const relLabel = relationship === 'unspecified' ? 'a beloved companion' : relationship.replace(/_/g, ' ');
+  const closingLine =
+    state.cardText.closing || resolveText('Forever loved. [PET_NAME] will always be with us.', ctx);
+
+  const parts: string[] = [];
+
+  parts.push(resolveText(`This is a tribute to [PET_NAME] — [PRONOUN_SUBJECT] was ${relLabel}.`, ctx));
+
+  if (state.traits.length > 0) {
+    parts.push(resolveText(
+      `[PRONOUN_SUBJECT_CAP] was ${state.traits.join(', ')}.`,
+      ctx,
+    ));
+  }
+
+  if (state.favorites.length > 0) {
+    parts.push(resolveText(
+      `[PET_NAME] loved ${state.favorites.join(', ')}.`,
+      ctx,
+    ));
+  }
+
+  if (state.memoryPromptAnswer) {
+    parts.push(resolveText(`[PRONOUN_SUBJECT_CAP] was the kind of ${relLabel} who ${state.memoryPromptAnswer}.`, ctx));
+  }
+
+  // Narration letter answers (optional — any non-blank answers are included)
+  for (const line of state.words.narrationLetter) {
+    if (line && line.trim()) {
+      parts.push(line.trim());
+    }
+  }
+
+  parts.push(resolveText(closingLine, ctx));
+
+  return parts.join(' ');
+}
+
 type DownloadStatus = 'idle' | 'preparing' | 'done' | 'error';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -57,8 +104,10 @@ export default function FinishedTribute(_props: StageProps) {
   const musicStartedRef = useRef(false);
 
   useEffect(() => {
-    // Only generate a music bed when narration is off and we don't already have one.
-    if (state.words.narration !== 'off') return;
+    // Generate a Suno music bed unless the user explicitly chose silence.
+    // The bed plays in both the narration-off and narration-on cases — when
+    // narration is on, Stage 7 (compose) ducks it to -18dB beneath the voice.
+    if (state.words.music === 'silence') return;
     if (state.musicBedUrl) return;
     if (musicStartedRef.current) return;
     musicStartedRef.current = true;
@@ -112,18 +161,18 @@ export default function FinishedTribute(_props: StageProps) {
       setDownloadError('Still rendering — try again in a moment.');
       return;
     }
+
+    // Guard: if narration is on but opening card hasn't been generated yet, surface a clear error.
+    if (state.words.narration !== 'off' && !state.cardPreviewImages.opening) {
+      setDownloadError('Card images are still being generated — please wait a moment and try again.');
+      return;
+    }
+
     setDownloadError(null);
     setDownloadStatus('preparing');
 
-    // If we already composed once, just download the cached URL.
-    if (state.assembledVideoUrl) {
-      const a = document.createElement('a');
-      a.href = state.assembledVideoUrl;
-      a.download = `${petName}-tribute.mp4`;
-      a.click();
-      setDownloadStatus('done');
-      return;
-    }
+    // Never re-use a cached assembledVideoUrl — it may have been composed before
+    // the card-upload fix and contain no text. Always re-compose on download.
 
     try {
       // Music bed: use the generated musicBedUrl (generated on mount by the useEffect above).
@@ -132,22 +181,34 @@ export default function FinishedTribute(_props: StageProps) {
       // Build narration script when narration is on.
       let narrationUrl: string | null = null;
       if (state.words.narration !== 'off') {
+        const script = composeNarration(state);
+        if (!script) {
+          setDownloadError('Could not compose a narration script — please fill in at least a pet name.');
+          setDownloadStatus('error');
+          return;
+        }
+        // Resolve the Minimax voice_id from the chosen narration voice.
+        const chosenVoice = narrationVoices.find((v) => v.id === state.words.narration);
+        const minimaxVoiceId = chosenVoice?.minimaxVoiceId ?? 'Wise_Woman';
         try {
-          const narrationLines = state.words.narrationLetter.filter(Boolean);
-          if (narrationLines.length > 0) {
-            const script = narrationLines.join(' ');
-            const nRes = await fetch('/api/video/narration', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ text: script }),
-            });
-            if (nRes.ok) {
-              const nJson = (await nRes.json()) as { url?: string };
-              narrationUrl = nJson.url ?? null;
-            }
+          const nRes = await fetch('/api/video/narration', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: script, voice: minimaxVoiceId }),
+          });
+          if (nRes.ok) {
+            const nJson = (await nRes.json()) as { url?: string };
+            narrationUrl = nJson.url ?? null;
+          } else {
+            const nErr = (await nRes.json().catch(() => ({}) )) as { error?: string };
+            setDownloadError(`Narration failed: ${nErr.error ?? nRes.statusText}`);
+            setDownloadStatus('error');
+            return;
           }
-        } catch {
-          // narration failure must never block download
+        } catch (nEx) {
+          setDownloadError(`Narration request failed: ${nEx instanceof Error ? nEx.message : 'network error'}`);
+          setDownloadStatus('error');
+          return;
         }
       }
 
@@ -162,7 +223,7 @@ export default function FinishedTribute(_props: StageProps) {
       // P1: attempt to burn caption overlays into beat footage via ffmpeg.
       // Fall back to P0 (full-frame captionCardUrl) if ffmpeg is unavailable or fails.
       const hasOverlays = Object.keys(state.captionOverlayImages).length > 0;
-      let burnedVideoMap: Record<number, string> = {};
+      const burnedVideoMap: Record<number, string> = {};
       let burnSucceeded = false;
 
       if (hasOverlays) {
@@ -226,10 +287,10 @@ export default function FinishedTribute(_props: StageProps) {
           })),
           aspectRatio,
           perBeatMs,
-          // narration takes priority over music (XOR)
+          // Skill: narration is the foreground voice; the music bed plays
+          // beneath it, ducked to -18dB by the compose route's audio mix.
           narrationUrl: narrationUrl || null,
-          musicUrl: narrationUrl ? null : (musicUrl || null),
-          musicDurationMs: narrationUrl ? null : (state.musicBedDurationMs || null),
+          musicUrl: musicUrl || null,
         }),
       });
       const json = await res.json() as { url?: string; error?: string };
@@ -237,10 +298,16 @@ export default function FinishedTribute(_props: StageProps) {
         throw new Error(json.error ?? 'Assembly failed');
       }
       update({ assembledVideoUrl: json.url });
+
+      // Fetch the composed MP4 as a blob so the browser downloads it
+      // rather than opening it in a tab (cross-origin fal URLs trigger open-in-tab).
+      const videoBlob = await fetch(json.url).then((r) => r.blob());
+      const objectUrl = URL.createObjectURL(videoBlob);
       const a = document.createElement('a');
-      a.href = json.url;
+      a.href = objectUrl;
       a.download = `${petName}-tribute.mp4`;
       a.click();
+      URL.revokeObjectURL(objectUrl);
       setDownloadStatus('done');
     } catch (err) {
       setDownloadError(err instanceof Error ? err.message : 'Download failed');
@@ -295,9 +362,19 @@ export default function FinishedTribute(_props: StageProps) {
           <Download size={15} /> {downloadStatus === 'preparing' ? 'Preparing your tribute…' : 'Download tribute'}
         </PrimaryButton>
         {downloadError && (
-          <Sans style={{ fontSize: 13, color: PALETTE.mute, fontStyle: 'italic' }}>
-            {downloadError}
-          </Sans>
+          <div
+            style={{
+              padding: '12px 16px',
+              background: '#FEF2F2',
+              border: '1px solid #FCA5A5',
+              borderRadius: 4,
+              maxWidth: 480,
+            }}
+          >
+            <Sans style={{ fontSize: 14, color: '#B91C1C', lineHeight: 1.5 }}>
+              {downloadError}
+            </Sans>
+          </div>
         )}
         <PrimaryButton onClick={() => {}} secondary>
           Get my memorial page link
