@@ -2,9 +2,9 @@
 
 import {
   useCallback,
-  useEffect,
   useMemo,
   useState,
+  useSyncExternalStore,
   type CSSProperties,
 } from "react";
 import { motion } from "framer-motion";
@@ -42,52 +42,58 @@ type Props = {
   tone?: Tone;
 };
 
+/** What the initial render should show, based purely on browser state. */
+type InitialDecision = "hidden" | "prompt" | "unsupported";
+
+/** What a user action (or its result) drives us into, post-mount. */
 type LocalState =
-  | { kind: "hidden" }       // not supported, already answered, or already granted
-  | { kind: "prompt" }       // ready to ask
-  | { kind: "working" }      // subscribe in flight
-  | { kind: "granted" }      // success — keep the success line visible briefly
-  | { kind: "denied" }       // user clicked No, or browser said no
-  | { kind: "unsupported" }; // iOS Safari w/o PWA, no Push API
+  | { kind: "initial"; decision: InitialDecision } // mounted, awaiting input
+  | { kind: "working" }                            // subscribe in flight
+  | { kind: "granted" }                            // user said yes + we subscribed
+  | { kind: "denied" }                             // browser said no (or threw)
+  | { kind: "dismissed" };                         // user clicked "No" — render null
+
+/**
+ * Subscribe-once external store for the initial decision. We read it via
+ * `useSyncExternalStore` to avoid `setState` inside an effect (React 19's
+ * new lint rule flags that as cascading-render risk).
+ *
+ * The store is constant after mount — there's no actual subscription, just
+ * a snapshot read. SSR returns "hidden" so we never flash a prompt server-side.
+ */
+function decideInitial(): InitialDecision {
+  if (typeof window === "undefined") return "hidden";
+  if (!isPushSupported()) return "unsupported";
+  const perm = getPermissionState();
+  if (perm === "granted" || perm === "denied") return "hidden";
+  // perm === 'default' — gate on the localStorage flag so we don't ask twice.
+  try {
+    if (window.localStorage.getItem(PUSH_ASKED_FLAG)) return "hidden";
+  } catch {
+    // private mode — fall through and show the prompt.
+  }
+  return "prompt";
+}
+
+const NOOP_UNSUBSCRIBE = () => () => {};
 
 export default function NotificationOptIn({
   petName,
   sessionId,
   tone = "default",
 }: Props) {
-  const [state, setState] = useState<LocalState>({ kind: "hidden" });
+  // Hydration-safe: SSR snapshot is always "hidden"; first client render reads
+  // the real decision. No setState-in-effect, no flicker on the server.
+  const initialDecision = useSyncExternalStore<InitialDecision>(
+    NOOP_UNSUBSCRIBE,
+    decideInitial,
+    () => "hidden",
+  );
 
-  // Decide what to show on mount. Effect (not useMemo) because we read
-  // localStorage + Notification.permission.
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (!isPushSupported()) {
-      setState({ kind: "unsupported" });
-      return;
-    }
-    const perm = getPermissionState();
-    if (perm === "granted") {
-      // Already subscribed in a previous session — stay quiet.
-      setState({ kind: "hidden" });
-      return;
-    }
-    if (perm === "denied") {
-      // Permission is sticky — never re-prompt.
-      setState({ kind: "hidden" });
-      return;
-    }
-    // perm === 'default' — gate on the localStorage flag so we don't ask twice.
-    try {
-      const asked = window.localStorage.getItem(PUSH_ASKED_FLAG);
-      if (asked) {
-        setState({ kind: "hidden" });
-        return;
-      }
-    } catch {
-      // localStorage can throw in private mode — fall through and show the prompt.
-    }
-    setState({ kind: "prompt" });
-  }, []);
+  const [overrideState, setOverrideState] = useState<LocalState | null>(null);
+
+  const state: LocalState =
+    overrideState ?? { kind: "initial", decision: initialDecision };
 
   const markAsked = useCallback(() => {
     try {
@@ -98,24 +104,22 @@ export default function NotificationOptIn({
   }, []);
 
   const onAccept = useCallback(async () => {
-    setState({ kind: "working" });
+    setOverrideState({ kind: "working" });
     try {
       const result = await enablePushNotifications(sessionId);
       markAsked();
-      if (result === "granted") {
-        setState({ kind: "granted" });
-      } else {
-        setState({ kind: "denied" });
-      }
+      setOverrideState(
+        result === "granted" ? { kind: "granted" } : { kind: "denied" },
+      );
     } catch {
       markAsked();
-      setState({ kind: "denied" });
+      setOverrideState({ kind: "denied" });
     }
   }, [markAsked, sessionId]);
 
   const onDecline = useCallback(() => {
     markAsked();
-    setState({ kind: "hidden" });
+    setOverrideState({ kind: "dismissed" });
   }, [markAsked]);
 
   const copy = useMemo(() => {
@@ -135,15 +139,21 @@ export default function NotificationOptIn({
     return { headline, body, accept, decline };
   }, [petName, tone]);
 
-  if (state.kind === "hidden") return null;
+  // User clicked "No" — disappear quietly.
+  if (state.kind === "dismissed") return null;
 
-  // Quiet fallback line — never show a pill, never block.
-  if (state.kind === "unsupported") {
-    return (
-      <aside style={wrapStyle(tone)} aria-live="polite">
-        <p style={lineStyle}>{NOTIFICATIONS.unsupported.body}</p>
-      </aside>
-    );
+  // Initial render path.
+  if (state.kind === "initial") {
+    if (state.decision === "hidden") return null;
+    if (state.decision === "unsupported") {
+      // Quiet fallback line — never show a pill, never block.
+      return (
+        <aside style={wrapStyle(tone)} aria-live="polite">
+          <p style={lineStyle}>{NOTIFICATIONS.unsupported.body}</p>
+        </aside>
+      );
+    }
+    // decision === 'prompt' — fall through to the pill UI below.
   }
 
   if (state.kind === "granted") {
@@ -167,7 +177,7 @@ export default function NotificationOptIn({
     );
   }
 
-  // 'prompt' | 'working'
+  // 'initial' (decision === 'prompt') | 'working'
   const isWorking = state.kind === "working";
   return (
     <aside style={wrapStyle(tone)} aria-label="Browser notification opt-in">

@@ -175,12 +175,17 @@ export async function enablePushNotifications(
 /**
  * base64url → Uint8Array. PushManager wants the raw bytes, not the string.
  * Spec at https://developer.mozilla.org/en-US/docs/Web/API/PushManager/subscribe.
+ *
+ * We allocate via `new ArrayBuffer(len)` (not the Uint8Array constructor) so the
+ * returned view's backing buffer is concretely `ArrayBuffer`, not the wider
+ * `ArrayBufferLike`. The latter trips up `BufferSource` in TS strict mode.
  */
-function urlBase64ToUint8Array(base64: string): Uint8Array {
+function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
   const padding = '='.repeat((4 - (base64.length % 4)) % 4);
   const normalized = (base64 + padding).replace(/-/g, '+').replace(/_/g, '/');
   const raw = atob(normalized);
-  const buf = new Uint8Array(raw.length);
-  for (let i = 0; i < raw.length; i += 1) buf[i] = raw.charCodeAt(i);
-  return buf;
+  const buffer = new ArrayBuffer(raw.length);
+  const view = new Uint8Array(buffer);
+  for (let i = 0; i < raw.length; i += 1) view[i] = raw.charCodeAt(i);
+  return view;
 }
