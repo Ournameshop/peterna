@@ -5,6 +5,15 @@ Working branch: `Adding-skill-in-webflow`.
 
 ## 2026-05-22
 
+### Suno polling — handle CALLBACK_EXCEPTION
+Audited the Suno integration. `src/lib/suno.ts` only treated `SUCCESS` as done.
+Because the integration sends a placeholder `callBackUrl` and polls instead,
+the task can settle as `CALLBACK_EXCEPTION` (generation succeeded, webhook
+delivery failed) — the old code would then poll to the 4.5-min timeout and
+fail. Fixed: `CALLBACK_EXCEPTION` is now treated as success (audio extracted
+from `sunoData`). Also added a NaN-duration guard and a consecutive-poll-error
+cap so a hard failure bails fast instead of hanging the full window.
+
 ### Likeness — photo-led character-sheet prompt (`50a4cbd`)
 Rewrote the character-sheet generation prompt: removed the breed name and
 front-loaded the reference photos as the source of truth, with an explicit

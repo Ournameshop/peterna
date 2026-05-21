@@ -62,33 +62,40 @@ export async function sunoGenerateInstrumental(
 
   const { taskId } = genData.data;
   const deadline = Date.now() + POLL_TIMEOUT_MS;
+  let consecutiveErrors = 0;
+  const MAX_CONSECUTIVE_ERRORS = 6;
 
-  // Poll until SUCCESS or timeout
+  // Poll record-info until the audio is ready or we time out.
   while (Date.now() < deadline) {
     await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
 
-    const pollRes = await fetch(
-      `${SUNO_BASE}/api/v1/generate/record-info?taskId=${encodeURIComponent(taskId)}`,
-      {
-        headers: { Authorization: `Bearer ${key}` },
+    // Network/parse op isolated — any failure leaves pollData null.
+    let pollData: SunoRecordResponse | null = null;
+    try {
+      const pollRes = await fetch(
+        `${SUNO_BASE}/api/v1/generate/record-info?taskId=${encodeURIComponent(taskId)}`,
+        { headers: { Authorization: `Bearer ${key}` } }
+      );
+      if (pollRes.ok) {
+        pollData = (await pollRes.json()) as SunoRecordResponse;
       }
-    );
-
-    if (!pollRes.ok) continue;
-
-    const pollData = (await pollRes.json()) as SunoRecordResponse;
-    const status = pollData.data?.status;
-
-    if (status === "SUCCESS") {
-      const tracks = pollData.data.response?.sunoData ?? [];
-      const track = tracks[0];
-      if (!track?.audioUrl) throw new Error("Suno returned no audio URL");
-      return {
-        url: track.audioUrl,
-        durationMs: Math.round(track.duration * 1000),
-      };
+    } catch {
+      pollData = null;
     }
 
+    // Bad response / non-200 body code — count it; bail after a run of errors
+    // rather than burning the full 4.5-minute window on a hard failure.
+    if (!pollData || pollData.code !== 200) {
+      if (++consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+        throw new Error("Suno status polling failed repeatedly");
+      }
+      continue;
+    }
+    consecutiveErrors = 0;
+
+    const status = pollData.data?.status;
+
+    // Hard failures — stop immediately.
     if (
       status === "CREATE_TASK_FAILED" ||
       status === "GENERATE_AUDIO_FAILED" ||
@@ -96,7 +103,26 @@ export async function sunoGenerateInstrumental(
     ) {
       throw new Error(`Suno generation failed with status: ${status}`);
     }
-    // PENDING / TEXT_SUCCESS / FIRST_SUCCESS — keep polling
+
+    // Done. SUCCESS is the normal terminal state. CALLBACK_EXCEPTION means the
+    // generation succeeded but the webhook delivery failed — which it always
+    // does here, because we send a placeholder callBackUrl and poll instead.
+    // The finished audio is in sunoData either way.
+    if (status === "SUCCESS" || status === "CALLBACK_EXCEPTION") {
+      const track = (pollData.data?.response?.sunoData ?? []).find(
+        (t) => t?.audioUrl
+      );
+      if (!track) {
+        throw new Error(`Suno finished (${status}) but returned no audio URL`);
+      }
+      const durSec = Number(track.duration);
+      return {
+        url: track.audioUrl,
+        durationMs:
+          Number.isFinite(durSec) && durSec > 0 ? Math.round(durSec * 1000) : 0,
+      };
+    }
+    // PENDING / TEXT_SUCCESS / FIRST_SUCCESS — keep polling.
   }
 
   throw new Error("Suno generation timed out after 4.5 minutes");
