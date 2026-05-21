@@ -41,7 +41,7 @@ export default function CreatorYears({ onNext, onBack }: StageProps) {
 
   return (
     <StageShell
-      eyebrow="Creator &amp; Years — 1.11 / 1.12"
+      eyebrow="Creator &amp; Years"
       title="A few finishing details"
       lede={`Optional — these appear at the end of ${name}'s tribute. Skip anything you'd rather leave out.`}
       onNext={onNext}

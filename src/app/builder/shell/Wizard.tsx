@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, createContext, useContext, useCallback } from 'react';
-import { useBuilder, resetDownstream } from '../state';
+import { useBuilder } from '../state';
 import { STEPS } from '../steps';
 import type { StepId } from '../steps';
 import type { StageProps } from '../state';
@@ -51,7 +51,7 @@ export function useWizard(): WizardContextValue {
 export function WizardProvider({ children }: { children: React.ReactNode }) {
   const [stepIndex, setStepIndex] = useState(0);
   const [furthestReached, setFurthestReached] = useState(0);
-  const { state, update } = useBuilder();
+  const { resetDownstream } = useBuilder();
 
   const next = useCallback(() => {
     setStepIndex(i => {
@@ -62,21 +62,26 @@ export function WizardProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const back = useCallback(() => {
-    setStepIndex(i => Math.max(0, i - 1));
-  }, []);
+    setStepIndex(current => {
+      const target = Math.max(0, current - 1);
+      if (target < current) {
+        resetDownstream(STEPS[target].id);
+      }
+      return target;
+    });
+  }, [resetDownstream]);
 
   const goToStep = useCallback((id: StepId) => {
     const target = STEPS.findIndex(s => s.id === id);
     if (target < 0) return;
     setStepIndex(current => {
       if (target < current) {
-        const patch = resetDownstream(state, STEPS[target].id);
-        update(patch);
+        resetDownstream(STEPS[target].id);
       }
       setFurthestReached(f => Math.max(f, target));
       return target;
     });
-  }, [state, update]);
+  }, [resetDownstream]);
 
   return (
     <WizardContext.Provider value={{ stepIndex, furthestReached, next, back, goToStep }}>

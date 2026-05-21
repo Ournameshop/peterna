@@ -111,7 +111,16 @@ export default function CombinationPreview({ onNext, onBack, goToStep }: StagePr
         <Pill active onClick={onNext} large>
           Yes, this is it
         </Pill>
-        <Pill onClick={() => goToStep('style')} large>
+        <Pill
+          onClick={() => {
+            if (state.pickType === 'curated') {
+              goToStep('style_confirm');
+            } else {
+              goToStep('format');
+            }
+          }}
+          large
+        >
           Try a different style, theme, or format
         </Pill>
         <Pill

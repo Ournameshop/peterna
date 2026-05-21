@@ -87,6 +87,13 @@ export default function Generate({ onNext }: StageProps) {
     );
 
     async function runGeneration() {
+      if (briefs.length < beats.length) {
+        console.error(
+          `[Generate] cinematographyBriefs missing or short: expected ${beats.length}, got ${briefs.length}. ` +
+          'Complete the Cinematography stage before generating.'
+        );
+      }
+
       const baseImageUrls: string[] = characterSheetUrl ? [characterSheetUrl] : [];
 
       let completed = Object.keys(state.beatVideos).length;

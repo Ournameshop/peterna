@@ -322,7 +322,50 @@ ${style ? `Art style: ${style.directive}` : ''}`;
 }
 
 // ---- Card image (skill Stage 5.6) ------------------------------------------
-// One reference-conditioned image per card type (opening / caption / closing).
+// Deterministic typography renderer — POSTs to /api/card/render (resvg-based).
+// Keeps the same exported signature so callers don't churn; characterSheet /
+// themeId are accepted but ignored (the renderer is style-driven, not AI).
+
+async function renderCardImage(opts: {
+  cardType: 'opening' | 'closing' | 'caption' | 'caption_overlay';
+  text: string;
+  containerId: ContainerId | null;
+  styleId: ArtStyleId | null;
+  aspect: AspectId;
+  backgroundImageUrl?: string;
+}): Promise<string | null> {
+  const aspectMap: Record<AspectId, '9:16' | '16:9' | '1:1'> = {
+    '9:16': '9:16',
+    '16:9': '16:9',
+    '1:1': '1:1',
+    'all_three': '9:16',
+  };
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 60_000);
+  try {
+    const body: Record<string, string> = {
+      cardType: opts.cardType,
+      text: opts.text,
+      containerId: opts.containerId ?? 'cinematic_lower_third',
+      artStyle: opts.styleId ?? 'cinematic_realism',
+      aspectRatio: aspectMap[opts.aspect] ?? '9:16',
+    };
+    if (opts.backgroundImageUrl) body.backgroundImageUrl = opts.backgroundImageUrl;
+    const res = await fetch('/api/card/render', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: ctrl.signal,
+    });
+    if (!res.ok) return null;
+    const json = (await res.json()) as { url?: string };
+    return typeof json.url === 'string' ? json.url : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 export async function generateCardImage(opts: {
   kind: 'opening' | 'closing' | 'caption';
@@ -333,35 +376,34 @@ export async function generateCardImage(opts: {
   styleId: ArtStyleId | null;
   aspect: AspectId;
   userNote?: string;
+  backgroundImageUrl?: string;
 }): Promise<string | null> {
-  if (!opts.characterSheet) return null;
+  return renderCardImage({
+    cardType: opts.kind,
+    text: opts.text,
+    containerId: opts.containerId,
+    styleId: opts.styleId,
+    aspect: opts.aspect,
+    backgroundImageUrl: opts.backgroundImageUrl,
+  });
+}
 
-  const theme = themes.find((t) => t.id === opts.themeId);
-  const style = artStyles.find((s) => s.id === opts.styleId);
-  const container = captionContainers.find((c) => c.id === opts.containerId);
-  const note = opts.userNote?.trim();
+// ---- Caption overlay image (P1) --------------------------------------------
+// Generates a transparent-background PNG of the caption panel only,
+// for alpha-compositing over beat footage.
 
-  const containerPlacement =
-    opts.kind === 'caption'
-      ? 'lower-third (~80% frame width, lower portion of the frame)'
-      : 'centered and enlarged (~60% of the frame)';
-
-  const prompt = `${likenessSentence('the pet')}
-
-This is a ${opts.kind === 'opening' ? 'title' : opts.kind === 'closing' ? 'closing' : 'caption'} card image. The image MUST display this exact text rendered as legible typography: "${opts.text}"
-
-Typography container: ${container ? container.spec : `The text container is ${containerPlacement}.`} The container is positioned ${containerPlacement}.
-
-Scene: ${theme ? theme.desc : 'warm, gentle natural setting'}.
-${style ? `Art style: ${style.directive}` : ''}${note ? `
-
-The family reviewed the cards and asked for this change — apply it while keeping the pet's likeness: ${note}` : ''}`;
-
-  return editImage({
-    prompt,
-    imageUrls: [opts.characterSheet],
-    aspect: falAspect(opts.aspect),
-    quality: 'low',
+export async function generateCaptionOverlay(opts: {
+  text: string;
+  containerId: ContainerId | null;
+  styleId: ArtStyleId | null;
+  aspect: AspectId;
+}): Promise<string | null> {
+  return renderCardImage({
+    cardType: 'caption_overlay',
+    text: opts.text,
+    containerId: opts.containerId,
+    styleId: opts.styleId,
+    aspect: opts.aspect,
   });
 }
 

@@ -88,7 +88,12 @@ export default function TributePlayer() {
     aspectId === '9:16' ? '9 / 16' : aspectId === '16:9' ? '16 / 9' : '1';
 
   const maxHeight = aspectId === '9:16' ? 580 : 480;
-  const maxWidth: string | number = aspectId === '9:16' ? 326 : '100%';
+  // The frame needs an EXPLICIT width — with only maxWidth/maxHeight and
+  // absolutely-positioned content, an aspect-ratio box collapses to zero size.
+  const frameWidth: string | number =
+    aspectId === '9:16' ? 326 : aspectId === '1:1' ? 460 : '100%';
+  const frameMaxWidth: number =
+    aspectId === '16:9' ? 760 : aspectId === '1:1' ? 460 : 326;
 
   const segments = buildSegments(
     state.beatSheet,
@@ -258,7 +263,8 @@ export default function TributePlayer() {
           justifyContent: 'center',
           maxHeight,
           margin: '0 auto',
-          maxWidth,
+          width: frameWidth,
+          maxWidth: frameMaxWidth,
           position: 'relative',
           overflow: 'hidden',
         }}
@@ -339,32 +345,54 @@ export default function TributePlayer() {
         )}
 
         {/* Caption lower-third (video/image/scene only — not on card or captionCard segments) */}
-        {caption && seg && seg.kind !== 'card' && seg.kind !== 'captionCard' && (
-          <div
-            style={{
-              position: 'absolute',
-              bottom: 0,
-              left: 0,
-              right: 0,
-              background: 'linear-gradient(transparent, rgba(0,0,0,0.55))',
-              padding: '32px 20px 18px',
-              pointerEvents: 'none',
-            }}
-          >
-            <Serif
-              italic
+        {caption && seg && seg.kind !== 'card' && seg.kind !== 'captionCard' && (() => {
+          const overlayUrl = beatIndexForCaption !== null
+            ? state.captionOverlayImages[beatIndexForCaption] ?? null
+            : null;
+          if (overlayUrl) {
+            return (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={overlayUrl}
+                alt="caption overlay"
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'fill',
+                  pointerEvents: 'none',
+                }}
+              />
+            );
+          }
+          return (
+            <div
               style={{
-                fontSize: 15,
-                color: 'white',
-                textShadow: '0 1px 8px rgba(0,0,0,0.5)',
-                lineHeight: 1.4,
-                textAlign: 'center',
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                background: 'linear-gradient(transparent, rgba(0,0,0,0.55))',
+                padding: '32px 20px 18px',
+                pointerEvents: 'none',
               }}
             >
-              {caption}
-            </Serif>
-          </div>
-        )}
+              <Serif
+                italic
+                style={{
+                  fontSize: 15,
+                  color: 'white',
+                  textShadow: '0 1px 8px rgba(0,0,0,0.5)',
+                  lineHeight: 1.4,
+                  textAlign: 'center',
+                }}
+              >
+                {caption}
+              </Serif>
+            </div>
+          );
+        })()}
 
         {/* Controls overlay */}
         <div

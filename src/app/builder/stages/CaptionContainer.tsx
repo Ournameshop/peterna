@@ -87,7 +87,7 @@ export default function CaptionContainer({ onNext, onBack }: StageProps) {
 
   return (
     <StageShell
-      eyebrow="Stage 4.5 — Caption Container"
+      eyebrow="Caption Container"
       title="How the words appear in the scene"
       lede="Each caption sits inside a styled container that's part of the illustration — choose the one that feels right."
       onNext={onNext}

@@ -9,7 +9,14 @@ export default function ReturningUser({ onNext, onBack }: StageProps) {
   const { state, update } = useBuilder();
 
   const choose = (value: boolean) => {
-    update({ returningUser: value });
+    if (value) {
+      update({
+        returningUser: true,
+        gender: state.gender ?? 'neutral',
+      });
+    } else {
+      update({ returningUser: false });
+    }
     onNext();
   };
 

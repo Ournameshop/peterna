@@ -44,7 +44,7 @@ export default function TraitsFavorites({ onNext, onBack }: StageProps) {
 
   return (
     <StageShell
-      eyebrow="Personality — 1.9 / 1.10"
+      eyebrow="Personality"
       title={`Who was ${name}?`}
       lede="Pick the ones that feel most like them. No wrong answers — and no pressure to choose."
       onNext={onNext}

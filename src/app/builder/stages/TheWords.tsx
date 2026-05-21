@@ -21,7 +21,7 @@ import {
   captionTemplates,
   narrationVoices,
 } from '@/lib/peternal-library';
-import { resolveArchetype, resolveText, musicTracksFor } from '@/lib/peternal-resolvers';
+import { resolveArchetype, resolveText, musicTracksFor, captionVoiceFor } from '@/lib/peternal-resolvers';
 
 const NARRATION_QUESTIONS = [
   'How long were you together?',
@@ -120,7 +120,7 @@ export default function TheWords({ onNext, onBack }: StageProps) {
   if (sub === 0) {
     return (
       <StageShell
-        eyebrow="The Words · 5.5.1"
+        eyebrow="The Words"
         title={<>How should it <em>open</em>?</>}
         lede="The first words your tribute shows. Pick one or write your own — every option works."
         onNext={advance}
@@ -217,7 +217,7 @@ export default function TheWords({ onNext, onBack }: StageProps) {
   if (sub === 1) {
     return (
       <StageShell
-        eyebrow="The Words · 5.5.2"
+        eyebrow="The Words"
         title={<>And how should it <em>close</em>?</>}
         lede="The final line. It will appear over the last scene."
         onNext={advance}
@@ -290,9 +290,10 @@ export default function TheWords({ onNext, onBack }: StageProps) {
 
   // 5.5.3 — Mid-tribute captions
   if (sub === 2) {
+    const voiceHint = state.format ? captionVoiceFor(state.format) : null;
     return (
       <StageShell
-        eyebrow="The Words · 5.5.3"
+        eyebrow="The Words"
         title={<>A few <em>caption moments</em>?</>}
         lede={`Pick up to 3 beats to add a caption to. Suggestions below are resolved to ${petName}'s voice.`}
         onNext={advance}
@@ -300,6 +301,12 @@ export default function TheWords({ onNext, onBack }: StageProps) {
         canNext={true}
         nextLabel="Next: Music"
       >
+        {voiceHint && (
+          <div style={{ background: PALETTE.boneSoft, border: `1px solid ${PALETTE.parchmentLight}`, borderRadius: 4, padding: '10px 14px', marginBottom: 20, display: 'flex', alignItems: 'baseline', gap: 10 }}>
+            <Sans style={{ fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: PALETTE.mute, flexShrink: 0 }}>Voice</Sans>
+            <Sans style={{ fontSize: 13, color: PALETTE.espresso, fontStyle: 'italic' }}>{voiceHint.tenseHint}</Sans>
+          </div>
+        )}
         <Sans
           style={{
             fontSize: 13,
@@ -431,7 +438,7 @@ export default function TheWords({ onNext, onBack }: StageProps) {
   if (sub === 3) {
     return (
       <StageShell
-        eyebrow="The Words · 5.5.4"
+        eyebrow="The Words"
         title={<>What should it <em>sound</em> like?</>}
         lede="Four tracks chosen to fit your theme and style. No music works beautifully too."
         onNext={advance}
@@ -520,7 +527,7 @@ export default function TheWords({ onNext, onBack }: StageProps) {
     const narrationOn = state.words.narration !== 'off';
     return (
       <StageShell
-        eyebrow="The Words · 5.5.5"
+        eyebrow="The Words"
         title={<>Would you like a <em>voiceover</em>?</>}
         lede="Optional. Music alone is the gentle default — narration adds your words to the tribute."
         onNext={advance}
@@ -642,7 +649,7 @@ export default function TheWords({ onNext, onBack }: StageProps) {
 
   return (
     <GateReview
-      eyebrow="The Words · 5.5.6"
+      eyebrow="The Words"
       title={<>These are <em>{petName}&apos;s</em> words.</>}
       lede="A summary of everything you&apos;ve chosen. When it feels right, continue."
       options={[

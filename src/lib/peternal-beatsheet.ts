@@ -86,6 +86,16 @@ function resolveCaptionFromKey(
   return enforceCaption(raw);
 }
 
+// Human-readable beat names by archetype.
+const ARCHETYPE_NAMES: Record<BeatArchetype, string[]> = {
+  open:        ['Opening'],
+  close:       ['Closing'],
+  memory:      ['A memory', 'Another memory', 'A moment', 'Their world', 'The days', 'A quiet day', 'A beloved moment', 'Their gaze'],
+  connection:  ['That look', 'The bond', 'Their presence'],
+  ceremonial:  ['The threshold', 'The crossing', 'The passage', 'The archway'],
+  release:     ['Letting go', 'Running free', 'Among the stars'],
+};
+
 // Format overrides — rename beat or spokenOrTitle per format.
 function applyFormatOverride(
   beat: Beat,
@@ -104,15 +114,6 @@ function applyFormatOverride(
       const musicStructure16 = ['Intro', 'Verse 1', 'Chorus 1', 'Verse 2', 'Chorus 2', 'Bridge 1', 'Verse 3', 'Chorus 3', 'Bridge 2', 'Verse 4', 'Chorus 4', 'Verse 5', 'Chorus 5', 'Outro Bridge', 'Final Chorus', 'Outro'];
       const map = totalBeats === 8 ? musicStructure8 : totalBeats === 12 ? musicStructure12 : musicStructure16;
       b.name = map[arcIndex] ?? b.name;
-      break;
-    }
-    case 'biopic': {
-      // Chronological life-stage naming for memory beats
-      const stages = ['Puppyhood', 'Growing Up', 'Young & Bold', 'In Their Prime', 'Golden Years'];
-      if (b.archetype === 'memory') {
-        const memIdx = arcIndex - 1; // offset past open beat
-        b.name = stages[Math.min(memIdx, stages.length - 1)] ?? b.name;
-      }
       break;
     }
     case 'letter': {
@@ -268,10 +269,19 @@ export function generateBeatSheet(input: GenerateInput): Beat[] {
       }
     }
 
+    // Human-readable beat name; biopic memory beats are renamed in Step 7.
+    const archetypeNames = ARCHETYPE_NAMES[archetype];
+    const archetypeNameIdx = (() => {
+      let count = 0;
+      for (let j = 0; j < i; j++) { if (arc[j] === archetype) count++; }
+      return count;
+    })();
+    const beatName = archetypeNames[Math.min(archetypeNameIdx, archetypeNames.length - 1)];
+
     const rawBeat: Beat = {
       index: i,
       archetype,
-      name: `${archetype.charAt(0).toUpperCase()}${archetype.slice(1)} ${i + 1}`,
+      name: beatName,
       visual,
       caption: enforceCaption(caption),
       spokenOrTitle,
@@ -315,6 +325,19 @@ export function generateBeatSheet(input: GenerateInput): Beat[] {
     memoryIndices.forEach((pos, slot) => {
       beats[pos] = { ...memoryBeats[slot], index: pos };
     });
+  }
+
+  // Step 7 — re-apply biopic life-stage names AFTER the memory reorder so that
+  // "Puppyhood" through "Golden Years" follow the final sorted beat order.
+  if (format === 'biopic') {
+    const biopicStages = ['Puppyhood', 'Growing Up', 'Young & Bold', 'In Their Prime', 'Golden Years'];
+    let memSlot = 0;
+    for (let i = 0; i < beats.length; i++) {
+      if (beats[i].archetype === 'memory') {
+        beats[i] = { ...beats[i], name: biopicStages[Math.min(memSlot, biopicStages.length - 1)] };
+        memSlot++;
+      }
+    }
   }
 
   return beats;

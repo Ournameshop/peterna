@@ -7,50 +7,13 @@ import type {
   ArtStyleId,
   DpStyleId,
   BeatArchetype,
+  CameraMove,
+  LightingMotion,
+  DofBehavior,
+  AmbientAudio,
 } from '@/lib/peternal-library';
 
 import type { Beat, CinematographyBrief, BuilderState } from '@/app/builder/state';
-
-// ---------------------------------------------------------------------------
-// Union types re-declared here so this file compiles independently;
-// when peternal-library.ts ships these will be imported from there instead.
-// ---------------------------------------------------------------------------
-type CameraMove =
-  | 'locked_off'
-  | 'slow_push'
-  | 'slow_pull'
-  | 'slow_rise'
-  | 'slow_fall'
-  | 'slow_pan_L'
-  | 'slow_pan_R'
-  | 'slow_orbit'
-  | 'parallax_dolly'
-  | 'handheld_float'
-  | 'dreamy_drift';
-
-type LightingMotion =
-  | 'static'
-  | 'drifting_sunbeam'
-  | 'leaf_dapple_breeze'
-  | 'candle_flicker'
-  | 'dust_motes'
-  | 'rim_light_pulse';
-
-type DofBehavior =
-  | 'locked_shallow'
-  | 'locked_deep'
-  | 'rack_to_subject'
-  | 'rack_to_environment'
-  | 'rack_to_caption';
-
-type AmbientAudio =
-  | 'birdsong'
-  | 'wind_grass'
-  | 'hearth_crackle'
-  | 'soft_rain'
-  | 'water_lapping'
-  | 'silence'
-  | 'breath_only';
 
 // ---------------------------------------------------------------------------
 // Part 1 — FrameMetadata (simulated deterministic stub)
@@ -79,9 +42,7 @@ const THEME_PALETTE: Record<ThemeId, 'warm' | 'neutral' | 'cool'> = {
   nap_champion:      'warm',
   starlit_reunion:   'cool',
   signs_and_symbols: 'neutral',
-  // eternal_garden added in v2.4
-  eternal_garden:    'warm',
-} as Record<ThemeId, 'warm' | 'neutral' | 'cool'>;
+};
 
 // Map beat archetypes to a default environmental motion.
 const ARCHETYPE_ENV_MOTION: Record<BeatArchetype, FrameMetadata['environmentalMotion']> = {
@@ -355,7 +316,6 @@ function deriveAmbientAudio(
     nap_champion:    'hearth_crackle',
     starlit_reunion: 'silence',
     signs_and_symbols: 'wind_grass',
-    eternal_garden:  'birdsong',
   };
   const byTheme = themeAudio[theme];
   if (byTheme) return byTheme;

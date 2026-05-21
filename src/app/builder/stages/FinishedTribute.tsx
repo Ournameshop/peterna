@@ -126,17 +126,6 @@ export default function FinishedTribute(_props: StageProps) {
     }
 
     try {
-      // Duration math: distribute time evenly across beats, clamped 4–15s.
-      // cardsSeconds = 6 (opening + closing) + 2.5s per caption card that has an image
-      const captionCardCount = Object.keys(state.captionCardImages).length;
-      const cardsSeconds = 6 + captionCardCount * 2.5;
-      const beatLength = state.beatSheet.length || 1;
-      const perBeatSeconds = Math.min(
-        15,
-        Math.max(4, Math.round((state.targetMinutes * 60 - cardsSeconds) / beatLength))
-      );
-      const perBeatMs = perBeatSeconds * 1000;
-
       // Music bed: use the generated musicBedUrl (generated on mount by the useEffect above).
       const musicUrl = state.musicBedUrl ?? null;
 
@@ -170,6 +159,59 @@ export default function FinishedTribute(_props: StageProps) {
       };
       const aspectRatio = aspectRatioMap[state.aspectRatio] ?? '9:16';
 
+      // P1: attempt to burn caption overlays into beat footage via ffmpeg.
+      // Fall back to P0 (full-frame captionCardUrl) if ffmpeg is unavailable or fails.
+      const hasOverlays = Object.keys(state.captionOverlayImages).length > 0;
+      let burnedVideoMap: Record<number, string> = {};
+      let burnSucceeded = false;
+
+      if (hasOverlays) {
+        try {
+          const burnBeats = state.beatSheet
+            .filter((beat) => state.beatVideos[beat.index])
+            .map((beat) => ({
+              index: beat.index,
+              videoUrl: state.beatVideos[beat.index],
+              captionOverlayUrl: state.captionOverlayImages[beat.index] ?? undefined,
+            }));
+
+          const burnRes = await fetch('/api/video/burn-captions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ beats: burnBeats }),
+          });
+
+          if (burnRes.ok) {
+            const burnJson = (await burnRes.json()) as { beats?: Array<{ index: number; burnedVideoUrl: string }> };
+            if (Array.isArray(burnJson.beats)) {
+              for (const b of burnJson.beats) {
+                burnedVideoMap[b.index] = b.burnedVideoUrl;
+              }
+              burnSucceeded = true;
+              update({ burnedBeatVideos: burnedVideoMap });
+            }
+          }
+        } catch {
+          // ffmpeg not installed or route error — fall through to P0
+        }
+      }
+
+      // Duration math: distribute time evenly across beats, clamped 4–15s.
+      // When P1 burn succeeded, caption cards are NOT in the compose timeline, so count = 0.
+      const captionCardCount = burnSucceeded ? 0 : Object.keys(state.captionCardImages).length;
+      const cardsSeconds = 6 + captionCardCount * 2.5;
+      const beatLength = state.beatSheet.length || 1;
+      const perBeatSeconds = Math.min(
+        15,
+        Math.max(4, Math.round((state.targetMinutes * 60 - cardsSeconds) / beatLength))
+      );
+      const perBeatMs = perBeatSeconds * 1000;
+
+      // Build the beats array for compose.
+      // P1 success: use burned video URLs, omit captionCardUrl (captions are in footage).
+      // P0 fallback: use original videos + full-frame captionCardUrl.
+      const composeBeatVideoMap = burnSucceeded ? burnedVideoMap : state.beatVideos;
+
       const res = await fetch('/api/video/compose', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -178,8 +220,9 @@ export default function FinishedTribute(_props: StageProps) {
           closingCardUrl: state.cardPreviewImages.closing,
           beats: state.beatSheet.map((beat) => ({
             index: beat.index,
-            videoUrl: state.beatVideos[beat.index],
-            captionCardUrl: state.captionCardImages[beat.index],
+            videoUrl: composeBeatVideoMap[beat.index] ?? state.beatVideos[beat.index],
+            // When P1 burned captions into footage, don't send captionCardUrl.
+            captionCardUrl: burnSucceeded ? undefined : state.captionCardImages[beat.index],
           })),
           aspectRatio,
           perBeatMs,

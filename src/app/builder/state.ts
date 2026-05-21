@@ -117,7 +117,9 @@ export interface BuilderState {
   storyboardRerollRequests: number[];
   storyboardImages: Record<number, string>;  // beat index -> fal-generated frame URL
   beatVideos: Record<number, string>;        // beat index -> Seedance video URL
-  captionCardImages: Record<number, string>; // beat index -> gpt-image-2 caption-card URL
+  captionCardImages: Record<number, string>;    // beat index -> caption-card PNG URL
+  captionOverlayImages: Record<number, string>; // beat index -> transparent overlay PNG URL
+  burnedBeatVideos: Record<number, string>;      // beat index -> caption-burned video URL
   assembledVideoUrl: string | null;
   musicBedUrl: string | null;
   musicBedDurationMs: number | null;
@@ -171,6 +173,8 @@ export const initialState: BuilderState = {
   storyboardImages: {},
   beatVideos: {},
   captionCardImages: {},
+  captionOverlayImages: {},
+  burnedBeatVideos: {},
   assembledVideoUrl: null,
   musicBedUrl: null,
   musicBedDurationMs: null,
@@ -208,6 +212,8 @@ export function resetDownstream(state: BuilderState, fromStage: StepId): Partial
         storyboardImages: {},
         beatVideos: {},
         captionCardImages: {},
+        captionOverlayImages: {},
+        burnedBeatVideos: {},
         assembledVideoUrl: null,
         musicBedUrl: null,
         musicBedDurationMs: null,
@@ -226,6 +232,8 @@ export function resetDownstream(state: BuilderState, fromStage: StepId): Partial
         storyboardImages: {},
         beatVideos: {},
         captionCardImages: {},
+        captionOverlayImages: {},
+        burnedBeatVideos: {},
         assembledVideoUrl: null,
         musicBedUrl: null,
         musicBedDurationMs: null,
@@ -239,6 +247,8 @@ export function resetDownstream(state: BuilderState, fromStage: StepId): Partial
         storyboardImages: {},
         beatVideos: {},
         captionCardImages: {},
+        captionOverlayImages: {},
+        burnedBeatVideos: {},
         assembledVideoUrl: null,
         musicBedUrl: null,
         musicBedDurationMs: null,
@@ -253,7 +263,6 @@ export function resetDownstream(state: BuilderState, fromStage: StepId): Partial
 interface BuilderContextValue {
   state: BuilderState;
   update: (patch: Partial<BuilderState>) => void;
-  patch: (patch: Partial<BuilderState>) => void;
   resetDownstream: (fromStage: StepId) => void;
 }
 
@@ -265,13 +274,12 @@ export function BuilderProvider({ children }: { children: React.ReactNode }) {
   const update = (patch: Partial<BuilderState>) => setState(s => ({ ...s, ...patch }));
 
   const resetDs = (fromStage: StepId) => {
-    const patch = resetDownstream(state, fromStage);
-    setState(s => ({ ...s, ...patch }));
+    setState(s => ({ ...s, ...resetDownstream(s, fromStage) }));
   };
 
   return React.createElement(
     BuilderContext.Provider,
-    { value: { state, update, patch: update, resetDownstream: resetDs } },
+    { value: { state, update, resetDownstream: resetDs } },
     children,
   );
 }

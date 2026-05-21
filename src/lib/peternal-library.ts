@@ -26,7 +26,6 @@ export type ThemeCategoryId =
 export type ThemeId =
   | 'rainbow_bridge'
   | 'sunrise_reunion'
-  | 'eternal_garden'
   | 'gentle_rain'
   | 'moonlight_vigil'
   | 'quiet_home'
@@ -428,7 +427,7 @@ export const themeCategories: readonly ThemeCategory[] = [
     name: 'Healing & Peace',
     emoji: '🌅',
     desc: 'soft, hopeful, transcendent',
-    themeIds: ['rainbow_bridge', 'sunrise_reunion', 'eternal_garden'],
+    themeIds: ['rainbow_bridge', 'sunrise_reunion'],
   },
   {
     id: 'quiet_grief',
@@ -489,17 +488,6 @@ export const themes: readonly Theme[] = [
     gradient: 'linear-gradient(135deg, #F8DCC0 0%, #E8A985 50%, #B4715A 100%)',
     imagePrompt:
       'A cinematic photoreal landscape, 4:3 landscape. Early-morning sunrise breaking over a soft hillside meadow, first light cutting through low ground mist, dew-covered grass catching the warm rose-gold rays, the sun just clearing a soft horizon. A faint path leads through the meadow into the warm glow. The light is the hero. Style: the warm photoreal cinematography of a Days of Heaven sunrise crossed with the painterly grade of an Andrew Wyeth landscape. NO pets, NO people, NO text. Soft cinematic depth of field, 35mm lens, painterly warm grade. Color palette: dawn rose-gold, peach, pale amber, soft mint of dewy grass, with cream highlights and gentle warm shadows. Mood: hopeful renewal, the new day. Avoid: harsh contrast, dark colors, modern objects, anything urban or clinical. Feel: the world waking up warm.',
-  },
-  {
-    // v2.4: eternal_garden added. The v1.3 changelog references "Eternal Garden" for quiet_remembrance;
-    // in v2.4 the skill adds it to healing_and_peace as canonical.
-    id: 'eternal_garden',
-    name: 'Eternal Garden',
-    category: 'healing_and_peace',
-    desc: 'A peaceful endless garden in soft perpetual bloom – gentle paths between wildflowers, dappled light through arbors, butterflies and quiet birdsong.',
-    gradient: 'linear-gradient(135deg, #C8E6C9 0%, #A5D6A7 40%, #66BB6A 100%)',
-    imagePrompt:
-      'A cinematic photoreal landscape painting of an eternal garden in soft perpetual bloom, 4:3 landscape. Gentle winding paths between beds of wildflowers – poppies, daisies, forget-me-nots – dappled light filtering through wooden garden arbors draped in climbing roses, butterflies drifting lazily through golden afternoon haze, distant soft birdsong suggested by the composition. The garden extends into a warm soft horizon. NO pets visible – pure environment. NO text. Color palette: soft sage green, warm cream, dusty rose, gentle lavender, golden dappled light. Mood: tranquil, hopeful, a resting place of endless gentle blooms. Avoid: religious imagery, harsh light, anything melancholy or dark. Feel: a garden that never ends and never stops blooming.',
   },
   {
     id: 'gentle_rain',
@@ -872,16 +860,14 @@ export const curatorsPicks: readonly CuratorPick[] = (() => {
       imagePrompt:
         "A hand-drawn children's storybook illustration, 4:3 landscape orientation. A small warm-toned cartoon dog stands on a grassy hilltop overlooking a rolling pastoral landscape – a tiny cottage with a red door in the middle distance, soft round hills receding into hazy blue, a winding dirt path, a pair of trees with soft round canopies, a few sheep dots in the far meadow. The art style is hand-painted with visible soft pencil construction lines beneath the paint, gouache or soft acrylic texture, gentle rounded shapes throughout, warm pastel palette with the slight printed-page warmth of a vintage children's book. Style references: Beatrix Potter's pastoral tenderness, Garth Williams' Charlotte's Web illustrations, Jon Klassen's restraint, Oliver Jeffers' painterly warmth. The dog is universal – rounded friendly silhouette, not breed-specific, painted with affectionate simplicity. The sun is a soft yellow disc upper-left with a few faint hand-drawn rays. A few small painted wildflowers in the foreground grass. Mood is timeless, tender, picture-book warm – the kind of image that could be a Sunday-evening bedtime story page. NO text, NO words, NO page numbers. Composition: dog at center-left silhouetted against horizon, cottage at middle-right, foreground grass leading the eye in. Color palette: warm cream paper tone, dusty sage green, soft amber, dusty pink, gentle sky blue, brick red accent on cottage door. Avoid: digital cleanness, sharp outlines, modern style, photoreal textures, anything edgy or contemporary, identifiable breeds. Feel: a beloved picture-book illustration the family will turn back to for years.",
     },
-    // v1.3 / v2.4 addition: quiet_remembrance uses eternal_garden (added in v2.4 YAML).
-    // The v1.3 changelog referenced "Eternal Garden" which the original themes block lacked;
-    // v2.4 adds eternal_garden to healing_and_peace, so we map here directly.
+    // v1.3 addition
     {
       id: 'quiet_remembrance',
       name: 'Quiet Remembrance',
       format: 'letter',
-      theme: 'eternal_garden',
+      theme: 'gentle_rain',
       style: 'watercolor',
-      tagline: 'A soft remembrance among endless blooms.',
+      tagline: 'A watercolor letter written in the quiet of the rain.',
       container: 'pressed_flower_bookmark',
     },
     // v1.3 / v2.4 addition

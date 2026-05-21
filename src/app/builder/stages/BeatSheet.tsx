@@ -9,7 +9,7 @@ import type { StageProps } from './types';
 import type { Beat } from '../state';
 
 export default function BeatSheet({ onNext, onBack }: StageProps) {
-  const { state, update } = useBuilder();
+  const { state, update, resetDownstream } = useBuilder();
   const [action, setAction] = useState<string | null>(null);
   const [editIndex, setEditIndex] = useState<number | null>(null);
   const [editField, setEditField] = useState<'name' | 'visual' | 'caption' | 'spokenOrTitle' | null>(null);
@@ -55,6 +55,7 @@ export default function BeatSheet({ onNext, onBack }: StageProps) {
       i === editIndex ? { ...b, [editField]: editValue } : b
     );
     update({ beatSheet: updated, beatSheetApproved: false });
+    resetDownstream('beatsheet');
     setEditIndex(null);
     setEditField(null);
     setAction(null);
@@ -67,6 +68,7 @@ export default function BeatSheet({ onNext, onBack }: StageProps) {
     arr.splice(to, 0, item);
     const reindexed = arr.map((b, i) => ({ ...b, index: i }));
     update({ beatSheet: reindexed, beatSheetApproved: false });
+    resetDownstream('beatsheet');
     setReorderFrom(null);
     setAction(null);
   }
@@ -74,6 +76,7 @@ export default function BeatSheet({ onNext, onBack }: StageProps) {
   function dropBeat(i: number) {
     const updated = beats.filter((_, idx) => idx !== i).map((b, idx) => ({ ...b, index: idx }));
     update({ beatSheet: updated, beatSheetApproved: false });
+    resetDownstream('beatsheet');
     setAction(null);
   }
 
@@ -88,6 +91,7 @@ export default function BeatSheet({ onNext, onBack }: StageProps) {
       lengthSeconds: 15,
     };
     update({ beatSheet: [...beats, newBeat], beatSheetApproved: false });
+    resetDownstream('beatsheet');
     setAction(null);
   }
 
@@ -103,7 +107,7 @@ export default function BeatSheet({ onNext, onBack }: StageProps) {
 
   return (
     <StageShell
-      eyebrow="Stage 4 — The Story"
+      eyebrow="The Story"
       title={`${petName}'s story, beat by beat`}
       lede={`Here's the ${beats.length}-beat arc. Each beat is a 15-second scene in the tribute.`}
       onBack={onBack}

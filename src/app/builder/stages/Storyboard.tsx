@@ -135,7 +135,7 @@ export default function Storyboard({ onNext, onBack }: StageProps) {
       {!generating && generated && (
         <div style={{ display: 'grid', gridTemplateColumns: `repeat(${colCount}, 1fr)`, gap: 12, marginBottom: 28 }}>
           {beats.map((beat, i) => {
-            const isRerolling = rerollSpinning && state.storyboardRerollRequests[state.storyboardRerollRequests.length - 1] === i;
+            const isRerolling = rerollSpinning && state.storyboardRerollRequests[state.storyboardRerollRequests.length - 1] === beat.index;
             return (
               <div key={beat.index} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <div style={{ position: 'relative', borderRadius: 4, overflow: 'hidden', border: `1px solid ${PALETTE.parchmentLight}` }}>
@@ -160,7 +160,7 @@ export default function Storyboard({ onNext, onBack }: StageProps) {
                   )}
                   {(rerollTarget === 'single' || rerollTarget === 'multi') && (
                     <button
-                      onClick={() => spinFrame(i)}
+                      onClick={() => spinFrame(beat.index)}
                       style={{
                         position: 'absolute', inset: 0, background: 'rgba(42,33,27,0.45)',
                         border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',

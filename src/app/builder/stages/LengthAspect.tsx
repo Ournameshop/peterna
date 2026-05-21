@@ -29,7 +29,7 @@ export default function LengthAspect({ onNext, onBack }: StageProps) {
   if (step === 'length') {
     return (
       <StageShell
-        eyebrow="Length · Stage 2.5"
+        eyebrow="Length"
         title={<>How long should <em>{state.petName ? `${state.petName}'s` : 'the'}</em> tribute be?</>}
         lede="Every length tells a complete story. Choose what feels right for who they were."
         onNext={() => setStep('aspect')}
@@ -90,7 +90,7 @@ export default function LengthAspect({ onNext, onBack }: StageProps) {
 
   return (
     <StageShell
-      eyebrow="Format · Stage 2.6"
+      eyebrow="Aspect Ratio"
       title={<>Which screen <em>shape</em> feels right?</>}
       lede="The tribute will be rendered in this format. You can change it any time before generation."
       onNext={onNext}

@@ -48,7 +48,7 @@ export default function MemoryRelationship({ onNext, onBack }: StageProps) {
 
   return (
     <StageShell
-      eyebrow="Memory &amp; Relationship — 1.6 / 1.8"
+      eyebrow="Memory &amp; Relationship"
       title="Tell us a little more"
       lede="A memory and a sense of who they were to you. Both are completely optional — skip either one."
       onNext={onNext}

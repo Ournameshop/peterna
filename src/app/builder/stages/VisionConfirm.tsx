@@ -54,9 +54,12 @@ export default function VisionConfirm({ onNext, onBack }: StageProps) {
         state.petPhotos.find(p => p.file) ??
         state.petPhotos.find(p => p.url) ??
         state.petPhotos[0];
-      // Real Gemini-vision analysis; falls back to the simulated profile on any failure.
-      const profile = (photo && (await analyzePetPhoto(photo)))
-        || buildSimulatedProfile(state.petPhotos, state.petName);
+      // Real Gemini-vision analysis; falls back to an explicit-question profile on any failure.
+      const analysisResult = photo ? await analyzePetPhoto(photo) : null;
+      const profile: PetProfile = analysisResult ?? {
+        ...buildSimulatedProfile(state.petPhotos, state.petName),
+        visionFailed: true,
+      };
       update({ petProfile: profile });
       setScanning(false);
     })();
@@ -149,7 +152,12 @@ export default function VisionConfirm({ onNext, onBack }: StageProps) {
       nextLabel={`Yes, that's ${name}`}
       secondaryAction={
         <button
-          onClick={onBack}
+          onClick={() => {
+            const chipRow = document.getElementById('vision-edit-chips');
+            if (chipRow) chipRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            const firstChip = chipRow?.querySelector('button') as HTMLButtonElement | null;
+            if (firstChip) firstChip.focus();
+          }}
           style={{ fontFamily: 'Inter, sans-serif', fontSize: 13, color: PALETTE.mute, background: 'transparent', border: 'none', cursor: 'pointer' }}
         >
           Let me fix something
@@ -180,7 +188,7 @@ export default function VisionConfirm({ onNext, onBack }: StageProps) {
         </div>
       )}
 
-      <div style={{ background: PALETTE.boneSoft, border: `1px solid ${PALETTE.parchmentLight}`, borderRadius: 6, padding: '24px 28px', marginBottom: 32, borderLeft: `3px solid ${PALETTE.brass}` }}>
+      <div id="vision-edit-chips" style={{ background: PALETTE.boneSoft, border: `1px solid ${PALETTE.parchmentLight}`, borderRadius: 6, padding: '24px 28px', marginBottom: 32, borderLeft: `3px solid ${PALETTE.brass}` }}>
         <Sans style={{ fontSize: 12, letterSpacing: '0.14em', textTransform: 'uppercase', color: PALETTE.mute, marginBottom: 16 }}>What I observed</Sans>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
           <EditChip label="Species" value={p.species} onClick={() => openEdit('species', p.species)} />
