@@ -44,8 +44,8 @@
 **Likelihood:** Low for accidental disclosure, but the floor for severity if it happens is high.
 
 **Mitigation:**
-- `DELETE /api/session/[id]` cascades to DB + R2 immediately. Surfaced as "Delete my tribute" in the UI.
-- 30-day inactivity purge (daily cron + R2 lifecycle rule as backstop).
+- `DELETE /api/session/[id]` cascades to DB + S3 immediately. Surfaced as "Delete my tribute" in the UI.
+- 30-day inactivity purge (daily cron + S3 lifecycle rule as backstop).
 - No email captured by default in Phase 1. Resume link is the only way to return.
 - Asset keys are unguessable UUIDs but assets are public; no signed URLs. **Risk: anyone with a URL can fetch.** Acceptable in Phase 1; revisit in Phase 2 if we add account-bound sessions.
 - Document retention policy in `/privacy` page before Phase 1 ships.

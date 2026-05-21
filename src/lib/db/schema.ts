@@ -65,6 +65,7 @@ export const assets = pgTable(
       .references(() => sessions.id, { onDelete: 'cascade' }),
     kind: text('kind').notNull(),
     source: text('source').notNull(),
+    /** Historical name (from the Cloudflare R2 era); values are AWS S3 object keys. */
     r2Key: text('r2_key').notNull(),
     publicUrl: text('public_url').notNull(),
     mimeType: text('mime_type'),

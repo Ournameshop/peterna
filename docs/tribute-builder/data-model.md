@@ -1,4 +1,4 @@
-# Data model — Postgres + R2 + library content
+# Data model — Postgres + S3 + library content
 
 **Owner / agent type:** Backend (schema + storage).
 **Prerequisites:** read `architecture.md` §2, §3, §5 first.
@@ -58,7 +58,7 @@ assets (
   session_id      uuid not null references sessions(id) on delete cascade,
   kind            text not null,           -- 'pet_photo' | 'character_sheet' | 'combination_preview' | 'storyboard_frame' | 'card_preview'
   source          text not null,           -- 'upload' | 'url_ingest' | 'vendor_render'
-  r2_key          text not null,
+  r2_key          text not null,           -- S3 object key. Column name is historical (Cloudflare R2 era).
   public_url      text not null,
   mime_type       text,
   bytes           int,
@@ -79,7 +79,7 @@ renders (
   vendor_served       text,                 -- null if both failed
   model               text,                 -- e.g. 'gpt-image-2-2026-04-21'
   request_body        jsonb,
-  response_url        text,                 -- R2-rehosted output (image/video)
+  response_url        text,                 -- S3-rehosted output (image/video)
   cost_usd_est        numeric(10, 4),
   duration_ms         int,
   error               text,                 -- null on success
@@ -98,11 +98,11 @@ create index renders_vendor_served_idx on renders(vendor_served, created_at);   
 
 ## Lifecycle / retention
 
-- **30-day inactivity purge.** Daily cron (host-cron, node-cron, or a deploy-target-specific scheduler — decided when the deploy target is) at `/api/cron/purge` deletes `sessions` where `updated_at < now() - interval '30 days'`. Cascade removes `assets` and `renders` rows. A second pass calls R2 `DeleteObjects` for any `r2_key` rows that were already removed.
-- **R2 lifecycle rule.** Belt-and-suspenders: `sessions/*` keys with no access in 30 days are auto-purged at the R2 layer too.
+- **30-day inactivity purge.** Daily cron (host-cron, node-cron, or a deploy-target-specific scheduler — decided when the deploy target is) at `/api/cron/purge` deletes `sessions` where `updated_at < now() - interval '30 days'`. Cascade removes `assets` and `renders` rows. A second pass calls S3 `DeleteObjects` for any `r2_key` rows that were already removed.
+- **S3 lifecycle rule.** Belt-and-suspenders: `sessions/*` keys with no access in 30 days are auto-purged at the bucket layer too (S3 lifecycle policy).
 - **User-triggered delete.** `DELETE /api/session/[id]` bypasses the wait — cascades DB rows and `DeleteObjects` immediately.
 
-## R2 layout
+## S3 layout
 
 Bucket `peterna-tribute-assets`. Keys:
 
@@ -112,7 +112,9 @@ sessions/<session_id>/renders/<asset_uuid>.<ext>         -- vendor output (image
 sessions/<session_id>/clips/<asset_uuid>.mp4             -- Phase 4+ video
 ```
 
-Public read via custom domain `assets.peterna.com` (Cloudflare). No signed URLs in Phase 1 — assets are public but the keys are unguessable UUIDs.
+Public read via CloudFront distribution at `assets.peterna.com`. No signed URLs in Phase 1 — assets are public but the keys are unguessable UUIDs.
+
+> **Note on column naming:** the DB column is `assets.r2_key` (Drizzle binding `r2Key`) — historical from the Cloudflare R2 era. We deliberately did not rename it to `s3_key`: that would require a migration and a wire-type change for zero functional benefit. The application reads/writes S3 object keys through that column. See `src/lib/db/schema.ts` and the matching `r2_key` field on `AssetWire` in `src/lib/builder/wire-types.ts`.
 
 ## Library data
 

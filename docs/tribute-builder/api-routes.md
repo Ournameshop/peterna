@@ -36,8 +36,8 @@
 - Server validates `stage` transition against `legalNextStages(current)` (derived from the state-machine reducer in `src/lib/builder/state.ts`). Unknown stage tags → 400 `invalid-input`. Illegal transitions → 400 `{ ok: false, error: 'invalid-stage-transition', from, to }`. Same-stage PATCHes are always legal (idempotent).
 
 ### `DELETE /api/session/[id]`
-- Cascades: DB rows deleted, R2 `DeleteObjects` called for all assets.
-- R2 failures are tolerated: each delete-batch is wrapped in try/catch, the keys are logged on partial failure, and the DB delete + cookie clear proceeds regardless. The R2 lifecycle rule (`data-model.md` §"Lifecycle / retention") sweeps stragglers within 30 days.
+- Cascades: DB rows deleted, S3 `DeleteObjects` called for all assets.
+- S3 failures are tolerated: each delete-batch is wrapped in try/catch, the keys are logged on partial failure, and the DB delete + cookie clear proceeds regardless. The S3 lifecycle rule (`data-model.md` §"Lifecycle / retention") sweeps stragglers within 30 days.
 - Returns: `{ ok: true }`.
 
 ### `POST /api/session/resume/[token]`
@@ -47,13 +47,13 @@
 
 ### `POST /api/upload`
 - Multipart form: `file` (image/*) + `session_id` (snake_case form field).
-- Streams to R2 at `sessions/<id>/photos/<uuid>.<ext>`. Inserts `assets` row with `kind='pet_photo'`, `source='upload'`.
+- Streams to S3 at `sessions/<id>/photos/<uuid>.<ext>`. Inserts `assets` row with `kind='pet_photo'`, `source='upload'`.
 - Returns: `{ ok: true, asset_id, public_url }`.
-- Limits: 10 MB per file, 10 files per session. Per-session cap is enforced via a `SELECT count(*) WHERE kind='pet_photo'` before the R2 PUT; the client-side `MAX_FILES=10` is cosmetic. Returns `413 { error: 'too-many-photos', limit, current }` on overflow.
+- Limits: 10 MB per file, 10 files per session. Per-session cap is enforced via a `SELECT count(*) WHERE kind='pet_photo'` before the S3 PUT; the client-side `MAX_FILES=10` is cosmetic. Returns `413 { error: 'too-many-photos', limit, current }` on overflow.
 
 ### `POST /api/ingest-url`
 - Body: `{ session_id, urls: string[] }` (max 10)
-- For each URL: normalize (Drive `view` → `uc?export=download&id=...`; Dropbox `?dl=0` → `?dl=1`), HEAD-check (require `Content-Type: image/*`), download server-side, rehost to R2.
+- For each URL: normalize (Drive `view` → `uc?export=download&id=...`; Dropbox `?dl=0` → `?dl=1`), HEAD-check (require `Content-Type: image/*`), download server-side, rehost to S3.
 - Per-session photo cap (same 10-photo limit as `/api/upload`) is enforced as a running budget — URLs over the budget land in `failed[]` with `reason: 'too_many_photos'` instead of failing the whole batch.
 - Returns: `{ ok: true, assets: Array<{ asset_id, public_url }>, failed: Array<{ url, reason }> }`.
 

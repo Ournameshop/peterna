@@ -20,7 +20,7 @@ function getClient(): OpenAI {
 export type OpenAIVisionInput = {
   /** Final prompt text (after `[PET_NAME]` substitution by the caller). */
   prompt: string;
-  /** Public R2 URLs of the user's pet photos. */
+  /** Public S3 URLs of the user's pet photos. */
   photoUrls: string[];
   /** JSON Schema object (e.g. PET_PROFILE_SCHEMA) used with `response_format` strict mode. */
   schema: object;

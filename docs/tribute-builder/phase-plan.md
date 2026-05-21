@@ -12,7 +12,7 @@ Ship Phase 1 to a hand-off shape first, then 2, then 3. Don't try to land 1+2+3 
 **Scope:** scaffolding only, no UI, no vendor calls.
 **Dispatch:** backend agent solo.
 - Add Postgres connection + Drizzle config (local Postgres for dev; prod host TBD); create the three tables from `data-model.md`.
-- Add R2 client wrapper at `src/lib/storage/r2.ts`.
+- Add S3 client wrapper at `src/lib/storage/s3.ts`.
 - Add the vendor layer scaffolding at `src/lib/ai/` per `vendor-layer.md` — capability functions exist, vendor modules are stubbed with `throw new Error('not implemented')`.
 - Add `SESSION_SECRET` HMAC helper.
 - Library skeleton at `src/lib/library/` with empty stubs and `index.ts` re-exports. Add the load-time validator that throws if minimum counts unmet.
@@ -31,7 +31,7 @@ Ship Phase 1 to a hand-off shape first, then 2, then 3. Don't try to land 1+2+3 
 
 **Library populated:** `copy.ts` (full Stage 1 verbatim), `pronouns.ts`, `relationships.ts`, `intake.ts` (`memory_prompts`, `personality_traits`, `favorite_things`), `vision-pass.ts` (prompt + schema), `defaults.ts`.
 
-**Env vars wired:** `DATABASE_URL`, `R2_*` (4), `OPENAI_API_KEY`, `GEMINI_API_KEY`, `FAL_KEY`, `SESSION_SECRET`.
+**Env vars wired:** `DATABASE_URL`, `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `S3_BUCKET`, `S3_PUBLIC_BASE_URL`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `FAL_KEY`, `SESSION_SECRET`.
 
 **Dispatch order:**
 1. Backend agent — Phase 0 + `session/*` routes + `upload` + `ingest-url`. Wire OpenAI + Gemini in `runVisionPass`.
@@ -41,12 +41,12 @@ Ship Phase 1 to a hand-off shape first, then 2, then 3. Don't try to land 1+2+3 
 
 **Definition of done (E2E):**
 - User loads `/builder`, gets a session created, walks through every Stage 1 screen.
-- Uploading 3 photos via dropzone + 1 Google Drive link results in 4 assets in R2 + 4 rows in `assets`.
+- Uploading 3 photos via dropzone + 1 Google Drive link results in 4 assets in S3 + 4 rows in `assets`.
 - `/api/vision-pass` returns a realistic `inferred_profile` for a known test photo (Xee's dog).
 - `ConfirmationCard` renders the observation paragraph; tapping a chip lets the user edit; "Yes, that's [pet]" saves and advances stage to `intake_memory`.
 - User completes the rest of Stage 1, gets `intake_complete` state in DB.
 - Reload page restores state; resume link at `/builder/r/<token>` works.
-- `DELETE /api/session/[id]` cascades to R2 + DB.
+- `DELETE /api/session/[id]` cascades to S3 + DB.
 
 ## Phase 2 — Character Sheet (Stage 2) [M]
 
@@ -61,7 +61,7 @@ Ship Phase 1 to a hand-off shape first, then 2, then 3. Don't try to land 1+2+3 
 **Library populated:** `art-styles.ts` (only the directives needed for character-sheet prompt; full directives for downstream phases).
 
 **Dispatch order:**
-1. Backend agent — `generate-image.ts` direct OpenAI implementation + fal fallback + `character-sheet/render` route + prompt builder. Re-hosts vendor output to R2.
+1. Backend agent — `generate-image.ts` direct OpenAI implementation + fal fallback + `character-sheet/render` route + prompt builder. Re-hosts vendor output to S3.
 2. Frontend agent — `GateReview`, `CharacterSheetView`, length picker, aspect picker.
 3. QA agent — DoD + manual review against the spec's "wrong-looking pet" cases.
 

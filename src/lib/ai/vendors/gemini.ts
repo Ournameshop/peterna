@@ -42,7 +42,7 @@ export type GeminiVisionOutput = {
  * Call Gemini 2.5 Pro with the pet's photos and a JSON-schema response constraint. We download
  * the photos server-side and inline them as base64 — Gemini's `inlineData` part — to avoid the
  * upstream-host availability issues that can plague Drive/Dropbox passthrough URLs (even
- * after we rehost to R2, an extra HTTP-fetch from Google's side adds a flake surface).
+ * after we rehost to S3, an extra HTTP-fetch from Google's side adds a flake surface).
  */
 export async function runGeminiVision(input: GeminiVisionInput): Promise<GeminiVisionOutput> {
   const client = getClient();

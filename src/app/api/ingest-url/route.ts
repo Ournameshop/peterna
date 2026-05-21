@@ -9,7 +9,7 @@ import type {
 import { getDb } from '@/lib/db/client';
 import { assets } from '@/lib/db/schema';
 import { authBySession } from '@/lib/session/auth';
-import { ingestUrlToR2 } from '@/lib/storage/ingest-url';
+import { ingestUrlToS3 } from '@/lib/storage/ingest-url';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -22,7 +22,7 @@ const MAX_PHOTOS_PER_SESSION = 10;
  *
  * Body: `{ session_id: string, urls: string[] }` (snake_case wire). For each URL: normalize
  * (Drive viewer → uc?export=download, Dropbox ?dl=0 → ?dl=1), HEAD-verify image/*, GET,
- * rehost to R2, insert one row in `assets`. Returns the resolved asset records and a
+ * rehost to S3, insert one row in `assets`. Returns the resolved asset records and a
  * parallel `failed[]` list per URL so the UI can show which ones the user needs to retry.
  *
  * This route does its own per-URL try/catch — one bad link shouldn't blow up the whole batch.
@@ -72,7 +72,7 @@ export async function POST(req: Request): Promise<Response> {
       failed.push({ url, reason: 'too_many_photos' });
       continue;
     }
-    const result = await ingestUrlToR2({ sessionId, url });
+    const result = await ingestUrlToS3({ sessionId, url });
     if (!result.ok) {
       failed.push({ url, reason: result.error.code });
       continue;
@@ -82,7 +82,9 @@ export async function POST(req: Request): Promise<Response> {
       sessionId,
       kind: 'pet_photo',
       source: 'url_ingest',
-      r2Key: result.asset.r2Key,
+      // DB column is `r2_key` (Drizzle binding `r2Key`) — kept for backward-compat
+      // with the existing migration; values are S3 object keys.
+      r2Key: result.asset.s3Key,
       publicUrl: result.asset.publicUrl,
       mimeType: result.asset.mimeType,
       bytes: result.asset.bytes,

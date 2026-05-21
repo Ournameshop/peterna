@@ -49,7 +49,7 @@ export type GenerateImageInput = {
 };
 
 export type GenerateImageResult = {
-  url: string;              // R2-rehosted public URL (we re-upload vendor output)
+  url: string;              // S3-rehosted public URL (we re-upload vendor output)
   vendorServed: VendorTag;
   vendorAttempted: VendorTag[];
   costUsdEst: number;
@@ -57,7 +57,7 @@ export type GenerateImageResult = {
 };
 
 export type VisionPassInput = {
-  photos: string[];         // public R2 URLs
+  photos: string[];         // public S3 URLs
   schema: object;           // JSON schema (pet_profile_schema from library)
   sessionId: string;
 };

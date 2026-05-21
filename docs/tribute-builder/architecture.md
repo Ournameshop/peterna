@@ -7,7 +7,7 @@
 ## TL;DR
 
 - **Vendor strategy:** hybrid — direct vendor primary, fal.ai fallback per capability where a direct path exists. GPT Image 2 → OpenAI primary, fal fallback. Vision pass → OpenAI GPT-4o primary, Gemini 2.5 fallback. **Seedance 2.0 → fal.ai sole vendor** (no direct ByteDance/Volcengine API available from US as of 2026-05-21; single-vendor risk accepted, Phase 4+). TTS (out of Phase 1) → ElevenLabs direct, no fallback. Higgsfield is OUT.
-- **Persistence:** Postgres + Cloudflare R2 + anonymous sessions keyed by HMAC cookie and resumable link. Local Postgres for dev; production host deferred until deploy target is chosen. No accounts in Phase 1.
+- **Persistence:** Postgres + AWS S3 + anonymous sessions keyed by HMAC cookie and resumable link. Local Postgres for dev; production host deferred until deploy target is chosen. No accounts in Phase 1.
 - **Phase 1 routes added:** 6 — `session/create`, `session/[id]` GET/PATCH/DELETE, `upload`, `ingest-url`, `vision-pass`.
 - **Deferred:** Stages 4–8 (beat sheet, storyboard, words, card preview, cinematography engine, video gen, assembly, eulogy PDF), narration, music, DP overlay, caption containers / baked typography.
 - **Biggest risk:** likeness drift at Stage 2 — the spec's "single failure mode that ruins the tribute" — paired with cost runaway from re-roll storms if we don't rate-limit and dedupe.
@@ -40,7 +40,7 @@
 
 ## 2. Session-state model
 
-**Pick: Postgres + R2 + anonymous sessions.** Cookie-token (HMAC signed, httponly) keys every request; an opt-in resume-token gives a shareable `/builder/r/<token>` link.
+**Pick: Postgres + S3 + anonymous sessions.** Cookie-token (HMAC signed, httponly) keys every request; an opt-in resume-token gives a shareable `/builder/r/<token>` link.
 
 - **Why not localStorage-only:** photo ingestion, vision pass, and character-sheet approval all need server-readable state across requests.
 - **Why not auth (NextAuth/Clerk):** grieving users abandon signup. Add email magic-link in Phase 2 — zero schema change.
@@ -86,24 +86,24 @@ All routes: `runtime = 'nodejs'`, `dynamic = 'force-dynamic'`. Match the request
 
 ### Photo upload path
 
-**Pick: multipart POST → R2 in Phase 1; refactor to presigned PUT-from-browser when payloads pass ~3 MB.** Considered: (a) multipart through Next route, (b) presigned PUT direct from browser, (c) base64 in JSON. (c) rejected (4 MB cap + 33% bloat). (a) is the simplest; pet photos are 1–3 MB. One-day refactor to (b) later.
+**Pick: multipart POST → S3 in Phase 1; refactor to presigned PUT-from-browser when payloads pass ~3 MB.** Considered: (a) multipart through Next route, (b) presigned PUT direct from browser, (c) base64 in JSON. (c) rejected (4 MB cap + 33% bloat). (a) is the simplest; pet photos are 1–3 MB. One-day refactor to (b) later.
 
 **URL ingestion (Drive/Dropbox/HTTPS):**
 - Drive `/file/d/<id>/view` → `https://drive.google.com/uc?export=download&id=<id>`
 - Dropbox `?dl=0` → `?dl=1`
 - HEAD the URL; require `Content-Type: image/*` (not HTML viewer page)
-- **Always rehost to R2.** Vendor endpoints can fetch direct URLs, but Drive permissions get revoked and 302-redirect-chains fail. One-time bandwidth cost, bulletproofs every downstream call.
+- **Always rehost to S3.** Vendor endpoints can fetch direct URLs, but Drive permissions get revoked and 302-redirect-chains fail. One-time bandwidth cost, bulletproofs every downstream call.
 
 ---
 
 ## 5. Photo storage
 
-**Pick: Cloudflare R2** (S3-compatible, zero egress fees, $0.015/GB-month). Bucket `peterna-tribute-assets`. Keys: `sessions/<id>/{photos,renders,clips}/<uuid>.<ext>`. Public read via `assets.peterna.com`.
+**Pick: AWS S3** ($0.023/GB-month standard, $0.09/GB egress in us-east-1; CloudFront in front of the bucket is the assumed serving path so egress is billed at CloudFront rates rather than raw S3). Bucket `peterna-tribute-assets`. Keys: `sessions/<id>/{photos,renders,clips}/<uuid>.<ext>`. Public read via `assets.peterna.com` (CloudFront distribution).
 
+- **Why S3 over Cloudflare R2:** Xee already operates an AWS fleet; one fewer vendor account and IAM surface. The egress premium vs. R2 is real but tractable at Phase-1 traffic, and CloudFront in front collapses repeated reads of the same asset (vendor fetches, user re-views) into edge-cached hits.
 - **Why not Vercel Blob:** fine for tiny artifacts; egress will bite once we add video.
-- **Why not S3:** egress costs. R2 is API-compatible; can swap.
 
-Retention: 30-day inactivity purge via R2 lifecycle rule + a daily cron that reaps DB rows. "Delete my tribute" bypasses the wait.
+Retention: 30-day inactivity purge via S3 lifecycle rule + a daily cron that reaps DB rows. "Delete my tribute" bypasses the wait.
 
 Drive-link normalization is **our** responsibility — the spec ducks it into the user's lap by passing raw URLs to Higgsfield; we own it in `ingest-url`.
 
@@ -125,7 +125,7 @@ Authoritative version with definitions-of-done and agent-dispatch order lives in
 
 | Phase | Scope | Routes added | Components added | Env vars | E2E testable |
 |---|---|---|---|---|---|
-| **1 — Intake (Stage 1)** [M] | Welcome, photos, name, vision pass, "Here's what I see," gender, relationship, traits, favorites, creator, years. No image renders. | `session/create`, `session/[id]` (GET/PATCH/DELETE), `upload`, `ingest-url`, `vision-pass` | `WizardShell`, `PhotoUrlField`, `PillPicker`, `TextField`, `ConfirmationCard`, `StageBanner` | `DATABASE_URL`, `R2_*` (4), `OPENAI_API_KEY`, `GEMINI_API_KEY`, `FAL_KEY`, `SESSION_SECRET` | User walks intake, sees inferred profile card, edits fields, saves, resumes via link |
+| **1 — Intake (Stage 1)** [M] | Welcome, photos, name, vision pass, "Here's what I see," gender, relationship, traits, favorites, creator, years. No image renders. | `session/create`, `session/[id]` (GET/PATCH/DELETE), `upload`, `ingest-url`, `vision-pass` | `WizardShell`, `PhotoUrlField`, `PillPicker`, `TextField`, `ConfirmationCard`, `StageBanner` | `DATABASE_URL`, `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `S3_BUCKET`, `S3_PUBLIC_BASE_URL`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `FAL_KEY`, `SESSION_SECRET` | User walks intake, sees inferred profile card, edits fields, saves, resumes via link |
 | **2 — Character Sheet (Stage 2)** [M] | 4-view 2K sheet, approval gate, field-level refinement loop, unlimited re-rolls, lock + transition. Length (2.5) + aspect (2.6) pickers. | `character-sheet/render`, `character-sheet/approve` | `GateReview`, `CharacterSheetView` | (no new) | User completes intake, sees pet rendered 4-up, approves or refines, picks length + aspect |
 | **3 — Format/Theme/Style (Stage 3)** [L] | Curator's Picks (relationship-ordered), 3.1.5 style confirm, manual path (format → category → theme → style), combination preview, approval. | `preview/render`, `preview/approve` | `CuratorPickGrid`, `FormatGrid`, `ThemeCategoryGrid`, `ThemeGrid`, `StyleGrid`, `CombinationPreviewReview` | (no new) | User finishes Stages 1+2+3 with a locked combination preview frame of their pet |
 
@@ -143,8 +143,8 @@ Authoritative version with definitions-of-done and agent-dispatch order lives in
 | `AskUserQuestion` | A `PillPicker` form submit inside `WizardShell` |
 | `view` tool (in-sandbox multimodal) | `/api/vision-pass` → `runVisionPass()` (OpenAI → Gemini fallback) |
 | `Higgsfield:generate_image` / `generate_video` | `src/lib/ai/` capabilities — `generateImage()`, `generateVideo()` |
-| `/mnt/user-data/outputs/` writes | R2 bucket via `src/lib/storage/r2.ts` |
-| `Higgsfield:media_upload` + curl PUT + `media_confirm` | Not needed — vendor endpoints fetch from R2 public URLs |
+| `/mnt/user-data/outputs/` writes | S3 bucket via `src/lib/storage/s3.ts` |
+| `Higgsfield:media_upload` + curl PUT + `media_confirm` | Not needed — vendor endpoints fetch from S3 public URLs |
 | "Silent inference" stages (0, 1.4) | Server-side at request time |
 | "Stuck-widget" fallback line | Footer hint only on form-submit error; not on every screen |
 | Curator's Pick library mutation on completion | Drop — not relevant; we are not emitting a new SKILL.md |

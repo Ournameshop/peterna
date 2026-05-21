@@ -7,11 +7,11 @@ import {
 } from '@aws-sdk/client-s3';
 
 type EnvKey =
-  | 'R2_ACCOUNT_ID'
-  | 'R2_ACCESS_KEY_ID'
-  | 'R2_SECRET_ACCESS_KEY'
-  | 'R2_BUCKET'
-  | 'R2_PUBLIC_BASE_URL';
+  | 'AWS_REGION'
+  | 'AWS_ACCESS_KEY_ID'
+  | 'AWS_SECRET_ACCESS_KEY'
+  | 'S3_BUCKET'
+  | 'S3_PUBLIC_BASE_URL';
 
 function requireEnv(key: EnvKey): string {
   const value = process.env[key];
@@ -24,13 +24,13 @@ function requireEnv(key: EnvKey): string {
 let cachedClient: S3Client | undefined;
 function getClient(): S3Client {
   if (cachedClient) return cachedClient;
-  const accountId = requireEnv('R2_ACCOUNT_ID');
+  // AWS S3: the SDK derives the endpoint from `region`. No custom endpoint needed
+  // (unlike the previous R2 wiring, which routed through `<account>.r2.cloudflarestorage.com`).
   cachedClient = new S3Client({
-    region: 'auto',
-    endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
+    region: requireEnv('AWS_REGION'),
     credentials: {
-      accessKeyId: requireEnv('R2_ACCESS_KEY_ID'),
-      secretAccessKey: requireEnv('R2_SECRET_ACCESS_KEY'),
+      accessKeyId: requireEnv('AWS_ACCESS_KEY_ID'),
+      secretAccessKey: requireEnv('AWS_SECRET_ACCESS_KEY'),
     },
   });
   return cachedClient;
@@ -42,12 +42,12 @@ export type UploadObjectInput = {
   contentType?: string;
 };
 
-/** Upload an object to the configured R2 bucket. */
+/** Upload an object to the configured S3 bucket. */
 export async function uploadObject(input: UploadObjectInput): Promise<void> {
   const client = getClient();
   await client.send(
     new PutObjectCommand({
-      Bucket: requireEnv('R2_BUCKET'),
+      Bucket: requireEnv('S3_BUCKET'),
       Key: input.key,
       Body: input.body,
       ContentType: input.contentType,
@@ -55,21 +55,21 @@ export async function uploadObject(input: UploadObjectInput): Promise<void> {
   );
 }
 
-/** Delete one or more objects from the configured R2 bucket. */
+/** Delete one or more objects from the configured S3 bucket. */
 export async function deleteObjects(input: { keys: string[] }): Promise<void> {
   if (input.keys.length === 0) return;
   const client = getClient();
   await client.send(
     new DeleteObjectsCommand({
-      Bucket: requireEnv('R2_BUCKET'),
+      Bucket: requireEnv('S3_BUCKET'),
       Delete: { Objects: input.keys.map((Key) => ({ Key })) },
     }),
   );
 }
 
-/** Build the public URL for an R2 object key under R2_PUBLIC_BASE_URL. */
+/** Build the public URL for an S3 object key under S3_PUBLIC_BASE_URL. */
 export function getPublicUrl(key: string): string {
-  const base = requireEnv('R2_PUBLIC_BASE_URL').replace(/\/+$/, '');
+  const base = requireEnv('S3_PUBLIC_BASE_URL').replace(/\/+$/, '');
   const cleanKey = key.replace(/^\/+/, '');
   return `${base}/${cleanKey}`;
 }

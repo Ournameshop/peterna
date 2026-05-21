@@ -2,7 +2,7 @@ import 'server-only';
 
 import { v7 as uuidv7 } from 'uuid';
 
-import { getPublicUrl, uploadObject } from './r2';
+import { getPublicUrl, uploadObject } from './s3';
 
 /**
  * Normalize Drive / Dropbox share URLs to their direct-download form, per
@@ -40,7 +40,7 @@ const FETCH_TIMEOUT_MS = 15_000;
 
 export type IngestedAsset = {
   assetUuid: string;
-  r2Key: string;
+  s3Key: string;
   publicUrl: string;
   bytes: number;
   mimeType: string;
@@ -58,7 +58,7 @@ export type IngestResult =
 
 /**
  * Take a user-supplied URL, normalize it, HEAD-check that it's an image, fetch it
- * server-side, and re-host to R2 under `sessions/<sessionId>/photos/<uuid>.<ext>`. Returns the
+ * server-side, and re-host to S3 under `sessions/<sessionId>/photos/<uuid>.<ext>`. Returns the
  * asset descriptor (caller inserts the DB row).
  *
  * Defensive choices:
@@ -67,7 +67,7 @@ export type IngestResult =
  *     HEAD as a hint and proceed to GET, then re-check Content-Type on the response.
  *   - 10 MB cap mirrors the multipart upload route, applied before the download completes.
  */
-export async function ingestUrlToR2(input: { sessionId: string; url: string }): Promise<IngestResult> {
+export async function ingestUrlToS3(input: { sessionId: string; url: string }): Promise<IngestResult> {
   const normalized = normalizeIngestUrl(input.url);
 
   let parsed: URL;
@@ -120,16 +120,16 @@ export async function ingestUrlToR2(input: { sessionId: string; url: string }): 
 
   const assetUuid = uuidv7();
   const ext = extensionForMime(contentType);
-  const r2Key = `sessions/${input.sessionId}/photos/${assetUuid}${ext}`;
+  const s3Key = `sessions/${input.sessionId}/photos/${assetUuid}${ext}`;
 
-  await uploadObject({ key: r2Key, body: buf, contentType });
+  await uploadObject({ key: s3Key, body: buf, contentType });
 
   return {
     ok: true,
     asset: {
       assetUuid,
-      r2Key,
-      publicUrl: getPublicUrl(r2Key),
+      s3Key,
+      publicUrl: getPublicUrl(s3Key),
       bytes: buf.byteLength,
       mimeType: contentType,
     },

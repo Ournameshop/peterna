@@ -17,7 +17,7 @@ import { getDb } from '@/lib/db/client';
 import { assets, sessions } from '@/lib/db/schema';
 import { authBySession, authByResumeToken } from '@/lib/session/auth';
 import { clearSessionCookie } from '@/lib/session/cookie';
-import { deleteObjects } from '@/lib/storage/r2';
+import { deleteObjects } from '@/lib/storage/s3';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -106,12 +106,12 @@ export async function PATCH(req: NextRequest, ctx: RouteParams): Promise<Respons
 }
 
 /**
- * DELETE /api/session/[id] — cascades the DB rows AND the R2 objects under
- * `sessions/<id>/`. The DB cascade is via the FK `assets.session_id` ON DELETE CASCADE, but R2
+ * DELETE /api/session/[id] — cascades the DB rows AND the S3 objects under
+ * `sessions/<id>/`. The DB cascade is via the FK `assets.session_id` ON DELETE CASCADE, but S3
  * doesn't know about Postgres — so we list and delete-objects in batches of 1000 first, then
  * drop the sessions row.
  *
- * Bug-1: wrap each batch in try/catch. R2 throw modes (throttling, partial-delete, network)
+ * Bug-1: wrap each batch in try/catch. S3 throw modes (throttling, partial-delete, network)
  * should NOT block the DB delete + cookie clear — the lifecycle rule in `data-model.md`
  * §"Lifecycle / retention" sweeps stragglers within 30 days. We log the affected keys so
  * ops can spot-check; the UX is what we're protecting here.
@@ -124,19 +124,19 @@ export async function DELETE(req: NextRequest, ctx: RouteParams): Promise<Respon
   const db = getDb();
 
   // Collect the asset keys we know about from the DB. This is the load-bearing list — the
-  // R2 lifecycle rule will sweep anything we miss within 30 days.
+  // S3 lifecycle rule will sweep anything we miss within 30 days.
   const keyRows = await db.select({ key: assets.r2Key }).from(assets).where(eq(assets.sessionId, id));
   const keys = keyRows.map((r) => r.key);
 
-  // Delete in batches of 1000 (the AWS limit and S3-compat target).
+  // Delete in batches of 1000 (the AWS S3 DeleteObjects API limit).
   for (let i = 0; i < keys.length; i += 1000) {
     const batch = keys.slice(i, i + 1000);
     try {
       await deleteObjects({ keys: batch });
     } catch (err) {
-      // Don't fail the route — let the DB delete + cookie clear proceed; the R2 lifecycle
+      // Don't fail the route — let the DB delete + cookie clear proceed; the S3 lifecycle
       // rule sweeps within 30 days. See data-model.md §"Lifecycle / retention".
-      console.warn('[session.delete] R2 deleteObjects failed; proceeding with DB delete', {
+      console.warn('[session.delete] S3 deleteObjects failed; proceeding with DB delete', {
         sessionId: id,
         batchSize: batch.length,
         error: err instanceof Error ? err.message : String(err),
