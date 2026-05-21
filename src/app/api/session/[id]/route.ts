@@ -182,6 +182,16 @@ const STRING_FIELDS = [
   // Phase 3: defensively writable via PATCH so a recovery path exists if the
   // approve route fails mid-update. Canonical writer is /api/preview/approve.
   'combination_preview_asset_id',
+  // Phase 5 — Stage 5.5 "The Words" fields. Canonical writer is PATCH
+  // /api/words; these are also writable via the generic session PATCH so
+  // the FE can pre-populate or clear them without bouncing through the
+  // Words sub-route. `wire-types.ts#SessionPatchBody` already declares
+  // these — this allowlist is the runtime mirror.
+  'opening_title_card_text',
+  'closing_card_text',
+  'music_track_id',
+  'narration_voice_id',
+  'narration_text',
 ] as const;
 
 const ARRAY_FIELDS = ['personality_traits', 'favorite_things'] as const;
@@ -206,6 +216,11 @@ const WIRE_TO_DRIZZLE: Record<string, string> = {
   theme_id: 'themeId',
   style_id: 'styleId',
   combination_preview_asset_id: 'combinationPreviewAssetId',
+  opening_title_card_text: 'openingTitleCardText',
+  closing_card_text: 'closingCardText',
+  music_track_id: 'musicTrackId',
+  narration_voice_id: 'narrationVoiceId',
+  narration_text: 'narrationText',
   personality_traits: 'personalityTraits',
   favorite_things: 'favoriteThings',
   beat_count: 'beatCount',
