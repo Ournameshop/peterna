@@ -1,11 +1,11 @@
-import 'server-only';
-
-// Art-style library — Phase 2 slice.
+// Art-style library — Phase 2 + Phase 3.
 //
 // Per `phase-plan.md`: Phase 2 only needs `id`, `label`, `paired_container_id`,
 // and `directive` (used to inject the per-style visual register into prompts).
-// Phase 3 reuses this file for the manual-path style picker; Phase 4+ extends
-// each entry with the full container spec for baked typography.
+// Phase 3 reuses this file for the manual-path style picker — that's why this
+// module is NOT marked `'server-only'`. The directive strings are prompt
+// content, not credentials; shipping them to the client is fine. Phase 4+
+// extends each entry with the full container spec for baked typography.
 //
 // The directive strings come verbatim from the spec's `art_styles:` YAML
 // (`/Users/xeeshan/Downloads/SKILL (5).md` lines 1744–1798). The

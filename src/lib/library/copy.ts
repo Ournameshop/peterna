@@ -331,6 +331,110 @@ export const ASPECT_FRAMING = {
   },
 } as const;
 
+// -----------------------------------------------------------------------------
+// Stage 3 — Format / Theme / Style copy.
+//
+// Tone rules carry over from Stage 2: no cost language, no apology. Re-rolls
+// are framed as "let's get the look right." The art-style / theme labels come
+// from the library content; this block holds the framing copy around them.
+// -----------------------------------------------------------------------------
+
+/**
+ * Stage 3.1 — Curator's Picks shortcut + manual path.
+ */
+export const CURATORS_PICK_FRAMING = {
+  question: "Want a recommended tribute style, or pick everything yourself?",
+  hint: "Each pick locks the format, the world, and the art style. You'll still be able to swap the style on the next screen.",
+  /** Appended as a small secondary line under the position-#1 pick that the
+   *  relationship reorder bubbled to the top. */
+  relationship_subtitle: "Based on what [PET_NAME] was to you",
+  manual_pill_label: "Help me choose myself",
+  manual_pill_description:
+    "We'll walk through the format, the world, and the style one at a time.",
+} as const;
+
+/**
+ * Stage 3.1.5 — Style confirmation after Curator's Pick (v2.3).
+ *
+ * The literal `[STYLE_NAME]` placeholder is substituted at render-time with
+ * the chosen pick's style label.
+ */
+export const CURATOR_STYLE_CONFIRM = {
+  question:
+    "This pick uses [STYLE_NAME] — keep it, or switch the visual style? (Format and world stay the same.)",
+  hint: "The art style drives more of how the tribute feels than format or theme. Worth a moment to be sure.",
+  /** Pill label for the locked-in style — substituted with the style label. */
+  keep_label_template: "Keep [STYLE_NAME]",
+  keep_secondary: "what your pick uses",
+  opt_in_secondary: "Explicit opt-in — for celebratory or family-with-kids tributes.",
+} as const;
+
+/**
+ * Stage 3.2 — Format picker (manual path).
+ */
+export const FORMAT_FRAMING = {
+  question: "What kind of tribute?",
+  hint: "Each one shapes the pacing and how the story unfolds. You can change your mind later.",
+} as const;
+
+/**
+ * Stage 3.3a — Theme category picker.
+ */
+export const THEME_CATEGORY_FRAMING = {
+  question: "What world should the tribute live in?",
+  hint: "Pick the feeling first — we'll narrow to the two themes inside it.",
+} as const;
+
+/**
+ * Stage 3.3b — Theme picker (filtered to the chosen category).
+ */
+export const THEME_FRAMING = {
+  question: "Pick the world for [PET_NAME]'s tribute.",
+  hint: "Two themes inside this category. You can go back and pick a different category if neither feels right.",
+  back_label: "Back to categories",
+} as const;
+
+/**
+ * Stage 3.4 — Art style picker (manual path).
+ */
+export const STYLE_FRAMING = {
+  question: "How should we paint [PET_NAME]'s tribute?",
+  /** Section label above the first 6 pills. */
+  group_warm_label: "Warm and traditional",
+  /** Section label above the last 2 pills. */
+  group_playful_label: "Playful and stylized",
+  group_playful_hint:
+    "Best for celebratory tributes — explicit opt-in only.",
+} as const;
+
+/**
+ * Stage 3.5 — Combination preview review (GATE 2).
+ */
+export const COMBINATION_PREVIEW = {
+  headline: "Here's [PET_NAME] in this world.",
+  /** Substituted at runtime with format / theme / style labels. */
+  subhead_template:
+    "[FORMAT_NAME] + [THEME_NAME] + [STYLE_NAME]. Does this feel right?",
+  loading: "Painting the first look at [PET_NAME]…",
+  loading_hint:
+    "One frame to show you how the chosen format, world, and style feel together. This takes a moment.",
+  pills: {
+    approve: "Looks beautiful",
+    restart_style: "Try a different style",
+    restart_theme: "Try a different theme",
+    restart_all: "Start over",
+  },
+  pills_hint:
+    "There's no wrong answer here. We can keep tuning until it feels right.",
+} as const;
+
+/**
+ * Stage 3-complete handoff.
+ */
+export const STAGE_3_COMPLETE = {
+  headline: "Locked in. We'll carry this look into every beat.",
+  body: "Next, we'll sketch the story — a beat-by-beat outline of [PET_NAME]'s tribute. You'll get to review and edit every beat before any of them become real frames.",
+} as const;
 
 /**
  * One barrel export for components that want the full object.
@@ -358,4 +462,12 @@ export const COPY = {
   CHARACTER_SHEET_APPROVED,
   LENGTH_FRAMING,
   ASPECT_FRAMING,
+  CURATORS_PICK_FRAMING,
+  CURATOR_STYLE_CONFIRM,
+  FORMAT_FRAMING,
+  THEME_CATEGORY_FRAMING,
+  THEME_FRAMING,
+  STYLE_FRAMING,
+  COMBINATION_PREVIEW,
+  STAGE_3_COMPLETE,
 } as const;
