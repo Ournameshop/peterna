@@ -192,6 +192,12 @@ const STRING_FIELDS = [
   'music_track_id',
   'narration_voice_id',
   'narration_text',
+  // Phase 6 — Stage 5.7 cinematography DP-style overlay id. The
+  // `cinematography_briefs` / `cinematography_frame_vision` columns are
+  // written exclusively by /api/cinematography routes; only the overlay id
+  // is patchable via the generic session route so the FE can persist a
+  // user's DP-style pick before triggering the (expensive) derive call.
+  'cinematography_dp_overlay',
 ] as const;
 
 const ARRAY_FIELDS = ['personality_traits', 'favorite_things'] as const;
@@ -221,6 +227,7 @@ const WIRE_TO_DRIZZLE: Record<string, string> = {
   music_track_id: 'musicTrackId',
   narration_voice_id: 'narrationVoiceId',
   narration_text: 'narrationText',
+  cinematography_dp_overlay: 'cinematographyDpOverlay',
   personality_traits: 'personalityTraits',
   favorite_things: 'favoriteThings',
   beat_count: 'beatCount',
