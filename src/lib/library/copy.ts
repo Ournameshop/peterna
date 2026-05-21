@@ -761,7 +761,6 @@ export const CINEMATOGRAPHY = {
     pick_hint:
       "Bias only — we still apply the tribute’s motion rules. You'll see every choice and can override anything.",
     submit: 'Apply this look',
-    submit_default: 'Compose the cinematography',
   },
   loading:
     "Composing the cinematography for [PET_NAME]…",

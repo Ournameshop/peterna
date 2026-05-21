@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import { type CSSProperties } from "react";
 import { motion } from "framer-motion";
 import { C, FONT_DISPLAY, FONT_SANS } from "@/lib/peterna-tokens";
 import { CINEMATOGRAPHY, substitutePetName } from "@/lib/library/copy";
@@ -108,8 +108,6 @@ function PickerBody({
   disabled: boolean;
   onApplyOverlay: (overlay: DpStyleOverlayId) => void;
 }) {
-  const [selected, setSelected] = useState<DpStyleOverlayId>(defaultOverlay);
-
   const pills: Pill[] = DP_STYLE_OVERLAYS.map((d) => ({
     id: d.id,
     label: d.label,
@@ -131,18 +129,13 @@ function PickerBody({
       <PillPicker
         pills={pills}
         variant="rich"
-        defaultSelected={[selected]}
+        defaultSelected={[defaultOverlay]}
         question={undefined}
         hint={CINEMATOGRAPHY.picker.pick_hint}
         submitting={disabled}
-        submitLabel={
-          selected === "none"
-            ? CINEMATOGRAPHY.picker.submit_default
-            : CINEMATOGRAPHY.picker.submit
-        }
+        submitLabel={CINEMATOGRAPHY.picker.submit}
         onSubmit={(ids) => {
           const pick = (ids[0] ?? "none") as DpStyleOverlayId;
-          setSelected(pick);
           onApplyOverlay(pick);
         }}
       />
