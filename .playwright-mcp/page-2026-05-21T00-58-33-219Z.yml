@@ -1,0 +1,118 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - link "Peterna home" [ref=e4] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e9]: Peterna
+      - navigation [ref=e10]:
+        - link "How it works" [ref=e11] [cursor=pointer]:
+          - /url: /how-it-works
+        - link "Pricing" [ref=e12] [cursor=pointer]:
+          - /url: /pricing
+        - link "Family Channel" [ref=e13] [cursor=pointer]:
+          - /url: /family-channel
+        - link "Examples" [ref=e14] [cursor=pointer]:
+          - /url: /gallery
+        - link "For Veterinarians" [ref=e15] [cursor=pointer]:
+          - /url: /for-veterinarians
+      - link "Join the waitlist" [ref=e18] [cursor=pointer]:
+        - /url: /get-started
+        - generic [ref=e19]:
+          - text: Join the waitlist
+          - img [ref=e20]
+  - generic [ref=e22]:
+    - banner [ref=e23]:
+      - generic [ref=e24]:
+        - generic [ref=e25]:
+          - generic [ref=e26]: Peterna
+          - generic [ref=e27]: Tribute Builder
+        - navigation "Progress" [ref=e28]:
+          - button "Tell us about them" [ref=e29] [cursor=pointer]:
+            - generic [ref=e360]: Tell us about them
+          - button "Their likeness" [disabled] [ref=e361]:
+            - generic [ref=e363]:
+              - generic [ref=e364]: Their likeness
+              - generic "Approval step" [ref=e365]:
+                - img [ref=e458]
+          - button [disabled] [ref=e36]
+          - button "Approval step" [disabled] [ref=e38]
+          - button "Approval step" [disabled] [ref=e40]
+          - button [disabled] [ref=e42]
+    - main [ref=e44]:
+      - generic [ref=e462]:
+        - generic [ref=e463]: Length · Stage 2.5
+        - heading "How long should Buddy's tribute be?" [level=2] [ref=e464]:
+          - text: How long should
+          - emphasis [ref=e465]: Buddy's
+          - text: tribute be?
+        - generic [ref=e466]: Every length tells a complete story. Choose what feels right for who they were.
+        - generic [ref=e468]:
+          - button "A short keepsake 2 minutes · 8 beats" [ref=e469] [cursor=pointer]:
+            - generic [ref=e470]: A short keepsake
+            - generic [ref=e471]: 2 minutes · 8 beats
+          - button "Recommended A full tribute 3 minutes · 12 beats" [ref=e472] [cursor=pointer]:
+            - generic [ref=e473]: Recommended
+            - generic [ref=e474]: A full tribute
+            - generic [ref=e475]: 3 minutes · 12 beats
+          - button "An extended remembrance 4 minutes · 16 beats" [ref=e476] [cursor=pointer]:
+            - generic [ref=e477]: An extended remembrance
+            - generic [ref=e478]: 4 minutes · 16 beats
+        - generic [ref=e479]:
+          - button "Back" [ref=e480] [cursor=pointer]:
+            - img [ref=e481]
+            - text: Back
+          - button "Choose format" [ref=e484] [cursor=pointer]:
+            - text: Choose format
+            - img [ref=e485]
+  - contentinfo [ref=e59]:
+    - generic [ref=e60]:
+      - generic [ref=e61]:
+        - generic [ref=e62]:
+          - generic [ref=e68]: Peterna
+          - paragraph [ref=e69]: A beautiful, lasting tribute for every pet you’ve loved. Built by the team behind Eterna — a remembrance media company.
+          - paragraph [ref=e70]: “Grief doesn’t end. Neither does Peterna.”
+        - generic [ref=e71]:
+          - generic [ref=e72]: Product
+          - list [ref=e73]:
+            - listitem [ref=e74]:
+              - link "How it works" [ref=e75] [cursor=pointer]:
+                - /url: /how-it-works
+            - listitem [ref=e76]:
+              - link "Pricing" [ref=e77] [cursor=pointer]:
+                - /url: /pricing
+            - listitem [ref=e78]:
+              - link "Family Channel" [ref=e79] [cursor=pointer]:
+                - /url: /family-channel
+            - listitem [ref=e80]:
+              - link "Examples" [ref=e81] [cursor=pointer]:
+                - /url: /gallery
+            - listitem [ref=e82]:
+              - link "Join the waitlist" [ref=e83] [cursor=pointer]:
+                - /url: /get-started
+        - generic [ref=e84]:
+          - generic [ref=e85]: Partners
+          - list [ref=e86]:
+            - listitem [ref=e87]:
+              - link "For Veterinarians" [ref=e88] [cursor=pointer]:
+                - /url: /for-veterinarians
+            - listitem [ref=e89]:
+              - link "Become a partner" [ref=e90] [cursor=pointer]:
+                - /url: /partners
+        - generic [ref=e91]:
+          - generic [ref=e92]: Company
+          - list [ref=e93]:
+            - listitem [ref=e94]:
+              - link "About Peterna" [ref=e95] [cursor=pointer]:
+                - /url: /about
+            - listitem [ref=e96]:
+              - link "FAQ" [ref=e97] [cursor=pointer]:
+                - /url: /faq
+            - listitem [ref=e98]:
+              - link "Privacy" [ref=e99] [cursor=pointer]:
+                - /url: /privacy
+      - generic [ref=e100]:
+        - generic [ref=e101]: © 2026 Peterna · A product of Eterna Inc. Built with care.
+        - generic [ref=e102]: Coming soon · Join the waitlist
+  - button "Open Next.js Dev Tools" [ref=e108] [cursor=pointer]:
+    - img [ref=e109]
+  - alert [ref=e112]

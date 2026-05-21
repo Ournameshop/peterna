@@ -1,0 +1,120 @@
+- generic [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - link "Peterna home" [ref=e4] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e9]: Peterna
+      - navigation [ref=e10]:
+        - link "How it works" [ref=e11] [cursor=pointer]:
+          - /url: /how-it-works
+        - link "Pricing" [ref=e12] [cursor=pointer]:
+          - /url: /pricing
+        - link "Family Channel" [ref=e13] [cursor=pointer]:
+          - /url: /family-channel
+        - link "Examples" [ref=e14] [cursor=pointer]:
+          - /url: /gallery
+        - link "For Veterinarians" [ref=e15] [cursor=pointer]:
+          - /url: /for-veterinarians
+      - link "Join the waitlist" [ref=e18] [cursor=pointer]:
+        - /url: /get-started
+        - generic [ref=e19]:
+          - text: Join the waitlist
+          - img [ref=e20]
+  - generic [ref=e22]:
+    - banner [ref=e23]:
+      - generic [ref=e24]:
+        - generic [ref=e25]:
+          - generic [ref=e26]: Peterna
+          - generic [ref=e27]: Tribute Builder
+        - navigation "Progress" [ref=e28]:
+          - button "Tell us about them" [disabled] [ref=e29]:
+            - generic [ref=e32]: Tell us about them
+          - button "Approval step" [disabled] [ref=e34]
+          - button [disabled] [ref=e36]
+          - button "Approval step" [disabled] [ref=e38]
+          - button "Approval step" [disabled] [ref=e40]
+          - button [disabled] [ref=e42]
+    - main [ref=e44]:
+      - generic [ref=e250]:
+        - generic [ref=e251]: Memory & Relationship — 1.6 / 1.8
+        - heading "Tell us a little more" [level=2] [ref=e252]
+        - generic [ref=e253]: A memory and a sense of who they were to you. Both are completely optional — skip either one.
+        - generic [ref=e254]:
+          - generic [ref=e255]:
+            - generic [ref=e257]: A memory of them
+            - generic [ref=e258]:
+              - button "A sound, smell, or feeling that brings Rex back" [ref=e259] [cursor=pointer]
+              - button "Something Rex did that nobody else would believe" [ref=e260] [cursor=pointer]
+              - button "The thing you most want to remember" [ref=e261] [cursor=pointer]
+              - button "Skip" [ref=e262] [cursor=pointer]
+            - textbox "e.g. how he greeted me at the door every single day" [ref=e285]
+          - generic [ref=e263]:
+            - generic [ref=e265]: Who were they to you?
+            - generic [ref=e266]: This helps us choose the right tone. You can skip this too.
+            - generic [ref=e267]:
+              - button "The childhood pet I grew up with" [ref=e268] [cursor=pointer]
+              - button "The pet we adopted together" [ref=e269] [cursor=pointer]
+              - button "The pet who got me through a hard time" [active] [ref=e270] [cursor=pointer]
+              - button "My family's first pet — for my kids" [ref=e271] [cursor=pointer]
+              - button "The senior rescue I gave a last chapter to" [ref=e272] [cursor=pointer]
+              - button "Always mine. From day one." [ref=e273] [cursor=pointer]
+              - button "Other / I'd rather not say" [ref=e274] [cursor=pointer]
+        - generic [ref=e276]:
+          - button "Back" [ref=e277] [cursor=pointer]:
+            - img [ref=e278]
+            - text: Back
+          - button "Continue" [ref=e281] [cursor=pointer]:
+            - text: Continue
+            - img [ref=e282]
+  - contentinfo [ref=e59]:
+    - generic [ref=e60]:
+      - generic [ref=e61]:
+        - generic [ref=e62]:
+          - generic [ref=e68]: Peterna
+          - paragraph [ref=e69]: A beautiful, lasting tribute for every pet you’ve loved. Built by the team behind Eterna — a remembrance media company.
+          - paragraph [ref=e70]: “Grief doesn’t end. Neither does Peterna.”
+        - generic [ref=e71]:
+          - generic [ref=e72]: Product
+          - list [ref=e73]:
+            - listitem [ref=e74]:
+              - link "How it works" [ref=e75] [cursor=pointer]:
+                - /url: /how-it-works
+            - listitem [ref=e76]:
+              - link "Pricing" [ref=e77] [cursor=pointer]:
+                - /url: /pricing
+            - listitem [ref=e78]:
+              - link "Family Channel" [ref=e79] [cursor=pointer]:
+                - /url: /family-channel
+            - listitem [ref=e80]:
+              - link "Examples" [ref=e81] [cursor=pointer]:
+                - /url: /gallery
+            - listitem [ref=e82]:
+              - link "Join the waitlist" [ref=e83] [cursor=pointer]:
+                - /url: /get-started
+        - generic [ref=e84]:
+          - generic [ref=e85]: Partners
+          - list [ref=e86]:
+            - listitem [ref=e87]:
+              - link "For Veterinarians" [ref=e88] [cursor=pointer]:
+                - /url: /for-veterinarians
+            - listitem [ref=e89]:
+              - link "Become a partner" [ref=e90] [cursor=pointer]:
+                - /url: /partners
+        - generic [ref=e91]:
+          - generic [ref=e92]: Company
+          - list [ref=e93]:
+            - listitem [ref=e94]:
+              - link "About Peterna" [ref=e95] [cursor=pointer]:
+                - /url: /about
+            - listitem [ref=e96]:
+              - link "FAQ" [ref=e97] [cursor=pointer]:
+                - /url: /faq
+            - listitem [ref=e98]:
+              - link "Privacy" [ref=e99] [cursor=pointer]:
+                - /url: /privacy
+      - generic [ref=e100]:
+        - generic [ref=e101]: © 2026 Peterna · A product of Eterna Inc. Built with care.
+        - generic [ref=e102]: Coming soon · Join the waitlist
+  - button "Open Next.js Dev Tools" [ref=e108] [cursor=pointer]:
+    - img [ref=e109]
+  - alert [ref=e112]

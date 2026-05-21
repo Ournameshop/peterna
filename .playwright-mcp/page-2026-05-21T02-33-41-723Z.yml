@@ -1,0 +1,346 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - link "Peterna home" [ref=e4] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e9]: Peterna
+      - navigation [ref=e10]:
+        - link "How it works" [ref=e11] [cursor=pointer]:
+          - /url: /how-it-works
+        - link "Pricing" [ref=e12] [cursor=pointer]:
+          - /url: /pricing
+        - link "Family Channel" [ref=e13] [cursor=pointer]:
+          - /url: /family-channel
+        - link "Examples" [ref=e14] [cursor=pointer]:
+          - /url: /gallery
+        - link "For Veterinarians" [ref=e15] [cursor=pointer]:
+          - /url: /for-veterinarians
+      - link "Join the waitlist" [ref=e18] [cursor=pointer]:
+        - /url: /get-started
+        - generic [ref=e19]:
+          - text: Join the waitlist
+          - img [ref=e20]
+  - generic [ref=e22]:
+    - banner [ref=e23]:
+      - generic [ref=e24]:
+        - generic [ref=e25]:
+          - generic [ref=e26]: Peterna
+          - generic [ref=e27]: Tribute Builder
+        - navigation "Progress" [ref=e28]:
+          - button "Tell us about them" [ref=e29] [cursor=pointer]:
+            - generic [ref=e373]: Tell us about them
+          - button "Their likeness" [ref=e374] [cursor=pointer]:
+            - generic [ref=e494]: Their likeness
+            - generic "Approval step" [ref=e495]:
+              - img [ref=e496]
+          - button "The direction" [disabled] [ref=e499]:
+            - generic [ref=e502]: The direction
+          - button "Approval step" [disabled] [ref=e38]
+          - button "Approval step" [disabled] [ref=e40]
+          - button [disabled] [ref=e42]
+    - main [ref=e44]:
+      - generic [ref=e537]:
+        - generic [ref=e538]: Direction — 3.2
+        - heading "What shape should this take?" [level=2] [ref=e539]
+        - generic [ref=e540]: Each format gives the tribute its own emotional rhythm.
+        - generic [ref=e542]:
+          - button "🎬 Music Video Beats cut to musical structure – dynamic, celebratory." [ref=e543] [cursor=pointer]:
+            - generic:
+              - img:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: OPEN
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: BEAT
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: DROP
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: PEAK
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: OUT
+            - generic [ref=e544]:
+              - generic [ref=e545]:
+                - generic [ref=e546]: 🎬
+                - generic [ref=e547]: Music Video
+              - generic [ref=e548]: Beats cut to musical structure – dynamic, celebratory.
+          - button "📖 Biopic A chronological life story, puppy to golden years." [ref=e549] [cursor=pointer]:
+            - generic:
+              - img:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: PUP
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: GROW
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: PRIME
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: GOLD
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: TRIB
+            - generic [ref=e550]:
+              - generic [ref=e551]:
+                - generic [ref=e552]: 📖
+                - generic [ref=e553]: Biopic
+              - generic [ref=e554]: A chronological life story, puppy to golden years.
+          - button "☀️ Day in the Life One perfect imagined day, gentle and present." [ref=e555] [cursor=pointer]:
+            - generic:
+              - img:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: MORN
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: PLAY
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: NOON
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: EVE
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: REST
+            - generic [ref=e556]:
+              - generic [ref=e557]:
+                - generic [ref=e558]: ☀️
+                - generic [ref=e559]: Day in the Life
+              - generic [ref=e560]: One perfect imagined day, gentle and present.
+          - button "✉️ Letter to My Pet Voiceover-driven, each beat a line of the letter." [ref=e561] [cursor=pointer]:
+            - generic:
+              - img:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: DEAR
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: I
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: YOU
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: OURS
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic: —
+                      - generic: LOVE
+            - generic [ref=e562]:
+              - generic [ref=e563]:
+                - generic [ref=e564]: ✉️
+                - generic [ref=e565]: Letter to My Pet
+              - generic [ref=e566]: Voiceover-driven, each beat a line of the letter.
+          - button "⭐ Their Greatest Hits A highlight reel of iconic moments." [ref=e567] [cursor=pointer]:
+            - generic:
+              - img:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic: ★
+                      - generic: "01"
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic: ★
+                      - generic: "02"
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic: ★
+                      - generic: "03"
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic: ★
+                      - generic: "04"
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic: ★
+                      - generic: "05"
+            - generic [ref=e568]:
+              - generic [ref=e569]:
+                - generic [ref=e570]: ⭐
+                - generic [ref=e571]: Their Greatest Hits
+              - generic [ref=e572]: A highlight reel of iconic moments.
+          - button "🕊️ The Send-Off A ceremonial arc – journey, crossing, peace." [ref=e573] [cursor=pointer]:
+            - generic:
+              - img:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: GATHER
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: JOURNEY
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: CROSS
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: ↑
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: PEACE
+            - generic [ref=e574]:
+              - generic [ref=e575]:
+                - generic [ref=e576]: 🕊️
+                - generic [ref=e577]: The Send-Off
+              - generic [ref=e578]: A ceremonial arc – journey, crossing, peace.
+          - button "📮 Postcards From The pet \"writes home\" from where they are now." [ref=e579] [cursor=pointer]:
+            - generic:
+              - img:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: "01"
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: "02"
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: "03"
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: "04"
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: XO
+            - generic [ref=e580]:
+              - generic [ref=e581]:
+                - generic [ref=e582]: 📮
+                - generic [ref=e583]: Postcards From
+              - generic [ref=e584]: The pet "writes home" from where they are now.
+          - button "✨ Forever Young Imagined alternate timelines if they were still here." [ref=e585] [cursor=pointer]:
+            - generic:
+              - img:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: RUN
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: LEAP
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: NOW
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: ALWAYS
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: ∞
+            - generic [ref=e586]:
+              - generic [ref=e587]:
+                - generic [ref=e588]: ✨
+                - generic [ref=e589]: Forever Young
+              - generic [ref=e590]: Imagined alternate timelines if they were still here.
+        - button "Back" [ref=e592] [cursor=pointer]:
+          - img [ref=e593]
+          - text: Back
+  - contentinfo [ref=e59]:
+    - generic [ref=e60]:
+      - generic [ref=e61]:
+        - generic [ref=e62]:
+          - generic [ref=e68]: Peterna
+          - paragraph [ref=e69]: A beautiful, lasting tribute for every pet you’ve loved. Built by the team behind Eterna — a remembrance media company.
+          - paragraph [ref=e70]: “Grief doesn’t end. Neither does Peterna.”
+        - generic [ref=e71]:
+          - generic [ref=e72]: Product
+          - list [ref=e73]:
+            - listitem [ref=e74]:
+              - link "How it works" [ref=e75] [cursor=pointer]:
+                - /url: /how-it-works
+            - listitem [ref=e76]:
+              - link "Pricing" [ref=e77] [cursor=pointer]:
+                - /url: /pricing
+            - listitem [ref=e78]:
+              - link "Family Channel" [ref=e79] [cursor=pointer]:
+                - /url: /family-channel
+            - listitem [ref=e80]:
+              - link "Examples" [ref=e81] [cursor=pointer]:
+                - /url: /gallery
+            - listitem [ref=e82]:
+              - link "Join the waitlist" [ref=e83] [cursor=pointer]:
+                - /url: /get-started
+        - generic [ref=e84]:
+          - generic [ref=e85]: Partners
+          - list [ref=e86]:
+            - listitem [ref=e87]:
+              - link "For Veterinarians" [ref=e88] [cursor=pointer]:
+                - /url: /for-veterinarians
+            - listitem [ref=e89]:
+              - link "Become a partner" [ref=e90] [cursor=pointer]:
+                - /url: /partners
+        - generic [ref=e91]:
+          - generic [ref=e92]: Company
+          - list [ref=e93]:
+            - listitem [ref=e94]:
+              - link "About Peterna" [ref=e95] [cursor=pointer]:
+                - /url: /about
+            - listitem [ref=e96]:
+              - link "FAQ" [ref=e97] [cursor=pointer]:
+                - /url: /faq
+            - listitem [ref=e98]:
+              - link "Privacy" [ref=e99] [cursor=pointer]:
+                - /url: /privacy
+      - generic [ref=e100]:
+        - generic [ref=e101]: © 2026 Peterna · A product of Eterna Inc. Built with care.
+        - generic [ref=e102]: Coming soon · Join the waitlist
+  - generic [ref=e120] [cursor=pointer]:
+    - button "Open Next.js Dev Tools" [ref=e177]:
+      - img [ref=e122]
+    - generic [ref=e595]:
+      - button "Open issues overlay" [ref=e596]:
+        - generic [ref=e597]:
+          - generic [ref=e598]: "0"
+          - generic [ref=e599]: "1"
+        - generic [ref=e600]: Issue
+      - button "Collapse issues badge" [ref=e601]:
+        - img [ref=e602]
+  - alert [ref=e125]

@@ -1,0 +1,172 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - link "Peterna home" [ref=e4] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e9]: Peterna
+      - navigation [ref=e10]:
+        - link "How it works" [ref=e11] [cursor=pointer]:
+          - /url: /how-it-works
+        - link "Pricing" [ref=e12] [cursor=pointer]:
+          - /url: /pricing
+        - link "Family Channel" [ref=e13] [cursor=pointer]:
+          - /url: /family-channel
+        - link "Examples" [ref=e14] [cursor=pointer]:
+          - /url: /gallery
+        - link "For Veterinarians" [ref=e15] [cursor=pointer]:
+          - /url: /for-veterinarians
+      - link "Join the waitlist" [ref=e18] [cursor=pointer]:
+        - /url: /get-started
+        - generic [ref=e19]:
+          - text: Join the waitlist
+          - img [ref=e20]
+  - generic [ref=e22]:
+    - banner [ref=e23]:
+      - generic [ref=e24]:
+        - generic [ref=e25]:
+          - generic [ref=e26]: Peterna
+          - generic [ref=e27]: Tribute Builder
+        - navigation "Progress" [ref=e28]:
+          - button "Tell us about them" [ref=e29] [cursor=pointer]:
+            - generic [ref=e360]: Tell us about them
+          - button "Their likeness" [ref=e361] [cursor=pointer]:
+            - generic [ref=e509]: Their likeness
+            - generic "Approval step" [ref=e510]:
+              - img [ref=e511]
+          - button "The direction" [disabled] [ref=e514]:
+            - generic [ref=e517]: The direction
+          - button "Approval step" [disabled] [ref=e38]
+          - button "Approval step" [disabled] [ref=e40]
+          - button [disabled] [ref=e42]
+    - main [ref=e44]:
+      - generic [ref=e720]:
+        - generic [ref=e721]: Direction — 3.4
+        - heading "How should it look?" [level=2] [ref=e722]
+        - generic [ref=e723]: The art style shapes every frame. Each one tells the same story differently.
+        - generic [ref=e724]:
+          - generic [ref=e725]: Warm and traditional
+          - generic [ref=e726]:
+            - button "🎬 Cinematic Realism Soft photoreal, warm cinematic lighting." [ref=e727] [cursor=pointer]:
+              - img [ref=e728]
+              - generic [ref=e738]:
+                - generic [ref=e739]:
+                  - generic [ref=e740]: 🎬
+                  - generic [ref=e741]: Cinematic Realism
+                - generic [ref=e742]: Soft photoreal, warm cinematic lighting.
+            - button "🎨 Watercolor Bleeding pigments, soft brushwork, memorial-portrait warmth." [ref=e743] [cursor=pointer]:
+              - img [ref=e744]
+              - generic [ref=e755]:
+                - generic [ref=e756]:
+                  - generic [ref=e757]: 🎨
+                  - generic [ref=e758]: Watercolor
+                - generic [ref=e759]: Bleeding pigments, soft brushwork, memorial-portrait warmth.
+            - button "✏️ Storybook Hand-drawn children's-book warmth, painted softly." [ref=e760] [cursor=pointer]:
+              - img [ref=e761]
+              - generic [ref=e789]:
+                - generic [ref=e790]:
+                  - generic [ref=e791]: ✏️
+                  - generic [ref=e792]: Storybook
+                - generic [ref=e793]: Hand-drawn children's-book warmth, painted softly.
+            - button "🧸 3D Animated Pixar warmth, soft volumes, expressive eyes." [ref=e794] [cursor=pointer]:
+              - img [ref=e795]
+              - generic [ref=e809]:
+                - generic [ref=e810]:
+                  - generic [ref=e811]: 🧸
+                  - generic [ref=e812]: 3D Animated
+                - generic [ref=e813]: Pixar warmth, soft volumes, expressive eyes.
+            - button "🤏 Claymation Aardman-style hand-sculpted stop-motion." [ref=e814] [cursor=pointer]:
+              - img [ref=e815]
+              - generic [ref=e840]:
+                - generic [ref=e841]:
+                  - generic [ref=e842]: 🤏
+                  - generic [ref=e843]: Claymation
+                - generic [ref=e844]: Aardman-style hand-sculpted stop-motion.
+            - button "📝 Pencil Sketch Graphite on warm paper, the oldest memorial form." [ref=e845] [cursor=pointer]:
+              - img [ref=e846]
+              - generic [ref=e858]:
+                - generic [ref=e859]:
+                  - generic [ref=e860]: 📝
+                  - generic [ref=e861]: Pencil Sketch
+                - generic [ref=e862]: Graphite on warm paper, the oldest memorial form.
+          - generic [ref=e864]: Playful and stylized
+          - generic [ref=e865]:
+            - button "🟪 Pixel Art 16-bit retro warmth, joyful nostalgia. A deliberate, joyful choice — wonderful for playful spirits." [ref=e866] [cursor=pointer]:
+              - img [ref=e867]
+              - generic [ref=e950]:
+                - generic [ref=e951]:
+                  - generic [ref=e952]: 🟪
+                  - generic [ref=e953]: Pixel Art
+                - generic [ref=e954]: 16-bit retro warmth, joyful nostalgia.
+                - generic [ref=e955]: A deliberate, joyful choice — wonderful for playful spirits.
+            - button "🧊 Voxel Blocky world, friendly, especially fitting for kids. A deliberate, joyful choice — especially meaningful for families with kids." [ref=e956] [cursor=pointer]:
+              - img [ref=e957]
+              - generic [ref=e1041]:
+                - generic [ref=e1042]:
+                  - generic [ref=e1043]: 🧊
+                  - generic [ref=e1044]: Voxel
+                - generic [ref=e1045]: Blocky world, friendly, especially fitting for kids.
+                - generic [ref=e1046]: A deliberate, joyful choice — especially meaningful for families with kids.
+        - button "Back" [ref=e1048] [cursor=pointer]:
+          - img [ref=e1049]
+          - text: Back
+  - contentinfo [ref=e59]:
+    - generic [ref=e60]:
+      - generic [ref=e61]:
+        - generic [ref=e62]:
+          - generic [ref=e68]: Peterna
+          - paragraph [ref=e69]: A beautiful, lasting tribute for every pet you’ve loved. Built by the team behind Eterna — a remembrance media company.
+          - paragraph [ref=e70]: “Grief doesn’t end. Neither does Peterna.”
+        - generic [ref=e71]:
+          - generic [ref=e72]: Product
+          - list [ref=e73]:
+            - listitem [ref=e74]:
+              - link "How it works" [ref=e75] [cursor=pointer]:
+                - /url: /how-it-works
+            - listitem [ref=e76]:
+              - link "Pricing" [ref=e77] [cursor=pointer]:
+                - /url: /pricing
+            - listitem [ref=e78]:
+              - link "Family Channel" [ref=e79] [cursor=pointer]:
+                - /url: /family-channel
+            - listitem [ref=e80]:
+              - link "Examples" [ref=e81] [cursor=pointer]:
+                - /url: /gallery
+            - listitem [ref=e82]:
+              - link "Join the waitlist" [ref=e83] [cursor=pointer]:
+                - /url: /get-started
+        - generic [ref=e84]:
+          - generic [ref=e85]: Partners
+          - list [ref=e86]:
+            - listitem [ref=e87]:
+              - link "For Veterinarians" [ref=e88] [cursor=pointer]:
+                - /url: /for-veterinarians
+            - listitem [ref=e89]:
+              - link "Become a partner" [ref=e90] [cursor=pointer]:
+                - /url: /partners
+        - generic [ref=e91]:
+          - generic [ref=e92]: Company
+          - list [ref=e93]:
+            - listitem [ref=e94]:
+              - link "About Peterna" [ref=e95] [cursor=pointer]:
+                - /url: /about
+            - listitem [ref=e96]:
+              - link "FAQ" [ref=e97] [cursor=pointer]:
+                - /url: /faq
+            - listitem [ref=e98]:
+              - link "Privacy" [ref=e99] [cursor=pointer]:
+                - /url: /privacy
+      - generic [ref=e100]:
+        - generic [ref=e101]: © 2026 Peterna · A product of Eterna Inc. Built with care.
+        - generic [ref=e102]: Coming soon · Join the waitlist
+  - generic [ref=e107] [cursor=pointer]:
+    - button "Open Next.js Dev Tools" [ref=e108]:
+      - img [ref=e109]
+    - generic [ref=e653]:
+      - button "Open issues overlay" [ref=e654]:
+        - generic [ref=e655]:
+          - generic [ref=e656]: "0"
+          - generic [ref=e657]: "1"
+        - generic [ref=e658]: Issue
+      - button "Collapse issues badge" [ref=e659]:
+        - img [ref=e660]
+  - alert [ref=e112]

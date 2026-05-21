@@ -1,0 +1,141 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - link "Peterna home" [ref=e4] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e9]: Peterna
+      - navigation [ref=e10]:
+        - link "How it works" [ref=e11] [cursor=pointer]:
+          - /url: /how-it-works
+        - link "Pricing" [ref=e12] [cursor=pointer]:
+          - /url: /pricing
+        - link "Family Channel" [ref=e13] [cursor=pointer]:
+          - /url: /family-channel
+        - link "Examples" [ref=e14] [cursor=pointer]:
+          - /url: /gallery
+        - link "For Veterinarians" [ref=e15] [cursor=pointer]:
+          - /url: /for-veterinarians
+      - link "Join the waitlist" [ref=e18] [cursor=pointer]:
+        - /url: /get-started
+        - generic [ref=e19]:
+          - text: Join the waitlist
+          - img [ref=e20]
+  - generic [ref=e22]:
+    - banner [ref=e23]:
+      - generic [ref=e24]:
+        - generic [ref=e25]:
+          - generic [ref=e26]: Peterna
+          - generic [ref=e27]: Tribute Builder
+        - navigation "Progress" [ref=e28]:
+          - button "Tell us about them" [ref=e29] [cursor=pointer]:
+            - generic [ref=e360]: Tell us about them
+          - button "Their likeness" [ref=e361] [cursor=pointer]:
+            - generic [ref=e509]: Their likeness
+            - generic "Approval step" [ref=e510]:
+              - img [ref=e511]
+          - button "The direction" [ref=e514] [cursor=pointer]:
+            - generic [ref=e1081]: The direction
+          - button "The story" [ref=e1082] [cursor=pointer]:
+            - generic [ref=e1575]: The story
+            - generic "Approval step" [ref=e1576]:
+              - img [ref=e1577]
+          - button "The words" [disabled] [ref=e1580]:
+            - generic [ref=e1582]:
+              - generic [ref=e1583]: The words
+              - generic "Approval step" [ref=e1584]:
+                - img [ref=e1585]
+          - button [disabled] [ref=e42]
+    - main [ref=e44]:
+      - generic [ref=e1982]:
+        - generic [ref=e1983]: The Words · 5.5.6
+        - heading "These are Buddy's words." [level=2] [ref=e1984]:
+          - text: These are
+          - emphasis [ref=e1985]: Buddy's
+          - text: words.
+        - generic [ref=e1986]: A summary of everything you've chosen. When it feels right, continue.
+        - generic [ref=e1988]:
+          - generic [ref=e1989]:
+            - generic [ref=e1990]: Opening
+            - generic [ref=e1991]: Buddy A good boy, always.
+          - generic [ref=e1992]:
+            - generic [ref=e1993]: Closing
+            - generic [ref=e1994]: Until we meet again, Buddy.
+          - generic [ref=e1995]:
+            - generic [ref=e1996]: Captions
+            - generic [ref=e1997]: None
+          - generic [ref=e1998]:
+            - generic [ref=e1999]: Music
+            - generic [ref=e2000]: Warm Cello & Piano
+          - generic [ref=e2001]:
+            - generic [ref=e2002]: Narration
+            - generic [ref=e2003]: None
+        - generic [ref=e2004]:
+          - generic [ref=e2005]:
+            - button "Yes — these feel right" [ref=e2006] [cursor=pointer]
+            - button "Change the opening" [ref=e2007] [cursor=pointer]
+            - button "Change the closing" [ref=e2008] [cursor=pointer]
+            - button "Change the music" [ref=e2009] [cursor=pointer]
+          - button "Back" [ref=e2010] [cursor=pointer]:
+            - img [ref=e2011]
+            - text: Back
+  - contentinfo [ref=e59]:
+    - generic [ref=e60]:
+      - generic [ref=e61]:
+        - generic [ref=e62]:
+          - generic [ref=e68]: Peterna
+          - paragraph [ref=e69]: A beautiful, lasting tribute for every pet you’ve loved. Built by the team behind Eterna — a remembrance media company.
+          - paragraph [ref=e70]: “Grief doesn’t end. Neither does Peterna.”
+        - generic [ref=e71]:
+          - generic [ref=e72]: Product
+          - list [ref=e73]:
+            - listitem [ref=e74]:
+              - link "How it works" [ref=e75] [cursor=pointer]:
+                - /url: /how-it-works
+            - listitem [ref=e76]:
+              - link "Pricing" [ref=e77] [cursor=pointer]:
+                - /url: /pricing
+            - listitem [ref=e78]:
+              - link "Family Channel" [ref=e79] [cursor=pointer]:
+                - /url: /family-channel
+            - listitem [ref=e80]:
+              - link "Examples" [ref=e81] [cursor=pointer]:
+                - /url: /gallery
+            - listitem [ref=e82]:
+              - link "Join the waitlist" [ref=e83] [cursor=pointer]:
+                - /url: /get-started
+        - generic [ref=e84]:
+          - generic [ref=e85]: Partners
+          - list [ref=e86]:
+            - listitem [ref=e87]:
+              - link "For Veterinarians" [ref=e88] [cursor=pointer]:
+                - /url: /for-veterinarians
+            - listitem [ref=e89]:
+              - link "Become a partner" [ref=e90] [cursor=pointer]:
+                - /url: /partners
+        - generic [ref=e91]:
+          - generic [ref=e92]: Company
+          - list [ref=e93]:
+            - listitem [ref=e94]:
+              - link "About Peterna" [ref=e95] [cursor=pointer]:
+                - /url: /about
+            - listitem [ref=e96]:
+              - link "FAQ" [ref=e97] [cursor=pointer]:
+                - /url: /faq
+            - listitem [ref=e98]:
+              - link "Privacy" [ref=e99] [cursor=pointer]:
+                - /url: /privacy
+      - generic [ref=e100]:
+        - generic [ref=e101]: © 2026 Peterna · A product of Eterna Inc. Built with care.
+        - generic [ref=e102]: Coming soon · Join the waitlist
+  - generic [ref=e107] [cursor=pointer]:
+    - button "Open Next.js Dev Tools" [ref=e108]:
+      - img [ref=e109]
+    - generic [ref=e653]:
+      - button "Open issues overlay" [ref=e654]:
+        - generic [ref=e655]:
+          - generic [ref=e656]: "0"
+          - generic [ref=e657]: "1"
+        - generic [ref=e658]: Issue
+      - button "Collapse issues badge" [ref=e659]:
+        - img [ref=e660]
+  - alert [ref=e112]

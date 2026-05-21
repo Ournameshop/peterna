@@ -1,0 +1,175 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - link "Peterna home" [ref=e4] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e9]: Peterna
+      - navigation [ref=e10]:
+        - link "How it works" [ref=e11] [cursor=pointer]:
+          - /url: /how-it-works
+        - link "Pricing" [ref=e12] [cursor=pointer]:
+          - /url: /pricing
+        - link "Family Channel" [ref=e13] [cursor=pointer]:
+          - /url: /family-channel
+        - link "Examples" [ref=e14] [cursor=pointer]:
+          - /url: /gallery
+        - link "For Veterinarians" [ref=e15] [cursor=pointer]:
+          - /url: /for-veterinarians
+      - link "Join the waitlist" [ref=e18] [cursor=pointer]:
+        - /url: /get-started
+        - generic [ref=e19]:
+          - text: Join the waitlist
+          - img [ref=e20]
+  - generic [ref=e22]:
+    - banner [ref=e23]:
+      - generic [ref=e24]:
+        - generic [ref=e25]:
+          - generic [ref=e26]: Peterna
+          - generic [ref=e27]: Tribute Builder
+        - navigation "Progress" [ref=e28]:
+          - button "Tell us about them" [ref=e29] [cursor=pointer]:
+            - generic [ref=e360]: Tell us about them
+          - button "Their likeness" [ref=e361] [cursor=pointer]:
+            - generic [ref=e509]: Their likeness
+            - generic "Approval step" [ref=e510]:
+              - img [ref=e511]
+          - button "The direction" [ref=e514] [cursor=pointer]:
+            - generic [ref=e1081]: The direction
+          - button "The story" [disabled] [ref=e1082]:
+            - generic [ref=e1084]:
+              - generic [ref=e1085]: The story
+              - generic "Approval step" [ref=e1086]:
+                - img [ref=e1087]
+          - button "Approval step" [disabled] [ref=e40]
+          - button [disabled] [ref=e42]
+    - main [ref=e44]:
+      - generic [ref=e1250]:
+        - generic [ref=e1251]: Stage 4.5 — Caption Container
+        - heading "How the words appear in the scene" [level=2] [ref=e1252]
+        - generic [ref=e1253]: Each caption sits inside a styled container that's part of the illustration — choose the one that feels right.
+        - generic [ref=e1254]:
+          - generic [ref=e1255]:
+            - generic [ref=e1257]: Style-paired (8)
+            - generic [ref=e1259]:
+              - button "Recommended for your style Cinematic lower-third Soft dark cinematic lower-third gradient bar — the only container where a UI-bar treatment…" [ref=e1260] [cursor=pointer]:
+                - generic [ref=e1261]: Recommended for your style
+                - generic [ref=e1262]:
+                  - generic [ref=e1263]: Cinematic lower-third
+                  - img [ref=e1264]
+                - generic [ref=e1267]: Soft dark cinematic lower-third gradient bar — the only container where a UI-bar treatment…
+              - button "Watercolor ribbon A painted ribbon with hand-painted bleeding watercolor edges and soft tape-corner attachme…" [ref=e1268] [cursor=pointer]:
+                - generic [ref=e1270]: Watercolor ribbon
+                - generic [ref=e1271]: A painted ribbon with hand-painted bleeding watercolor edges and soft tape-corner attachme…
+              - button "Storybook page An open page from a children's picture book — cream paper with a subtle wildflower ornamen…" [ref=e1272] [cursor=pointer]:
+                - generic [ref=e1274]: Storybook page
+                - generic [ref=e1275]: An open page from a children's picture book — cream paper with a subtle wildflower ornamen…
+              - button "Parchment scroll A horizontal parchment scroll with rolled curled ends on both sides and a thin warm brown …" [ref=e1276] [cursor=pointer]:
+                - generic [ref=e1278]: Parchment scroll
+                - generic [ref=e1279]: A horizontal parchment scroll with rolled curled ends on both sides and a thin warm brown …
+              - button "Plasticine banner A sculpted plasticine banner physically sitting in the diorama — made of plasticine with v…" [ref=e1280] [cursor=pointer]:
+                - generic [ref=e1282]: Plasticine banner
+                - generic [ref=e1283]: A sculpted plasticine banner physically sitting in the diorama — made of plasticine with v…
+              - button "Paperclip note A small loose sheet of warm cream paper drawn in pencil, attached to the scene with a hand…" [ref=e1284] [cursor=pointer]:
+                - generic [ref=e1286]: Paperclip note
+                - generic [ref=e1287]: A small loose sheet of warm cream paper drawn in pencil, attached to the scene with a hand…
+              - button "Pixel sign A pixel-art wooden sign or carved stone tablet built from pixels, hanging from pixel-art c…" [ref=e1288] [cursor=pointer]:
+                - generic [ref=e1290]: Pixel sign
+                - generic [ref=e1291]: A pixel-art wooden sign or carved stone tablet built from pixels, hanging from pixel-art c…
+              - button "Voxel sign A three-dimensional voxel sign block or Minecraft-style hanging banner built entirely from…" [ref=e1292] [cursor=pointer]:
+                - generic [ref=e1294]: Voxel sign
+                - generic [ref=e1295]: A three-dimensional voxel sign block or Minecraft-style hanging banner built entirely from…
+          - generic [ref=e1297]: Memorial (5)
+          - generic [ref=e1299]:
+            - button "Engraved stone plaque A rectangular engraved stone plaque (granite or marble), spanning ~80% of frame width, cen…" [ref=e1300] [cursor=pointer]:
+              - generic [ref=e1301]:
+                - generic [ref=e1302]: Engraved stone plaque
+                - img [ref=e1303]
+              - generic [ref=e1305]: A rectangular engraved stone plaque (granite or marble), spanning ~80% of frame width, cen…
+            - button "Polaroid border The frame composition itself sits inside a white Polaroid border. White polaroid frame col…" [ref=e1306] [cursor=pointer]:
+              - generic [ref=e1307]:
+                - generic [ref=e1308]: Polaroid border
+                - img [ref=e1309]
+              - generic [ref=e1311]: The frame composition itself sits inside a white Polaroid border. White polaroid frame col…
+            - 'button "Postcard back The frame composition sits behind/inside a vintage postcard. Cream postcard cardstock #F0E…" [ref=e1312] [cursor=pointer]':
+              - generic [ref=e1313]:
+                - generic [ref=e1314]: Postcard back
+                - img [ref=e1315]
+              - generic [ref=e1317]: "The frame composition sits behind/inside a vintage postcard. Cream postcard cardstock #F0E…"
+            - button "Embroidered sampler A circular wooden embroidery hoop containing cream linen fabric, spanning ~80% of frame wi…" [ref=e1318] [cursor=pointer]:
+              - generic [ref=e1319]:
+                - generic [ref=e1320]: Embroidered sampler
+                - img [ref=e1321]
+              - generic [ref=e1323]: A circular wooden embroidery hoop containing cream linen fabric, spanning ~80% of frame wi…
+            - 'button "Pressed-flower bookmark A vintage botanical card or bookmark of warm cream cardstock #ECDFC5 with deckled edges, s…" [ref=e1324] [cursor=pointer]':
+              - generic [ref=e1325]:
+                - generic [ref=e1326]: Pressed-flower bookmark
+                - img [ref=e1327]
+              - generic [ref=e1329]: "A vintage botanical card or bookmark of warm cream cardstock #ECDFC5 with deckled edges, s…"
+        - generic [ref=e1330]:
+          - button "Back" [ref=e1331] [cursor=pointer]:
+            - img [ref=e1332]
+            - text: Back
+          - button "Continue" [ref=e1335] [cursor=pointer]:
+            - text: Continue
+            - img [ref=e1336]
+  - contentinfo [ref=e59]:
+    - generic [ref=e60]:
+      - generic [ref=e61]:
+        - generic [ref=e62]:
+          - generic [ref=e68]: Peterna
+          - paragraph [ref=e69]: A beautiful, lasting tribute for every pet you’ve loved. Built by the team behind Eterna — a remembrance media company.
+          - paragraph [ref=e70]: “Grief doesn’t end. Neither does Peterna.”
+        - generic [ref=e71]:
+          - generic [ref=e72]: Product
+          - list [ref=e73]:
+            - listitem [ref=e74]:
+              - link "How it works" [ref=e75] [cursor=pointer]:
+                - /url: /how-it-works
+            - listitem [ref=e76]:
+              - link "Pricing" [ref=e77] [cursor=pointer]:
+                - /url: /pricing
+            - listitem [ref=e78]:
+              - link "Family Channel" [ref=e79] [cursor=pointer]:
+                - /url: /family-channel
+            - listitem [ref=e80]:
+              - link "Examples" [ref=e81] [cursor=pointer]:
+                - /url: /gallery
+            - listitem [ref=e82]:
+              - link "Join the waitlist" [ref=e83] [cursor=pointer]:
+                - /url: /get-started
+        - generic [ref=e84]:
+          - generic [ref=e85]: Partners
+          - list [ref=e86]:
+            - listitem [ref=e87]:
+              - link "For Veterinarians" [ref=e88] [cursor=pointer]:
+                - /url: /for-veterinarians
+            - listitem [ref=e89]:
+              - link "Become a partner" [ref=e90] [cursor=pointer]:
+                - /url: /partners
+        - generic [ref=e91]:
+          - generic [ref=e92]: Company
+          - list [ref=e93]:
+            - listitem [ref=e94]:
+              - link "About Peterna" [ref=e95] [cursor=pointer]:
+                - /url: /about
+            - listitem [ref=e96]:
+              - link "FAQ" [ref=e97] [cursor=pointer]:
+                - /url: /faq
+            - listitem [ref=e98]:
+              - link "Privacy" [ref=e99] [cursor=pointer]:
+                - /url: /privacy
+      - generic [ref=e100]:
+        - generic [ref=e101]: © 2026 Peterna · A product of Eterna Inc. Built with care.
+        - generic [ref=e102]: Coming soon · Join the waitlist
+  - generic [ref=e107] [cursor=pointer]:
+    - button "Open Next.js Dev Tools" [ref=e108]:
+      - img [ref=e109]
+    - generic [ref=e653]:
+      - button "Open issues overlay" [ref=e654]:
+        - generic [ref=e655]:
+          - generic [ref=e656]: "0"
+          - generic [ref=e657]: "1"
+        - generic [ref=e658]: Issue
+      - button "Collapse issues badge" [ref=e659]:
+        - img [ref=e660]
+  - alert [ref=e112]

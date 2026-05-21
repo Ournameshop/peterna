@@ -1,0 +1,289 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - link "Peterna home" [ref=e4] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e9]: Peterna
+      - navigation [ref=e10]:
+        - link "How it works" [ref=e11] [cursor=pointer]:
+          - /url: /how-it-works
+        - link "Pricing" [ref=e12] [cursor=pointer]:
+          - /url: /pricing
+        - link "Family Channel" [ref=e13] [cursor=pointer]:
+          - /url: /family-channel
+        - link "Examples" [ref=e14] [cursor=pointer]:
+          - /url: /gallery
+        - link "For Veterinarians" [ref=e15] [cursor=pointer]:
+          - /url: /for-veterinarians
+      - link "Join the waitlist" [ref=e18] [cursor=pointer]:
+        - /url: /get-started
+        - generic [ref=e19]:
+          - text: Join the waitlist
+          - img [ref=e20]
+  - generic [ref=e22]:
+    - banner [ref=e23]:
+      - generic [ref=e24]:
+        - generic [ref=e25]:
+          - generic [ref=e26]: Peterna
+          - generic [ref=e27]: Tribute Builder
+        - navigation "Progress" [ref=e28]:
+          - button "Tell us about them" [ref=e29] [cursor=pointer]:
+            - generic [ref=e360]: Tell us about them
+          - button "Their likeness" [ref=e361] [cursor=pointer]:
+            - generic [ref=e509]: Their likeness
+            - generic "Approval step" [ref=e510]:
+              - img [ref=e511]
+          - button "The direction" [ref=e514] [cursor=pointer]:
+            - generic [ref=e1081]: The direction
+          - button "The story" [ref=e1082] [cursor=pointer]:
+            - generic [ref=e1575]: The story
+            - generic "Approval step" [ref=e1576]:
+              - img [ref=e1577]
+          - button "The words" [disabled] [ref=e1580]:
+            - generic [ref=e1582]:
+              - generic [ref=e1583]: The words
+              - generic "Approval step" [ref=e1584]:
+                - img [ref=e1585]
+          - button [disabled] [ref=e42]
+    - main [ref=e44]:
+      - generic [ref=e2076]:
+        - generic [ref=e2077]: Gate 3 · Cinematography
+        - heading "Here is the cinematography plan." [level=2] [ref=e2078]:
+          - text: Here is the
+          - emphasis [ref=e2079]: cinematography plan
+          - text: .
+        - generic [ref=e2080]: 12 scenes, shot by shot. Every lens, move, and lighting choice has been derived from the story.
+        - generic [ref=e2081]:
+          - generic [ref=e2082]:
+            - generic [ref=e2084]: DP Style
+            - generic [ref=e2085]:
+              - button "None" [ref=e2086] [cursor=pointer]
+              - button "Deakins minimalist" [ref=e2087] [cursor=pointer]
+              - button "Lubezki natural" [ref=e2088] [cursor=pointer]
+              - button "Young intimate" [ref=e2089] [cursor=pointer]
+              - button "Khondji painterly" [ref=e2090] [cursor=pointer]
+              - button "Wong Kar-wai dreamy" [ref=e2091] [cursor=pointer]
+          - table [ref=e2093]:
+            - rowgroup [ref=e2094]:
+              - row "# Lens Character Move Intensity Subject Lighting DOF Shot Audio" [ref=e2095]:
+                - columnheader "#" [ref=e2096]
+                - columnheader "Lens" [ref=e2097]
+                - columnheader "Character" [ref=e2098]
+                - columnheader "Move" [ref=e2099]
+                - columnheader "Intensity" [ref=e2100]
+                - columnheader "Subject" [ref=e2101]
+                - columnheader "Lighting" [ref=e2102]
+                - columnheader "DOF" [ref=e2103]
+                - columnheader "Shot" [ref=e2104]
+                - columnheader "Audio" [ref=e2105]
+            - rowgroup [ref=e2106]:
+              - row "1 50mm standard slow push gentle breath only static locked shallow single sustained birdsong" [ref=e2107]:
+                - cell "1" [ref=e2108]
+                - cell "50mm" [ref=e2109]
+                - cell "standard" [ref=e2110]
+                - cell "slow push" [ref=e2111]
+                - cell "gentle" [ref=e2112]
+                - cell "breath only" [ref=e2113]
+                - cell "static" [ref=e2114]
+                - cell "locked shallow" [ref=e2115]
+                - cell "single sustained" [ref=e2116]
+                - cell "birdsong" [ref=e2117]
+              - row "2 85mm portrait dreamy drift gentle breath only drifting sunbeam rack to subject single sustained birdsong" [ref=e2118]:
+                - cell "2" [ref=e2119]
+                - cell "85mm" [ref=e2120]
+                - cell "portrait" [ref=e2121]
+                - cell "dreamy drift" [ref=e2122]
+                - cell "gentle" [ref=e2123]
+                - cell "breath only" [ref=e2124]
+                - cell "drifting sunbeam" [ref=e2125]
+                - cell "rack to subject" [ref=e2126]
+                - cell "single sustained" [ref=e2127]
+                - cell "birdsong" [ref=e2128]
+              - row "3 85mm portrait slow pull pronounced one shot action drifting sunbeam rack to subject single sustained birdsong" [ref=e2129]:
+                - cell "3" [ref=e2130]
+                - cell "85mm" [ref=e2131]
+                - cell "portrait" [ref=e2132]
+                - cell "slow pull" [ref=e2133]
+                - cell "pronounced" [ref=e2134]
+                - cell "one shot action" [ref=e2135]
+                - cell "drifting sunbeam" [ref=e2136]
+                - cell "rack to subject" [ref=e2137]
+                - cell "single sustained" [ref=e2138]
+                - cell "birdsong" [ref=e2139]
+              - row "4 85mm portrait dreamy drift gentle breath only drifting sunbeam rack to subject single sustained birdsong" [ref=e2140]:
+                - cell "4" [ref=e2141]
+                - cell "85mm" [ref=e2142]
+                - cell "portrait" [ref=e2143]
+                - cell "dreamy drift" [ref=e2144]
+                - cell "gentle" [ref=e2145]
+                - cell "breath only" [ref=e2146]
+                - cell "drifting sunbeam" [ref=e2147]
+                - cell "rack to subject" [ref=e2148]
+                - cell "single sustained" [ref=e2149]
+                - cell "birdsong" [ref=e2150]
+              - row "5 85mm portrait locked off gentle breath only drifting sunbeam rack to subject single sustained birdsong" [ref=e2151]:
+                - cell "5" [ref=e2152]
+                - cell "85mm" [ref=e2153]
+                - cell "portrait" [ref=e2154]
+                - cell "locked off" [ref=e2155]
+                - cell "gentle" [ref=e2156]
+                - cell "breath only" [ref=e2157]
+                - cell "drifting sunbeam" [ref=e2158]
+                - cell "rack to subject" [ref=e2159]
+                - cell "single sustained" [ref=e2160]
+                - cell "birdsong" [ref=e2161]
+              - row "6 85mm portrait slow push gentle loop idle static rack to subject single sustained birdsong" [ref=e2162]:
+                - cell "6" [ref=e2163]
+                - cell "85mm" [ref=e2164]
+                - cell "portrait" [ref=e2165]
+                - cell "slow push" [ref=e2166]
+                - cell "gentle" [ref=e2167]
+                - cell "loop idle" [ref=e2168]
+                - cell "static" [ref=e2169]
+                - cell "rack to subject" [ref=e2170]
+                - cell "single sustained" [ref=e2171]
+                - cell "birdsong" [ref=e2172]
+              - row "7 50mm standard slow rise gentle loop idle drifting sunbeam rack to environment single sustained birdsong" [ref=e2173]:
+                - cell "7" [ref=e2174]
+                - cell "50mm" [ref=e2175]
+                - cell "standard" [ref=e2176]
+                - cell "slow rise" [ref=e2177]
+                - cell "gentle" [ref=e2178]
+                - cell "loop idle" [ref=e2179]
+                - cell "drifting sunbeam" [ref=e2180]
+                - cell "rack to environment" [ref=e2181]
+                - cell "single sustained" [ref=e2182]
+                - cell "birdsong" [ref=e2183]
+              - row "8 50mm standard slow fall gentle loop idle drifting sunbeam rack to environment single sustained birdsong" [ref=e2184]:
+                - cell "8" [ref=e2185]
+                - cell "50mm" [ref=e2186]
+                - cell "standard" [ref=e2187]
+                - cell "slow fall" [ref=e2188]
+                - cell "gentle" [ref=e2189]
+                - cell "loop idle" [ref=e2190]
+                - cell "drifting sunbeam" [ref=e2191]
+                - cell "rack to environment" [ref=e2192]
+                - cell "single sustained" [ref=e2193]
+                - cell "birdsong" [ref=e2194]
+              - row "9 50mm standard slow rise gentle loop idle drifting sunbeam rack to environment single sustained birdsong" [ref=e2195]:
+                - cell "9" [ref=e2196]
+                - cell "50mm" [ref=e2197]
+                - cell "standard" [ref=e2198]
+                - cell "slow rise" [ref=e2199]
+                - cell "gentle" [ref=e2200]
+                - cell "loop idle" [ref=e2201]
+                - cell "drifting sunbeam" [ref=e2202]
+                - cell "rack to environment" [ref=e2203]
+                - cell "single sustained" [ref=e2204]
+                - cell "birdsong" [ref=e2205]
+              - row "10 50mm standard parallax dolly pronounced one shot action leaf dapple breeze locked deep single sustained birdsong" [ref=e2206]:
+                - cell "10" [ref=e2207]
+                - cell "50mm" [ref=e2208]
+                - cell "standard" [ref=e2209]
+                - cell "parallax dolly" [ref=e2210]
+                - cell "pronounced" [ref=e2211]
+                - cell "one shot action" [ref=e2212]
+                - cell "leaf dapple breeze" [ref=e2213]
+                - cell "locked deep" [ref=e2214]
+                - cell "single sustained" [ref=e2215]
+                - cell "birdsong" [ref=e2216]
+              - row "11 50mm standard handheld float pronounced one shot action leaf dapple breeze locked deep single sustained birdsong" [ref=e2217]:
+                - cell "11" [ref=e2218]
+                - cell "50mm" [ref=e2219]
+                - cell "standard" [ref=e2220]
+                - cell "handheld float" [ref=e2221]
+                - cell "pronounced" [ref=e2222]
+                - cell "one shot action" [ref=e2223]
+                - cell "leaf dapple breeze" [ref=e2224]
+                - cell "locked deep" [ref=e2225]
+                - cell "single sustained" [ref=e2226]
+                - cell "birdsong" [ref=e2227]
+              - row "12 50mm standard slow push gentle breath only static locked shallow single sustained silence" [ref=e2228]:
+                - cell "12" [ref=e2229]
+                - cell "50mm" [ref=e2230]
+                - cell "standard" [ref=e2231]
+                - cell "slow push" [ref=e2232]
+                - cell "gentle" [ref=e2233]
+                - cell "breath only" [ref=e2234]
+                - cell "static" [ref=e2235]
+                - cell "locked shallow" [ref=e2236]
+                - cell "single sustained" [ref=e2237]
+                - cell "silence" [ref=e2238]
+          - generic [ref=e2239]:
+            - generic [ref=e2241]: Engine adjustments
+            - generic [ref=e2242]:
+              - generic [ref=e2243]: Scene 10 lens changed from 35mm to 50mm to stay in tribute lens range.
+              - generic [ref=e2244]: Scene 11 lens changed from 35mm to 50mm to stay in tribute lens range.
+        - generic [ref=e2245]:
+          - generic [ref=e2246]:
+            - button "Approve and start generation" [ref=e2247] [cursor=pointer]
+            - button "Adjust a scene" [ref=e2248] [cursor=pointer]
+            - button "Apply a different DP style" [ref=e2249] [cursor=pointer]
+            - button "Regenerate the whole brief" [ref=e2250] [cursor=pointer]
+          - generic [ref=e2251]:
+            - generic [ref=e2252]: Notes for the cinematographer (optional)
+            - textbox "Optional — share anything you'd like adjusted…" [ref=e2253]
+          - button "Back" [ref=e2254] [cursor=pointer]:
+            - img [ref=e2255]
+            - text: Back
+  - contentinfo [ref=e59]:
+    - generic [ref=e60]:
+      - generic [ref=e61]:
+        - generic [ref=e62]:
+          - generic [ref=e68]: Peterna
+          - paragraph [ref=e69]: A beautiful, lasting tribute for every pet you’ve loved. Built by the team behind Eterna — a remembrance media company.
+          - paragraph [ref=e70]: “Grief doesn’t end. Neither does Peterna.”
+        - generic [ref=e71]:
+          - generic [ref=e72]: Product
+          - list [ref=e73]:
+            - listitem [ref=e74]:
+              - link "How it works" [ref=e75] [cursor=pointer]:
+                - /url: /how-it-works
+            - listitem [ref=e76]:
+              - link "Pricing" [ref=e77] [cursor=pointer]:
+                - /url: /pricing
+            - listitem [ref=e78]:
+              - link "Family Channel" [ref=e79] [cursor=pointer]:
+                - /url: /family-channel
+            - listitem [ref=e80]:
+              - link "Examples" [ref=e81] [cursor=pointer]:
+                - /url: /gallery
+            - listitem [ref=e82]:
+              - link "Join the waitlist" [ref=e83] [cursor=pointer]:
+                - /url: /get-started
+        - generic [ref=e84]:
+          - generic [ref=e85]: Partners
+          - list [ref=e86]:
+            - listitem [ref=e87]:
+              - link "For Veterinarians" [ref=e88] [cursor=pointer]:
+                - /url: /for-veterinarians
+            - listitem [ref=e89]:
+              - link "Become a partner" [ref=e90] [cursor=pointer]:
+                - /url: /partners
+        - generic [ref=e91]:
+          - generic [ref=e92]: Company
+          - list [ref=e93]:
+            - listitem [ref=e94]:
+              - link "About Peterna" [ref=e95] [cursor=pointer]:
+                - /url: /about
+            - listitem [ref=e96]:
+              - link "FAQ" [ref=e97] [cursor=pointer]:
+                - /url: /faq
+            - listitem [ref=e98]:
+              - link "Privacy" [ref=e99] [cursor=pointer]:
+                - /url: /privacy
+      - generic [ref=e100]:
+        - generic [ref=e101]: © 2026 Peterna · A product of Eterna Inc. Built with care.
+        - generic [ref=e102]: Coming soon · Join the waitlist
+  - generic [ref=e107] [cursor=pointer]:
+    - button "Open Next.js Dev Tools" [ref=e108]:
+      - img [ref=e109]
+    - generic [ref=e653]:
+      - button "Open issues overlay" [ref=e654]:
+        - generic [ref=e655]:
+          - generic [ref=e656]: "0"
+          - generic [ref=e657]: "1"
+        - generic [ref=e658]: Issue
+      - button "Collapse issues badge" [ref=e659]:
+        - img [ref=e660]
+  - alert [ref=e112]

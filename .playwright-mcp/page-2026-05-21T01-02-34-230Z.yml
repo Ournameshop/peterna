@@ -1,0 +1,150 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - link "Peterna home" [ref=e4] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e9]: Peterna
+      - navigation [ref=e10]:
+        - link "How it works" [ref=e11] [cursor=pointer]:
+          - /url: /how-it-works
+        - link "Pricing" [ref=e12] [cursor=pointer]:
+          - /url: /pricing
+        - link "Family Channel" [ref=e13] [cursor=pointer]:
+          - /url: /family-channel
+        - link "Examples" [ref=e14] [cursor=pointer]:
+          - /url: /gallery
+        - link "For Veterinarians" [ref=e15] [cursor=pointer]:
+          - /url: /for-veterinarians
+      - link "Join the waitlist" [ref=e18] [cursor=pointer]:
+        - /url: /get-started
+        - generic [ref=e19]:
+          - text: Join the waitlist
+          - img [ref=e20]
+  - generic [ref=e22]:
+    - banner [ref=e23]:
+      - generic [ref=e24]:
+        - generic [ref=e25]:
+          - generic [ref=e26]: Peterna
+          - generic [ref=e27]: Tribute Builder
+        - navigation "Progress" [ref=e28]:
+          - button "Tell us about them" [ref=e29] [cursor=pointer]:
+            - generic [ref=e360]: Tell us about them
+          - button "Their likeness" [ref=e361] [cursor=pointer]:
+            - generic [ref=e509]: Their likeness
+            - generic "Approval step" [ref=e510]:
+              - img [ref=e511]
+          - button "The direction" [ref=e514] [cursor=pointer]:
+            - generic [ref=e1081]: The direction
+          - button "The story" [ref=e1082] [cursor=pointer]:
+            - generic [ref=e1575]: The story
+            - generic "Approval step" [ref=e1576]:
+              - img [ref=e1577]
+          - button "The words" [ref=e1580] [cursor=pointer]:
+            - generic [ref=e2258]: The words
+            - generic "Approval step" [ref=e2259]:
+              - img [ref=e2260]
+          - button "The tribute" [disabled] [ref=e2263]:
+            - generic [ref=e2266]: The tribute
+    - main [ref=e44]:
+      - generic [ref=e2268]:
+        - generic [ref=e2269]: Stage 6 · Rendering
+        - heading "It's ready." [level=2] [ref=e2325]
+        - generic [ref=e2271]: 12 scenes rendered. Moving to your tribute…
+        - generic [ref=e2277]:
+          - generic [ref=e2279]:
+            - img [ref=e2282]
+            - generic [ref=e2290]: Beat 01
+          - generic [ref=e2292]:
+            - img [ref=e2295]
+            - generic [ref=e2303]: Beat 02
+          - generic [ref=e2326]:
+            - img [ref=e2328]
+            - generic [ref=e2336]: Beat 03
+          - generic [ref=e2337]:
+            - img [ref=e2339]
+            - generic [ref=e2347]: Beat 04
+          - generic [ref=e2348]:
+            - img [ref=e2356]
+            - generic [ref=e2364]: Beat 05
+          - generic [ref=e2365]:
+            - img [ref=e2368]
+            - generic [ref=e2376]: Beat 06
+          - generic [ref=e2377]:
+            - img [ref=e2380]
+            - generic [ref=e2388]: Beat 07
+          - generic [ref=e2389]:
+            - img [ref=e2391]
+            - generic [ref=e2399]: Beat 08
+          - generic [ref=e2400]:
+            - img [ref=e2403]
+            - generic [ref=e2411]: Beat 09
+          - generic [ref=e2412]:
+            - img [ref=e2415]
+            - generic [ref=e2423]: Beat 10
+          - generic [ref=e2424]:
+            - img [ref=e2426]
+            - generic [ref=e2434]: Beat 11
+          - generic [ref=e2435]:
+            - img [ref=e2437]
+            - generic [ref=e2445]: Beat 12
+  - contentinfo [ref=e59]:
+    - generic [ref=e60]:
+      - generic [ref=e61]:
+        - generic [ref=e62]:
+          - generic [ref=e68]: Peterna
+          - paragraph [ref=e69]: A beautiful, lasting tribute for every pet you’ve loved. Built by the team behind Eterna — a remembrance media company.
+          - paragraph [ref=e70]: “Grief doesn’t end. Neither does Peterna.”
+        - generic [ref=e71]:
+          - generic [ref=e72]: Product
+          - list [ref=e73]:
+            - listitem [ref=e74]:
+              - link "How it works" [ref=e75] [cursor=pointer]:
+                - /url: /how-it-works
+            - listitem [ref=e76]:
+              - link "Pricing" [ref=e77] [cursor=pointer]:
+                - /url: /pricing
+            - listitem [ref=e78]:
+              - link "Family Channel" [ref=e79] [cursor=pointer]:
+                - /url: /family-channel
+            - listitem [ref=e80]:
+              - link "Examples" [ref=e81] [cursor=pointer]:
+                - /url: /gallery
+            - listitem [ref=e82]:
+              - link "Join the waitlist" [ref=e83] [cursor=pointer]:
+                - /url: /get-started
+        - generic [ref=e84]:
+          - generic [ref=e85]: Partners
+          - list [ref=e86]:
+            - listitem [ref=e87]:
+              - link "For Veterinarians" [ref=e88] [cursor=pointer]:
+                - /url: /for-veterinarians
+            - listitem [ref=e89]:
+              - link "Become a partner" [ref=e90] [cursor=pointer]:
+                - /url: /partners
+        - generic [ref=e91]:
+          - generic [ref=e92]: Company
+          - list [ref=e93]:
+            - listitem [ref=e94]:
+              - link "About Peterna" [ref=e95] [cursor=pointer]:
+                - /url: /about
+            - listitem [ref=e96]:
+              - link "FAQ" [ref=e97] [cursor=pointer]:
+                - /url: /faq
+            - listitem [ref=e98]:
+              - link "Privacy" [ref=e99] [cursor=pointer]:
+                - /url: /privacy
+      - generic [ref=e100]:
+        - generic [ref=e101]: © 2026 Peterna · A product of Eterna Inc. Built with care.
+        - generic [ref=e102]: Coming soon · Join the waitlist
+  - generic [ref=e107] [cursor=pointer]:
+    - button "Open Next.js Dev Tools" [ref=e108]:
+      - img [ref=e109]
+    - generic [ref=e653]:
+      - button "Open issues overlay" [ref=e654]:
+        - generic [ref=e655]:
+          - generic [ref=e656]: "0"
+          - generic [ref=e657]: "1"
+        - generic [ref=e658]: Issue
+      - button "Collapse issues badge" [ref=e659]:
+        - img [ref=e660]
+  - alert [ref=e112]

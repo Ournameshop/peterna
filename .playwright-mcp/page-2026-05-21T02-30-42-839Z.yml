@@ -1,0 +1,137 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - link "Peterna home" [ref=e4] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e9]: Peterna
+      - navigation [ref=e10]:
+        - link "How it works" [ref=e11] [cursor=pointer]:
+          - /url: /how-it-works
+        - link "Pricing" [ref=e12] [cursor=pointer]:
+          - /url: /pricing
+        - link "Family Channel" [ref=e13] [cursor=pointer]:
+          - /url: /family-channel
+        - link "Examples" [ref=e14] [cursor=pointer]:
+          - /url: /gallery
+        - link "For Veterinarians" [ref=e15] [cursor=pointer]:
+          - /url: /for-veterinarians
+      - link "Join the waitlist" [ref=e18] [cursor=pointer]:
+        - /url: /get-started
+        - generic [ref=e19]:
+          - text: Join the waitlist
+          - img [ref=e20]
+  - generic [ref=e22]:
+    - banner [ref=e23]:
+      - generic [ref=e24]:
+        - generic [ref=e25]:
+          - generic [ref=e26]: Peterna
+          - generic [ref=e27]: Tribute Builder
+        - navigation "Progress" [ref=e28]:
+          - button "Tell us about them" [ref=e29] [cursor=pointer]:
+            - generic [ref=e373]: Tell us about them
+          - button "Their likeness" [disabled] [ref=e374]:
+            - generic [ref=e376]:
+              - generic [ref=e377]: Their likeness
+              - generic "Approval step" [ref=e378]:
+                - img [ref=e379]
+          - button [disabled] [ref=e36]
+          - button "Approval step" [disabled] [ref=e38]
+          - button "Approval step" [disabled] [ref=e40]
+          - button [disabled] [ref=e42]
+    - main [ref=e44]:
+      - generic [ref=e383]:
+        - generic [ref=e384]: Likeness · Gate 1
+        - heading "Does this look like Sasha?" [level=2] [ref=e385]:
+          - text: Does this look like
+          - emphasis [ref=e386]: Sasha
+          - text: "?"
+        - generic [ref=e387]: We render four reference views to lock in their likeness before anything else is made. Take as long as you need — this part has to feel right.
+        - generic [ref=e388]:
+          - generic [ref=e389]:
+            - generic [ref=e390]:
+              - img "Sasha — Front" [ref=e417]
+              - generic [ref=e418]: Front
+            - generic [ref=e395]:
+              - img "Sasha — Side profile" [ref=e419]
+              - generic [ref=e420]: Side profile
+            - generic [ref=e400]:
+              - img "Sasha — Full body" [ref=e421]
+              - generic [ref=e422]: Full body
+            - generic [ref=e405]:
+              - img "Sasha — Looking up" [ref=e423]
+              - generic [ref=e424]: Looking up
+          - generic [ref=e425]:
+            - generic [ref=e426]: What we observed
+            - generic [ref=e427]: Sasha looks like a striking black and white, with a white blaze on the face and a black-speckled muzzle, and long feathery fur on the chest and ears dog — adult, gentle eyes, soft soulful presence.
+            - generic [ref=e428]:
+              - generic [ref=e429]: "Species: Dog"
+              - generic [ref=e430]: "Breed: Borzoi"
+              - generic [ref=e431]: "Coat: striking black and white, with a white blaze on the face and a black-speckled muzzle, and long feathery fur on the chest and ears"
+              - generic [ref=e432]: "Age: adult"
+          - button "Render again" [ref=e434] [cursor=pointer]:
+            - img [ref=e435]
+            - text: Render again
+        - generic [ref=e410]:
+          - generic [ref=e438]:
+            - button "Yes, that’s them" [ref=e439] [cursor=pointer]
+            - button "Close, but something’s off" [ref=e440] [cursor=pointer]
+            - button "Try again from scratch" [ref=e441] [cursor=pointer]
+            - button "Let me add more photos" [ref=e442] [cursor=pointer]
+          - generic [ref=e411]:
+            - generic [ref=e412]: Anything else you'd like us to know?
+            - textbox "Optional — share anything you'd like adjusted…" [ref=e413]
+          - button "Back" [ref=e414] [cursor=pointer]:
+            - img [ref=e415]
+            - text: Back
+  - contentinfo [ref=e59]:
+    - generic [ref=e60]:
+      - generic [ref=e61]:
+        - generic [ref=e62]:
+          - generic [ref=e68]: Peterna
+          - paragraph [ref=e69]: A beautiful, lasting tribute for every pet you’ve loved. Built by the team behind Eterna — a remembrance media company.
+          - paragraph [ref=e70]: “Grief doesn’t end. Neither does Peterna.”
+        - generic [ref=e71]:
+          - generic [ref=e72]: Product
+          - list [ref=e73]:
+            - listitem [ref=e74]:
+              - link "How it works" [ref=e75] [cursor=pointer]:
+                - /url: /how-it-works
+            - listitem [ref=e76]:
+              - link "Pricing" [ref=e77] [cursor=pointer]:
+                - /url: /pricing
+            - listitem [ref=e78]:
+              - link "Family Channel" [ref=e79] [cursor=pointer]:
+                - /url: /family-channel
+            - listitem [ref=e80]:
+              - link "Examples" [ref=e81] [cursor=pointer]:
+                - /url: /gallery
+            - listitem [ref=e82]:
+              - link "Join the waitlist" [ref=e83] [cursor=pointer]:
+                - /url: /get-started
+        - generic [ref=e84]:
+          - generic [ref=e85]: Partners
+          - list [ref=e86]:
+            - listitem [ref=e87]:
+              - link "For Veterinarians" [ref=e88] [cursor=pointer]:
+                - /url: /for-veterinarians
+            - listitem [ref=e89]:
+              - link "Become a partner" [ref=e90] [cursor=pointer]:
+                - /url: /partners
+        - generic [ref=e91]:
+          - generic [ref=e92]: Company
+          - list [ref=e93]:
+            - listitem [ref=e94]:
+              - link "About Peterna" [ref=e95] [cursor=pointer]:
+                - /url: /about
+            - listitem [ref=e96]:
+              - link "FAQ" [ref=e97] [cursor=pointer]:
+                - /url: /faq
+            - listitem [ref=e98]:
+              - link "Privacy" [ref=e99] [cursor=pointer]:
+                - /url: /privacy
+      - generic [ref=e100]:
+        - generic [ref=e101]: © 2026 Peterna · A product of Eterna Inc. Built with care.
+        - generic [ref=e102]: Coming soon · Join the waitlist
+  - button "Open Next.js Dev Tools" [ref=e177] [cursor=pointer]:
+    - img [ref=e122]
+  - alert [ref=e125]

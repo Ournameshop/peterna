@@ -1,0 +1,261 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - link "Peterna home" [ref=e4] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e9]: Peterna
+      - navigation [ref=e10]:
+        - link "How it works" [ref=e11] [cursor=pointer]:
+          - /url: /how-it-works
+        - link "Pricing" [ref=e12] [cursor=pointer]:
+          - /url: /pricing
+        - link "Family Channel" [ref=e13] [cursor=pointer]:
+          - /url: /family-channel
+        - link "Examples" [ref=e14] [cursor=pointer]:
+          - /url: /gallery
+        - link "For Veterinarians" [ref=e15] [cursor=pointer]:
+          - /url: /for-veterinarians
+      - link "Join the waitlist" [ref=e18] [cursor=pointer]:
+        - /url: /get-started
+        - generic [ref=e19]:
+          - text: Join the waitlist
+          - img [ref=e20]
+  - generic [ref=e22]:
+    - banner [ref=e23]:
+      - generic [ref=e24]:
+        - generic [ref=e25]:
+          - generic [ref=e26]: Peterna
+          - generic [ref=e27]: Tribute Builder
+        - navigation "Progress" [ref=e28]:
+          - button "Tell us about them" [ref=e29] [cursor=pointer]:
+            - generic [ref=e360]: Tell us about them
+          - button "Their likeness" [ref=e361] [cursor=pointer]:
+            - generic [ref=e509]: Their likeness
+            - generic "Approval step" [ref=e510]:
+              - img [ref=e511]
+          - button "The direction" [ref=e514] [cursor=pointer]:
+            - generic [ref=e1081]: The direction
+          - button "The story" [disabled] [ref=e1082]:
+            - generic [ref=e1084]:
+              - generic [ref=e1085]: The story
+              - generic "Approval step" [ref=e1086]:
+                - img [ref=e1087]
+          - button "Approval step" [disabled] [ref=e40]
+          - button [disabled] [ref=e42]
+    - main [ref=e44]:
+      - generic [ref=e1091]:
+        - generic [ref=e1092]: Stage 4 — The Story
+        - heading "Buddy's story, beat by beat" [level=2] [ref=e1093]
+        - generic [ref=e1094]: Here's the 12-beat arc. Each beat is a 15-second scene in the tribute.
+        - generic [ref=e1095]:
+          - table [ref=e1097]:
+            - rowgroup [ref=e1098]:
+              - row "# Beat Visual Caption Spoken / Title" [ref=e1099]:
+                - columnheader "#" [ref=e1100]
+                - columnheader "Beat" [ref=e1101]
+                - columnheader "Visual" [ref=e1102]
+                - columnheader "Caption" [ref=e1103]
+                - columnheader "Spoken / Title" [ref=e1104]
+            - rowgroup [ref=e1105]:
+              - row "1 Open 1 open Title card — Buddy, soft and still, as the tribute opens Buddy Buddy" [ref=e1106]:
+                - cell "1" [ref=e1107]
+                - cell "Open 1 open" [ref=e1108]:
+                  - generic [ref=e1109]: Open 1
+                  - generic [ref=e1110]: open
+                - cell "Title card — Buddy, soft and still, as the tribute opens" [ref=e1111]:
+                  - generic [ref=e1112]: Title card — Buddy, soft and still, as the tribute opens
+                - cell "Buddy" [ref=e1113]:
+                  - generic [ref=e1114]: Buddy
+                - cell "Buddy" [ref=e1115]:
+                  - generic [ref=e1116]: Buddy
+              - row "2 Memory 2 memory lying peacefully in a wide sunbeam on the floor or couch His favorite spot. —" [ref=e1117]:
+                - cell "2" [ref=e1118]
+                - cell "Memory 2 memory" [ref=e1119]:
+                  - generic [ref=e1120]: Memory 2
+                  - generic [ref=e1121]: memory
+                - cell "lying peacefully in a wide sunbeam on the floor or couch" [ref=e1122]:
+                  - generic [ref=e1123]: lying peacefully in a wide sunbeam on the floor or couch
+                - cell "His favorite spot." [ref=e1124]:
+                  - generic [ref=e1125]: His favorite spot.
+                - cell "—" [ref=e1126]:
+                  - generic [ref=e1127]: —
+              - row "3 Memory 3 memory head out the car window, ears flapping in the wind Wind in his ears. Pure joy. —" [ref=e1128]:
+                - cell "3" [ref=e1129]
+                - cell "Memory 3 memory" [ref=e1130]:
+                  - generic [ref=e1131]: Memory 3
+                  - generic [ref=e1132]: memory
+                - cell "head out the car window, ears flapping in the wind" [ref=e1133]:
+                  - generic [ref=e1134]: head out the car window, ears flapping in the wind
+                - cell "Wind in his ears. Pure joy." [ref=e1135]:
+                  - generic [ref=e1136]: Wind in his ears. Pure joy.
+                - cell "—" [ref=e1137]:
+                  - generic [ref=e1138]: —
+              - row "4 Memory 4 memory in a play-bow with their well-loved favorite toy He never let it go. —" [ref=e1139]:
+                - cell "4" [ref=e1140]
+                - cell "Memory 4 memory" [ref=e1141]:
+                  - generic [ref=e1142]: Memory 4
+                  - generic [ref=e1143]: memory
+                - cell "in a play-bow with their well-loved favorite toy" [ref=e1144]:
+                  - generic [ref=e1145]: in a play-bow with their well-loved favorite toy
+                - cell "He never let it go." [ref=e1146]:
+                  - generic [ref=e1147]: He never let it go.
+                - cell "—" [ref=e1148]:
+                  - generic [ref=e1149]: —
+              - row "5 Memory 5 memory A quiet, beloved moment — the kind only they could bring Always watching over us. —" [ref=e1150]:
+                - cell "5" [ref=e1151]
+                - cell "Memory 5 memory" [ref=e1152]:
+                  - generic [ref=e1153]: Memory 5
+                  - generic [ref=e1154]: memory
+                - cell "A quiet, beloved moment — the kind only they could bring" [ref=e1155]:
+                  - generic [ref=e1156]: A quiet, beloved moment — the kind only they could bring
+                - cell "Always watching over us." [ref=e1157]:
+                  - generic [ref=e1158]: Always watching over us.
+                - cell "—" [ref=e1159]:
+                  - generic [ref=e1160]: —
+              - row "6 Connection 6 connection The pet at rest, looking directly at the viewer — that familiar gaze, the quiet bond in those eyes That look. Every day. —" [ref=e1161]:
+                - cell "6" [ref=e1162]
+                - cell "Connection 6 connection" [ref=e1163]:
+                  - generic [ref=e1164]: Connection 6
+                  - generic [ref=e1165]: connection
+                - cell "The pet at rest, looking directly at the viewer — that familiar gaze, the quiet bond in those eyes" [ref=e1166]:
+                  - generic [ref=e1167]: The pet at rest, looking directly at the viewer — that familiar gaze, the quiet bond in those eyes
+                - cell "That look. Every day." [ref=e1168]:
+                  - generic [ref=e1169]: That look. Every day.
+                - cell "—" [ref=e1170]:
+                  - generic [ref=e1171]: —
+              - 'row "7 Ceremonial 7 ceremonial The threshold: a soft opening in the world, warm light beyond — Early-morning light, dew on grass, hopeful horizon He was ready. —" [ref=e1172]':
+                - cell "7" [ref=e1173]
+                - cell "Ceremonial 7 ceremonial" [ref=e1174]:
+                  - generic [ref=e1175]: Ceremonial 7
+                  - generic [ref=e1176]: ceremonial
+                - 'cell "The threshold: a soft opening in the world, warm light beyond — Early-morning light, dew on grass, hopeful horizon" [ref=e1177]':
+                  - generic [ref=e1178]: "The threshold: a soft opening in the world, warm light beyond — Early-morning light, dew on grass, hopeful horizon"
+                - cell "He was ready." [ref=e1179]:
+                  - generic [ref=e1180]: He was ready.
+                - cell "—" [ref=e1181]:
+                  - generic [ref=e1182]: —
+              - 'row "8 Ceremonial 8 ceremonial The first step: gentle movement forward into the light He was ready. —" [ref=e1183]':
+                - cell "8" [ref=e1184]
+                - cell "Ceremonial 8 ceremonial" [ref=e1185]:
+                  - generic [ref=e1186]: Ceremonial 8
+                  - generic [ref=e1187]: ceremonial
+                - 'cell "The first step: gentle movement forward into the light" [ref=e1188]':
+                  - generic [ref=e1189]: "The first step: gentle movement forward into the light"
+                - cell "He was ready." [ref=e1190]:
+                  - generic [ref=e1191]: He was ready.
+                - cell "—" [ref=e1192]:
+                  - generic [ref=e1193]: —
+              - 'row "9 Ceremonial 9 ceremonial The crossing: the pet walking gracefully toward the horizon He was ready. —" [ref=e1194]':
+                - cell "9" [ref=e1195]
+                - cell "Ceremonial 9 ceremonial" [ref=e1196]:
+                  - generic [ref=e1197]: Ceremonial 9
+                  - generic [ref=e1198]: ceremonial
+                - 'cell "The crossing: the pet walking gracefully toward the horizon" [ref=e1199]':
+                  - generic [ref=e1200]: "The crossing: the pet walking gracefully toward the horizon"
+                - cell "He was ready." [ref=e1201]:
+                  - generic [ref=e1202]: He was ready.
+                - cell "—" [ref=e1203]:
+                  - generic [ref=e1204]: —
+              - row "10 Release 10 release A glance back — soft eyes meeting the viewer one last time, unhurried He's saying it's okay. —" [ref=e1205]:
+                - cell "10" [ref=e1206]
+                - cell "Release 10 release" [ref=e1207]:
+                  - generic [ref=e1208]: Release 10
+                  - generic [ref=e1209]: release
+                - cell "A glance back — soft eyes meeting the viewer one last time, unhurried" [ref=e1210]:
+                  - generic [ref=e1211]: A glance back — soft eyes meeting the viewer one last time, unhurried
+                - cell "He's saying it's okay." [ref=e1212]:
+                  - generic [ref=e1213]: He's saying it's okay.
+                - cell "—" [ref=e1214]:
+                  - generic [ref=e1215]: —
+              - 'row "11 Release 11 release Joyful release: running freely through open light, pure and unburdened Running again, finally. —" [ref=e1216]':
+                - cell "11" [ref=e1217]
+                - cell "Release 11 release" [ref=e1218]:
+                  - generic [ref=e1219]: Release 11
+                  - generic [ref=e1220]: release
+                - 'cell "Joyful release: running freely through open light, pure and unburdened" [ref=e1221]':
+                  - generic [ref=e1222]: "Joyful release: running freely through open light, pure and unburdened"
+                - cell "Running again, finally." [ref=e1223]:
+                  - generic [ref=e1224]: Running again, finally.
+                - cell "—" [ref=e1225]:
+                  - generic [ref=e1226]: —
+              - row "12 Close 12 close End card — Buddy, remembered and loved, as the tribute closes He's saying it's okay. Buddy" [ref=e1227]:
+                - cell "12" [ref=e1228]
+                - cell "Close 12 close" [ref=e1229]:
+                  - generic [ref=e1230]: Close 12
+                  - generic [ref=e1231]: close
+                - cell "End card — Buddy, remembered and loved, as the tribute closes" [ref=e1232]:
+                  - generic [ref=e1233]: End card — Buddy, remembered and loved, as the tribute closes
+                - cell "He's saying it's okay." [ref=e1234]:
+                  - generic [ref=e1235]: He's saying it's okay.
+                - cell "Buddy" [ref=e1236]:
+                  - generic [ref=e1237]: Buddy
+          - generic [ref=e1239]:
+            - button "Looks good — continue" [ref=e1240] [cursor=pointer]
+            - button "Change a beat" [ref=e1241] [cursor=pointer]
+            - button "Re-order" [ref=e1242] [cursor=pointer]
+            - button "Drop a beat" [ref=e1243] [cursor=pointer]
+            - button "Add a beat" [ref=e1244] [cursor=pointer]
+        - button "Back" [ref=e1246] [cursor=pointer]:
+          - img [ref=e1247]
+          - text: Back
+  - contentinfo [ref=e59]:
+    - generic [ref=e60]:
+      - generic [ref=e61]:
+        - generic [ref=e62]:
+          - generic [ref=e68]: Peterna
+          - paragraph [ref=e69]: A beautiful, lasting tribute for every pet you’ve loved. Built by the team behind Eterna — a remembrance media company.
+          - paragraph [ref=e70]: “Grief doesn’t end. Neither does Peterna.”
+        - generic [ref=e71]:
+          - generic [ref=e72]: Product
+          - list [ref=e73]:
+            - listitem [ref=e74]:
+              - link "How it works" [ref=e75] [cursor=pointer]:
+                - /url: /how-it-works
+            - listitem [ref=e76]:
+              - link "Pricing" [ref=e77] [cursor=pointer]:
+                - /url: /pricing
+            - listitem [ref=e78]:
+              - link "Family Channel" [ref=e79] [cursor=pointer]:
+                - /url: /family-channel
+            - listitem [ref=e80]:
+              - link "Examples" [ref=e81] [cursor=pointer]:
+                - /url: /gallery
+            - listitem [ref=e82]:
+              - link "Join the waitlist" [ref=e83] [cursor=pointer]:
+                - /url: /get-started
+        - generic [ref=e84]:
+          - generic [ref=e85]: Partners
+          - list [ref=e86]:
+            - listitem [ref=e87]:
+              - link "For Veterinarians" [ref=e88] [cursor=pointer]:
+                - /url: /for-veterinarians
+            - listitem [ref=e89]:
+              - link "Become a partner" [ref=e90] [cursor=pointer]:
+                - /url: /partners
+        - generic [ref=e91]:
+          - generic [ref=e92]: Company
+          - list [ref=e93]:
+            - listitem [ref=e94]:
+              - link "About Peterna" [ref=e95] [cursor=pointer]:
+                - /url: /about
+            - listitem [ref=e96]:
+              - link "FAQ" [ref=e97] [cursor=pointer]:
+                - /url: /faq
+            - listitem [ref=e98]:
+              - link "Privacy" [ref=e99] [cursor=pointer]:
+                - /url: /privacy
+      - generic [ref=e100]:
+        - generic [ref=e101]: © 2026 Peterna · A product of Eterna Inc. Built with care.
+        - generic [ref=e102]: Coming soon · Join the waitlist
+  - generic [ref=e107] [cursor=pointer]:
+    - button "Open Next.js Dev Tools" [ref=e108]:
+      - img [ref=e109]
+    - generic [ref=e653]:
+      - button "Open issues overlay" [ref=e654]:
+        - generic [ref=e655]:
+          - generic [ref=e656]: "0"
+          - generic [ref=e657]: "1"
+        - generic [ref=e658]: Issue
+      - button "Collapse issues badge" [ref=e659]:
+        - img [ref=e660]
+  - alert [ref=e112]

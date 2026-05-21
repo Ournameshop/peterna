@@ -1,0 +1,151 @@
+- generic [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - link "Peterna home" [ref=e4] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e9]: Peterna
+      - navigation [ref=e10]:
+        - link "How it works" [ref=e11] [cursor=pointer]:
+          - /url: /how-it-works
+        - link "Pricing" [ref=e12] [cursor=pointer]:
+          - /url: /pricing
+        - link "Family Channel" [ref=e13] [cursor=pointer]:
+          - /url: /family-channel
+        - link "Examples" [ref=e14] [cursor=pointer]:
+          - /url: /gallery
+        - link "For Veterinarians" [ref=e15] [cursor=pointer]:
+          - /url: /for-veterinarians
+      - link "Join the waitlist" [ref=e18] [cursor=pointer]:
+        - /url: /get-started
+        - generic [ref=e19]:
+          - text: Join the waitlist
+          - img [ref=e20]
+  - generic [ref=e22]:
+    - banner [ref=e23]:
+      - generic [ref=e24]:
+        - generic [ref=e25]:
+          - generic [ref=e26]: Peterna
+          - generic [ref=e27]: Tribute Builder
+        - navigation "Progress" [ref=e28]:
+          - button "Tell us about them" [ref=e29] [cursor=pointer]:
+            - generic [ref=e360]: Tell us about them
+          - button "Their likeness" [ref=e361] [cursor=pointer]:
+            - generic [ref=e509]: Their likeness
+            - generic "Approval step" [ref=e510]:
+              - img [ref=e511]
+          - button "The direction" [ref=e514] [cursor=pointer]:
+            - generic [ref=e1081]: The direction
+          - button "The story" [ref=e1082] [cursor=pointer]:
+            - generic [ref=e1575]: The story
+            - generic "Approval step" [ref=e1576]:
+              - img [ref=e1577]
+          - button "The words" [disabled] [ref=e1580]:
+            - generic [ref=e1582]:
+              - generic [ref=e1583]: The words
+              - generic "Approval step" [ref=e1584]:
+                - img [ref=e1585]
+          - button [disabled] [ref=e42]
+    - main [ref=e44]:
+      - generic [ref=e1589]:
+        - generic [ref=e1590]: The Words · 5.5.3
+        - heading "A few caption moments?" [level=2] [ref=e1666]:
+          - text: A few
+          - emphasis [ref=e1592]: caption moments
+          - text: "?"
+        - generic [ref=e1593]: Pick up to 3 beats to add a caption to. Suggestions below are resolved to Buddy's voice.
+        - generic [ref=e1594]:
+          - generic [ref=e1667]: No captions selected — skipping is perfectly fine.
+          - generic [ref=e1668]:
+            - generic [ref=e1670]: Choose beats to caption
+            - generic [ref=e1671]:
+              - button "Beat 1" [ref=e1672] [cursor=pointer]
+              - button "Beat 2" [ref=e1673] [cursor=pointer]
+              - button "Beat 3" [ref=e1674] [cursor=pointer]
+              - button "Beat 4" [ref=e1675] [cursor=pointer]
+              - button "Beat 5" [ref=e1676] [cursor=pointer]
+              - button "Beat 6" [ref=e1677] [cursor=pointer]
+              - button "Beat 7" [ref=e1678] [cursor=pointer]
+              - button "Beat 8" [ref=e1679] [cursor=pointer]
+              - button "Beat 9" [ref=e1680] [cursor=pointer]
+              - button "Beat 10" [ref=e1681] [cursor=pointer]
+              - button "Beat 11" [ref=e1682] [cursor=pointer]
+              - button "Beat 12" [ref=e1683] [cursor=pointer]
+          - generic [ref=e1684]:
+            - generic [ref=e1685]:
+              - generic [ref=e1686]: Caption suggestions
+              - generic [ref=e1687]: click to use
+            - generic [ref=e1688]:
+              - button "His favorite spot." [ref=e1689] [cursor=pointer]
+              - button "He never let it go." [ref=e1690] [cursor=pointer]
+              - button "Wind in his ears. Pure joy." [ref=e1691] [cursor=pointer]
+              - button "Always watching over us." [ref=e1692] [cursor=pointer]
+              - button "That look. Every day." [ref=e1693] [cursor=pointer]
+              - button "He was ready." [ref=e1694] [cursor=pointer]
+        - generic [ref=e1626]:
+          - button "Back" [ref=e1627] [cursor=pointer]:
+            - img [ref=e1628]
+            - text: Back
+          - 'button "Next: Music" [active] [ref=e1695] [cursor=pointer]':
+            - text: "Next: Music"
+            - img [ref=e1632]
+  - contentinfo [ref=e59]:
+    - generic [ref=e60]:
+      - generic [ref=e61]:
+        - generic [ref=e62]:
+          - generic [ref=e68]: Peterna
+          - paragraph [ref=e69]: A beautiful, lasting tribute for every pet you’ve loved. Built by the team behind Eterna — a remembrance media company.
+          - paragraph [ref=e70]: “Grief doesn’t end. Neither does Peterna.”
+        - generic [ref=e71]:
+          - generic [ref=e72]: Product
+          - list [ref=e73]:
+            - listitem [ref=e74]:
+              - link "How it works" [ref=e75] [cursor=pointer]:
+                - /url: /how-it-works
+            - listitem [ref=e76]:
+              - link "Pricing" [ref=e77] [cursor=pointer]:
+                - /url: /pricing
+            - listitem [ref=e78]:
+              - link "Family Channel" [ref=e79] [cursor=pointer]:
+                - /url: /family-channel
+            - listitem [ref=e80]:
+              - link "Examples" [ref=e81] [cursor=pointer]:
+                - /url: /gallery
+            - listitem [ref=e82]:
+              - link "Join the waitlist" [ref=e83] [cursor=pointer]:
+                - /url: /get-started
+        - generic [ref=e84]:
+          - generic [ref=e85]: Partners
+          - list [ref=e86]:
+            - listitem [ref=e87]:
+              - link "For Veterinarians" [ref=e88] [cursor=pointer]:
+                - /url: /for-veterinarians
+            - listitem [ref=e89]:
+              - link "Become a partner" [ref=e90] [cursor=pointer]:
+                - /url: /partners
+        - generic [ref=e91]:
+          - generic [ref=e92]: Company
+          - list [ref=e93]:
+            - listitem [ref=e94]:
+              - link "About Peterna" [ref=e95] [cursor=pointer]:
+                - /url: /about
+            - listitem [ref=e96]:
+              - link "FAQ" [ref=e97] [cursor=pointer]:
+                - /url: /faq
+            - listitem [ref=e98]:
+              - link "Privacy" [ref=e99] [cursor=pointer]:
+                - /url: /privacy
+      - generic [ref=e100]:
+        - generic [ref=e101]: © 2026 Peterna · A product of Eterna Inc. Built with care.
+        - generic [ref=e102]: Coming soon · Join the waitlist
+  - generic [ref=e107] [cursor=pointer]:
+    - button "Open Next.js Dev Tools" [ref=e108]:
+      - img [ref=e109]
+    - generic [ref=e653]:
+      - button "Open issues overlay" [ref=e654]:
+        - generic [ref=e655]:
+          - generic [ref=e656]: "0"
+          - generic [ref=e657]: "1"
+        - generic [ref=e658]: Issue
+      - button "Collapse issues badge" [ref=e659]:
+        - img [ref=e660]
+  - alert [ref=e112]

@@ -1,0 +1,141 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - link "Peterna home" [ref=e4] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e9]: Peterna
+      - navigation [ref=e10]:
+        - link "How it works" [ref=e11] [cursor=pointer]:
+          - /url: /how-it-works
+        - link "Pricing" [ref=e12] [cursor=pointer]:
+          - /url: /pricing
+        - link "Family Channel" [ref=e13] [cursor=pointer]:
+          - /url: /family-channel
+        - link "Examples" [ref=e14] [cursor=pointer]:
+          - /url: /gallery
+        - link "For Veterinarians" [ref=e15] [cursor=pointer]:
+          - /url: /for-veterinarians
+      - link "Join the waitlist" [ref=e18] [cursor=pointer]:
+        - /url: /get-started
+        - generic [ref=e19]:
+          - text: Join the waitlist
+          - img [ref=e20]
+  - generic [ref=e22]:
+    - banner [ref=e23]:
+      - generic [ref=e24]:
+        - generic [ref=e25]:
+          - generic [ref=e26]: Peterna
+          - generic [ref=e27]: Tribute Builder
+        - navigation "Progress" [ref=e28]:
+          - button "Tell us about them" [ref=e29] [cursor=pointer]:
+            - generic [ref=e373]: Tell us about them
+          - button "Their likeness" [ref=e374] [cursor=pointer]:
+            - generic [ref=e494]: Their likeness
+            - generic "Approval step" [ref=e495]:
+              - img [ref=e496]
+          - button "The direction" [disabled] [ref=e499]:
+            - generic [ref=e502]: The direction
+          - button "Approval step" [disabled] [ref=e38]
+          - button "Approval step" [disabled] [ref=e40]
+          - button [disabled] [ref=e42]
+    - main [ref=e44]:
+      - generic [ref=e605]:
+        - generic [ref=e606]: Direction — 3.3
+        - heading "What feeling should carry it?" [level=2] [ref=e607]
+        - generic [ref=e608]: Each category opens into a few themes. You can preview them before deciding.
+        - generic [ref=e610]:
+          - button "🌅 Healing & Peace soft, hopeful, transcendent" [ref=e611] [cursor=pointer]:
+            - generic [ref=e612]:
+              - generic [ref=e613]: 🌅
+              - generic [ref=e614]: Healing & Peace
+            - generic [ref=e615]: soft, hopeful, transcendent
+          - button "🌙 Quiet Grief gentle melancholy, space to be sad" [ref=e616] [cursor=pointer]:
+            - generic [ref=e617]:
+              - generic [ref=e618]: 🌙
+              - generic [ref=e619]: Quiet Grief
+            - generic [ref=e620]: gentle melancholy, space to be sad
+          - button "🛋️ Home & Everyday Love the warmth of ordinary moments" [ref=e621] [cursor=pointer]:
+            - generic [ref=e622]:
+              - generic [ref=e623]: 🛋️
+              - generic [ref=e624]: Home & Everyday Love
+              - img [ref=e625]
+            - generic [ref=e627]: the warmth of ordinary moments
+          - button "🌊 Nature & Freedom open spaces, wind, release" [ref=e628] [cursor=pointer]:
+            - generic [ref=e629]:
+              - generic [ref=e630]: 🌊
+              - generic [ref=e631]: Nature & Freedom
+            - generic [ref=e632]: open spaces, wind, release
+          - button "🎾 Their Personality celebrate who they were" [ref=e633] [cursor=pointer]:
+            - generic [ref=e634]:
+              - generic [ref=e635]: 🎾
+              - generic [ref=e636]: Their Personality
+            - generic [ref=e637]: celebrate who they were
+          - button "🌌 Spiritual & Symbolic signs, stars, the unseen" [ref=e638] [cursor=pointer]:
+            - generic [ref=e639]:
+              - generic [ref=e640]: 🌌
+              - generic [ref=e641]: Spiritual & Symbolic
+            - generic [ref=e642]: signs, stars, the unseen
+        - button "Back" [ref=e644] [cursor=pointer]:
+          - img [ref=e645]
+          - text: Back
+  - contentinfo [ref=e59]:
+    - generic [ref=e60]:
+      - generic [ref=e61]:
+        - generic [ref=e62]:
+          - generic [ref=e68]: Peterna
+          - paragraph [ref=e69]: A beautiful, lasting tribute for every pet you’ve loved. Built by the team behind Eterna — a remembrance media company.
+          - paragraph [ref=e70]: “Grief doesn’t end. Neither does Peterna.”
+        - generic [ref=e71]:
+          - generic [ref=e72]: Product
+          - list [ref=e73]:
+            - listitem [ref=e74]:
+              - link "How it works" [ref=e75] [cursor=pointer]:
+                - /url: /how-it-works
+            - listitem [ref=e76]:
+              - link "Pricing" [ref=e77] [cursor=pointer]:
+                - /url: /pricing
+            - listitem [ref=e78]:
+              - link "Family Channel" [ref=e79] [cursor=pointer]:
+                - /url: /family-channel
+            - listitem [ref=e80]:
+              - link "Examples" [ref=e81] [cursor=pointer]:
+                - /url: /gallery
+            - listitem [ref=e82]:
+              - link "Join the waitlist" [ref=e83] [cursor=pointer]:
+                - /url: /get-started
+        - generic [ref=e84]:
+          - generic [ref=e85]: Partners
+          - list [ref=e86]:
+            - listitem [ref=e87]:
+              - link "For Veterinarians" [ref=e88] [cursor=pointer]:
+                - /url: /for-veterinarians
+            - listitem [ref=e89]:
+              - link "Become a partner" [ref=e90] [cursor=pointer]:
+                - /url: /partners
+        - generic [ref=e91]:
+          - generic [ref=e92]: Company
+          - list [ref=e93]:
+            - listitem [ref=e94]:
+              - link "About Peterna" [ref=e95] [cursor=pointer]:
+                - /url: /about
+            - listitem [ref=e96]:
+              - link "FAQ" [ref=e97] [cursor=pointer]:
+                - /url: /faq
+            - listitem [ref=e98]:
+              - link "Privacy" [ref=e99] [cursor=pointer]:
+                - /url: /privacy
+      - generic [ref=e100]:
+        - generic [ref=e101]: © 2026 Peterna · A product of Eterna Inc. Built with care.
+        - generic [ref=e102]: Coming soon · Join the waitlist
+  - generic [ref=e120] [cursor=pointer]:
+    - button "Open Next.js Dev Tools" [ref=e177]:
+      - img [ref=e122]
+    - generic [ref=e595]:
+      - button "Open issues overlay" [ref=e596]:
+        - generic [ref=e597]:
+          - generic [ref=e598]: "0"
+          - generic [ref=e599]: "1"
+        - generic [ref=e600]: Issue
+      - button "Collapse issues badge" [ref=e601]:
+        - img [ref=e602]
+  - alert [ref=e125]

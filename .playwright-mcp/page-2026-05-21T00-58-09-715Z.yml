@@ -1,0 +1,133 @@
+- generic [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - link "Peterna home" [ref=e4] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e9]: Peterna
+      - navigation [ref=e10]:
+        - link "How it works" [ref=e11] [cursor=pointer]:
+          - /url: /how-it-works
+        - link "Pricing" [ref=e12] [cursor=pointer]:
+          - /url: /pricing
+        - link "Family Channel" [ref=e13] [cursor=pointer]:
+          - /url: /family-channel
+        - link "Examples" [ref=e14] [cursor=pointer]:
+          - /url: /gallery
+        - link "For Veterinarians" [ref=e15] [cursor=pointer]:
+          - /url: /for-veterinarians
+      - link "Join the waitlist" [ref=e18] [cursor=pointer]:
+        - /url: /get-started
+        - generic [ref=e19]:
+          - text: Join the waitlist
+          - img [ref=e20]
+  - generic [ref=e22]:
+    - banner [ref=e23]:
+      - generic [ref=e24]:
+        - generic [ref=e25]:
+          - generic [ref=e26]: Peterna
+          - generic [ref=e27]: Tribute Builder
+        - navigation "Progress" [ref=e28]:
+          - button "Tell us about them" [disabled] [ref=e29]:
+            - generic [ref=e32]: Tell us about them
+          - button "Approval step" [disabled] [ref=e34]
+          - button [disabled] [ref=e36]
+          - button "Approval step" [disabled] [ref=e38]
+          - button "Approval step" [disabled] [ref=e40]
+          - button [disabled] [ref=e42]
+    - main [ref=e44]:
+      - generic [ref=e284]:
+        - generic [ref=e285]: Personality — 1.9 / 1.10
+        - heading "Who was Buddy?" [level=2] [ref=e286]
+        - generic [ref=e287]: Pick the ones that feel most like them. No wrong answers — and no pressure to choose.
+        - generic [ref=e288]:
+          - generic [ref=e289]:
+            - generic [ref=e290]:
+              - generic [ref=e291]: Their personality
+              - generic [ref=e292]: 2 / 3 selected
+            - generic [ref=e293]:
+              - button "The escape artist" [ref=e294] [cursor=pointer]
+              - button "The greeter at the door" [ref=e295] [cursor=pointer]
+              - button "The shadow at my feet" [ref=e296] [cursor=pointer]
+              - button "The class clown" [ref=e297] [cursor=pointer]
+              - button "The protector" [ref=e298] [cursor=pointer]
+              - button "The cuddle thief" [ref=e299] [cursor=pointer]
+              - button "The watchman" [ref=e300] [cursor=pointer]
+              - button "The wanderer" [ref=e301] [cursor=pointer]
+              - button "The wise old soul" [ref=e302] [cursor=pointer]
+              - button "The eternal puppy" [ref=e303] [cursor=pointer]
+          - generic [ref=e305]:
+            - generic [ref=e306]:
+              - generic [ref=e307]: Their favorite things
+              - generic [ref=e308]: 2 / 3 selected
+            - generic [ref=e309]:
+              - button "Naps in sunbeams" [ref=e310] [cursor=pointer]
+              - button "Window-watchman duty" [ref=e311] [cursor=pointer]
+              - button "The 4pm walk" [ref=e312] [cursor=pointer]
+              - button "Car rides with the window down" [active] [ref=e313] [cursor=pointer]
+              - button "Their favorite toy" [ref=e314] [cursor=pointer]
+              - button "Stealing socks" [ref=e315] [cursor=pointer]
+              - button "Mealtime drama" [ref=e316] [cursor=pointer]
+              - button "Cuddles on the couch" [ref=e317] [cursor=pointer]
+              - button "The beach" [ref=e318] [cursor=pointer]
+              - button "Snow days" [ref=e319] [cursor=pointer]
+              - button "Treats hidden anywhere" [ref=e320] [cursor=pointer]
+              - button "The backyard patrol" [ref=e321] [cursor=pointer]
+        - generic [ref=e323]:
+          - button "Back" [ref=e324] [cursor=pointer]:
+            - img [ref=e325]
+            - text: Back
+          - button "Continue" [ref=e328] [cursor=pointer]:
+            - text: Continue
+            - img [ref=e329]
+  - contentinfo [ref=e59]:
+    - generic [ref=e60]:
+      - generic [ref=e61]:
+        - generic [ref=e62]:
+          - generic [ref=e68]: Peterna
+          - paragraph [ref=e69]: A beautiful, lasting tribute for every pet you’ve loved. Built by the team behind Eterna — a remembrance media company.
+          - paragraph [ref=e70]: “Grief doesn’t end. Neither does Peterna.”
+        - generic [ref=e71]:
+          - generic [ref=e72]: Product
+          - list [ref=e73]:
+            - listitem [ref=e74]:
+              - link "How it works" [ref=e75] [cursor=pointer]:
+                - /url: /how-it-works
+            - listitem [ref=e76]:
+              - link "Pricing" [ref=e77] [cursor=pointer]:
+                - /url: /pricing
+            - listitem [ref=e78]:
+              - link "Family Channel" [ref=e79] [cursor=pointer]:
+                - /url: /family-channel
+            - listitem [ref=e80]:
+              - link "Examples" [ref=e81] [cursor=pointer]:
+                - /url: /gallery
+            - listitem [ref=e82]:
+              - link "Join the waitlist" [ref=e83] [cursor=pointer]:
+                - /url: /get-started
+        - generic [ref=e84]:
+          - generic [ref=e85]: Partners
+          - list [ref=e86]:
+            - listitem [ref=e87]:
+              - link "For Veterinarians" [ref=e88] [cursor=pointer]:
+                - /url: /for-veterinarians
+            - listitem [ref=e89]:
+              - link "Become a partner" [ref=e90] [cursor=pointer]:
+                - /url: /partners
+        - generic [ref=e91]:
+          - generic [ref=e92]: Company
+          - list [ref=e93]:
+            - listitem [ref=e94]:
+              - link "About Peterna" [ref=e95] [cursor=pointer]:
+                - /url: /about
+            - listitem [ref=e96]:
+              - link "FAQ" [ref=e97] [cursor=pointer]:
+                - /url: /faq
+            - listitem [ref=e98]:
+              - link "Privacy" [ref=e99] [cursor=pointer]:
+                - /url: /privacy
+      - generic [ref=e100]:
+        - generic [ref=e101]: © 2026 Peterna · A product of Eterna Inc. Built with care.
+        - generic [ref=e102]: Coming soon · Join the waitlist
+  - button "Open Next.js Dev Tools" [ref=e108] [cursor=pointer]:
+    - img [ref=e109]
+  - alert [ref=e112]

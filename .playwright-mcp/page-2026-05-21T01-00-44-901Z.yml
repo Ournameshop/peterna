@@ -1,0 +1,218 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - link "Peterna home" [ref=e4] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e9]: Peterna
+      - navigation [ref=e10]:
+        - link "How it works" [ref=e11] [cursor=pointer]:
+          - /url: /how-it-works
+        - link "Pricing" [ref=e12] [cursor=pointer]:
+          - /url: /pricing
+        - link "Family Channel" [ref=e13] [cursor=pointer]:
+          - /url: /family-channel
+        - link "Examples" [ref=e14] [cursor=pointer]:
+          - /url: /gallery
+        - link "For Veterinarians" [ref=e15] [cursor=pointer]:
+          - /url: /for-veterinarians
+      - link "Join the waitlist" [ref=e18] [cursor=pointer]:
+        - /url: /get-started
+        - generic [ref=e19]:
+          - text: Join the waitlist
+          - img [ref=e20]
+  - generic [ref=e22]:
+    - banner [ref=e23]:
+      - generic [ref=e24]:
+        - generic [ref=e25]:
+          - generic [ref=e26]: Peterna
+          - generic [ref=e27]: Tribute Builder
+        - navigation "Progress" [ref=e28]:
+          - button "Tell us about them" [ref=e29] [cursor=pointer]:
+            - generic [ref=e360]: Tell us about them
+          - button "Their likeness" [ref=e361] [cursor=pointer]:
+            - generic [ref=e509]: Their likeness
+            - generic "Approval step" [ref=e510]:
+              - img [ref=e511]
+          - button "The direction" [ref=e514] [cursor=pointer]:
+            - generic [ref=e1081]: The direction
+          - button "The story" [disabled] [ref=e1082]:
+            - generic [ref=e1084]:
+              - generic [ref=e1085]: The story
+              - generic "Approval step" [ref=e1086]:
+                - img [ref=e1087]
+          - button "Approval step" [disabled] [ref=e40]
+          - button [disabled] [ref=e42]
+    - main [ref=e44]:
+      - generic [ref=e1338]:
+        - generic [ref=e1339]: Gate 2 — Storyboard
+        - heading "Buddy's storyboard" [level=2] [ref=e1340]
+        - generic [ref=e1341]: 12 frames, one per beat. Take your time — every frame can be re-rendered.
+        - generic [ref=e1353]:
+          - generic [ref=e1354]:
+            - generic [ref=e1356]:
+              - img [ref=e1359]
+              - generic [ref=e1367]: Beat 01
+            - generic [ref=e1368]:
+              - generic [ref=e1369]: Beat 1 · open
+              - generic [ref=e1370]: Open 1
+              - generic [ref=e1371]: Buddy
+          - generic [ref=e1372]:
+            - generic [ref=e1374]:
+              - img [ref=e1377]
+              - generic [ref=e1385]: Beat 02
+            - generic [ref=e1386]:
+              - generic [ref=e1387]: Beat 2 · memory
+              - generic [ref=e1388]: Memory 2
+              - generic [ref=e1389]: His favorite spot.
+          - generic [ref=e1390]:
+            - generic [ref=e1392]:
+              - img [ref=e1394]
+              - generic [ref=e1402]: Beat 03
+            - generic [ref=e1403]:
+              - generic [ref=e1404]: Beat 3 · memory
+              - generic [ref=e1405]: Memory 3
+              - generic [ref=e1406]: Wind in his ears. Pure joy.
+          - generic [ref=e1407]:
+            - generic [ref=e1409]:
+              - img [ref=e1411]
+              - generic [ref=e1419]: Beat 04
+            - generic [ref=e1420]:
+              - generic [ref=e1421]: Beat 4 · memory
+              - generic [ref=e1422]: Memory 4
+              - generic [ref=e1423]: He never let it go.
+          - generic [ref=e1424]:
+            - generic [ref=e1426]:
+              - img [ref=e1434]
+              - generic [ref=e1442]: Beat 05
+            - generic [ref=e1443]:
+              - generic [ref=e1444]: Beat 5 · memory
+              - generic [ref=e1445]: Memory 5
+              - generic [ref=e1446]: Always watching over us.
+          - generic [ref=e1447]:
+            - generic [ref=e1449]:
+              - img [ref=e1452]
+              - generic [ref=e1460]: Beat 06
+            - generic [ref=e1461]:
+              - generic [ref=e1462]: Beat 6 · connection
+              - generic [ref=e1463]: Connection 6
+              - generic [ref=e1464]: That look. Every day.
+          - generic [ref=e1465]:
+            - generic [ref=e1467]:
+              - img [ref=e1470]
+              - generic [ref=e1478]: Beat 07
+            - generic [ref=e1479]:
+              - generic [ref=e1480]: Beat 7 · ceremonial
+              - generic [ref=e1481]: Ceremonial 7
+              - generic [ref=e1482]: He was ready.
+          - generic [ref=e1483]:
+            - generic [ref=e1485]:
+              - img [ref=e1487]
+              - generic [ref=e1495]: Beat 08
+            - generic [ref=e1496]:
+              - generic [ref=e1497]: Beat 8 · ceremonial
+              - generic [ref=e1498]: Ceremonial 8
+              - generic [ref=e1499]: He was ready.
+          - generic [ref=e1500]:
+            - generic [ref=e1502]:
+              - img [ref=e1505]
+              - generic [ref=e1513]: Beat 09
+            - generic [ref=e1514]:
+              - generic [ref=e1515]: Beat 9 · ceremonial
+              - generic [ref=e1516]: Ceremonial 9
+              - generic [ref=e1517]: He was ready.
+          - generic [ref=e1518]:
+            - generic [ref=e1520]:
+              - img [ref=e1523]
+              - generic [ref=e1531]: Beat 10
+            - generic [ref=e1532]:
+              - generic [ref=e1533]: Beat 10 · release
+              - generic [ref=e1534]: Release 10
+              - generic [ref=e1535]: He's saying it's okay.
+          - generic [ref=e1536]:
+            - generic [ref=e1538]:
+              - img [ref=e1540]
+              - generic [ref=e1548]: Beat 11
+            - generic [ref=e1549]:
+              - generic [ref=e1550]: Beat 11 · release
+              - generic [ref=e1551]: Release 11
+              - generic [ref=e1552]: Running again, finally.
+          - generic [ref=e1553]:
+            - generic [ref=e1555]:
+              - img [ref=e1557]
+              - generic [ref=e1565]: Beat 12
+            - generic [ref=e1566]:
+              - generic [ref=e1567]: Beat 12 · close
+              - generic [ref=e1568]: Close 12
+              - generic [ref=e1569]: He's saying it's okay.
+        - generic [ref=e1346]:
+          - generic [ref=e1570]:
+            - button "All good — move to The Words" [ref=e1571] [cursor=pointer]
+            - button "Re-render a frame" [ref=e1572] [cursor=pointer]
+            - button "Re-render multiple" [ref=e1573] [cursor=pointer]
+          - generic [ref=e1347]:
+            - generic [ref=e1348]: Notes on specific frames (optional)
+            - textbox "Optional — share anything you'd like adjusted…" [ref=e1349]
+          - button "Back" [ref=e1350] [cursor=pointer]:
+            - img [ref=e1351]
+            - text: Back
+  - contentinfo [ref=e59]:
+    - generic [ref=e60]:
+      - generic [ref=e61]:
+        - generic [ref=e62]:
+          - generic [ref=e68]: Peterna
+          - paragraph [ref=e69]: A beautiful, lasting tribute for every pet you’ve loved. Built by the team behind Eterna — a remembrance media company.
+          - paragraph [ref=e70]: “Grief doesn’t end. Neither does Peterna.”
+        - generic [ref=e71]:
+          - generic [ref=e72]: Product
+          - list [ref=e73]:
+            - listitem [ref=e74]:
+              - link "How it works" [ref=e75] [cursor=pointer]:
+                - /url: /how-it-works
+            - listitem [ref=e76]:
+              - link "Pricing" [ref=e77] [cursor=pointer]:
+                - /url: /pricing
+            - listitem [ref=e78]:
+              - link "Family Channel" [ref=e79] [cursor=pointer]:
+                - /url: /family-channel
+            - listitem [ref=e80]:
+              - link "Examples" [ref=e81] [cursor=pointer]:
+                - /url: /gallery
+            - listitem [ref=e82]:
+              - link "Join the waitlist" [ref=e83] [cursor=pointer]:
+                - /url: /get-started
+        - generic [ref=e84]:
+          - generic [ref=e85]: Partners
+          - list [ref=e86]:
+            - listitem [ref=e87]:
+              - link "For Veterinarians" [ref=e88] [cursor=pointer]:
+                - /url: /for-veterinarians
+            - listitem [ref=e89]:
+              - link "Become a partner" [ref=e90] [cursor=pointer]:
+                - /url: /partners
+        - generic [ref=e91]:
+          - generic [ref=e92]: Company
+          - list [ref=e93]:
+            - listitem [ref=e94]:
+              - link "About Peterna" [ref=e95] [cursor=pointer]:
+                - /url: /about
+            - listitem [ref=e96]:
+              - link "FAQ" [ref=e97] [cursor=pointer]:
+                - /url: /faq
+            - listitem [ref=e98]:
+              - link "Privacy" [ref=e99] [cursor=pointer]:
+                - /url: /privacy
+      - generic [ref=e100]:
+        - generic [ref=e101]: © 2026 Peterna · A product of Eterna Inc. Built with care.
+        - generic [ref=e102]: Coming soon · Join the waitlist
+  - generic [ref=e107] [cursor=pointer]:
+    - button "Open Next.js Dev Tools" [ref=e108]:
+      - img [ref=e109]
+    - generic [ref=e653]:
+      - button "Open issues overlay" [ref=e654]:
+        - generic [ref=e655]:
+          - generic [ref=e656]: "0"
+          - generic [ref=e657]: "1"
+        - generic [ref=e658]: Issue
+      - button "Collapse issues badge" [ref=e659]:
+        - img [ref=e660]
+  - alert [ref=e112]
