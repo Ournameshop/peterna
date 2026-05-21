@@ -1102,6 +1102,65 @@ export const DELIVERY = {
 } as const;
 
 /**
+ * Stage 10 — Auth flow (passwordless magic link).
+ *
+ * Sign-in is always opt-in. The unauthenticated user can build a tribute
+ * to completion without ever signing in; the only reason to sign in is to
+ * come back to a tribute later, or to manage a Family Channel. Tone stays
+ * calm and grief-aware. No errors are revealed on the sign-in form
+ * (prevents email enumeration).
+ */
+export const AUTH = {
+  signin: {
+    pill: 'Sign in to Peterna',
+    headline_lead: 'Sign in if you want to',
+    headline_em: 'come back to your tribute later.',
+    body:
+      "We don't use passwords. Type your email and we'll send you a one-time link — click it once and you're in. No accounts to remember, nothing to set up.",
+    email_label: 'Email',
+    email_placeholder: 'you@example.com',
+    submit: 'Email me a sign-in link',
+    privacy:
+      "We only use your email to keep your tributes together. No newsletter, no marketing, no sharing.",
+    anonymous_hint:
+      "You don't have to sign in. You can build a tribute right now without an account — sign-in is only for coming back to it later.",
+    anonymous_cta: 'Build without signing in',
+  },
+  signin_success: {
+    headline: 'Check your email.',
+    body:
+      "Your sign-in link is on its way. Click the link in the email and we'll bring you back here. The link is good for the next 15 minutes.",
+    footer: "Didn't get it? Check spam, or try again in a moment.",
+    try_again: 'Use a different email',
+  },
+  callback: {
+    pending_headline: "One moment — we're signing you in.",
+    pending_body: 'This will only take a second.',
+    failure_headline: 'This link is no longer valid.',
+    failure_body:
+      "Sign-in links expire after 15 minutes, and each one can only be used once. No harm done — request a new one and we'll send another.",
+    failure_cta: 'Request a new link',
+  },
+  signout: {
+    button: 'Sign out',
+    confirm_toast: "You're signed out.",
+  },
+  nav: {
+    signin_link: 'Sign in',
+    build_link: 'Build',
+    dashboard_link: 'Dashboard',
+  },
+  dashboard: {
+    eyebrow: 'Your tributes',
+    headline_lead: 'Welcome back.',
+    headline_em: "Here's what you've been making.",
+    empty_body:
+      "You haven't finished a tribute yet. When you do, it'll live here — alongside every pet you've loved.",
+    build_cta: 'Build a new tribute',
+  },
+} as const;
+
+/**
  * One barrel export for components that want the full object.
  */
 export const COPY = {
@@ -1157,4 +1216,5 @@ export const COPY = {
   EULOGY,
   EULOGY_COMPLETE,
   DELIVERY,
+  AUTH,
 } as const;
