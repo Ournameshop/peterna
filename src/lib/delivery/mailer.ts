@@ -1,13 +1,12 @@
 import 'server-only';
 
 /**
- * Phase 9 email-out. Wraps Brevo's transactional-email REST endpoint
- * (`POST /v3/smtp/email`) — no SMTP client needed, no new npm dependency.
+ * Brevo transactional-email wrapper. Used by:
+ *   - `/api/delivery/email` to send the "your tribute is ready" message.
+ *   - `/api/auth/magic-link/request` (Phase 10) to send the sign-in link.
  *
- * The endpoint accepts JSON, returns `{ messageId }` on success, and
- * surfaces structured errors as `{ code, message }`. We don't retry here;
- * the caller decides whether a failure is fatal (we return `{ ok: false }`
- * and let the route map it to a 5xx).
+ * Wraps Brevo's transactional REST endpoint (`POST /v3/smtp/email`) — no SMTP
+ * client needed, no new npm dependency.
  *
  * Env:
  *   - BREVO_API_KEY: required to actually send. Missing key → returns
@@ -27,24 +26,23 @@ export function isLikelyEmail(value: string): boolean {
   return typeof value === 'string' && value.length <= 254 && EMAIL_RE.test(value);
 }
 
-export type SendDeliveryEmailInput = {
+export type SendMailInput = {
   to: string;
-  petName: string;
-  shareUrl: string;
+  subject: string;
+  textBody: string;
+  htmlBody: string;
 };
 
-export type SendDeliveryEmailResult =
+export type SendMailResult =
   | { ok: true; messageId: string | null }
   | { ok: false; error: 'mailer-not-configured' | 'send-failed'; details?: unknown };
 
 /**
- * Send the "your tribute is ready" delivery email. Plain-text + HTML
- * multipart so any client can render it; HTML is intentionally minimal
- * (no images, no tracking pixels — matches the spec's restrained tone).
+ * Low-level transport. Callers compose subject + bodies; this just talks to
+ * Brevo. Returns a discriminated union so the route handler can map to the
+ * right envelope error without parsing Brevo's response shape twice.
  */
-export async function sendDeliveryEmail(
-  input: SendDeliveryEmailInput,
-): Promise<SendDeliveryEmailResult> {
+export async function sendBrevoEmail(input: SendMailInput): Promise<SendMailResult> {
   const apiKey = process.env.BREVO_API_KEY?.trim();
   if (!apiKey) {
     return { ok: false, error: 'mailer-not-configured' };
@@ -54,23 +52,6 @@ export async function sendDeliveryEmail(
     return { ok: false, error: 'mailer-not-configured' };
   }
   const fromName = process.env.DELIVERY_EMAIL_FROM_NAME?.trim() || 'Peterna';
-
-  const subject = `Your tribute for ${input.petName} is ready`;
-  const textBody = [
-    `Your tribute for ${input.petName} is ready.`,
-    '',
-    'You can view, download, and share it here:',
-    input.shareUrl,
-    '',
-    'Take all the time you need with it.',
-    '',
-    '— Peterna',
-  ].join('\n');
-
-  const htmlBody = renderHtmlBody({
-    petName: input.petName,
-    shareUrl: input.shareUrl,
-  });
 
   let resp: Response;
   try {
@@ -84,9 +65,9 @@ export async function sendDeliveryEmail(
       body: JSON.stringify({
         sender: { email: fromEmail, name: fromName },
         to: [{ email: input.to }],
-        subject,
-        textContent: textBody,
-        htmlContent: htmlBody,
+        subject: input.subject,
+        textContent: input.textBody,
+        htmlContent: input.htmlBody,
       }),
     });
   } catch (err) {
@@ -98,8 +79,6 @@ export async function sendDeliveryEmail(
   }
 
   if (!resp.ok) {
-    // Brevo returns JSON error bodies; capture them for ops without leaking
-    // through to the client.
     let detail: unknown = null;
     try {
       detail = await resp.json();
@@ -128,6 +107,42 @@ export async function sendDeliveryEmail(
   return { ok: true, messageId };
 }
 
+export type SendDeliveryEmailInput = {
+  to: string;
+  petName: string;
+  shareUrl: string;
+};
+
+export type SendDeliveryEmailResult = SendMailResult;
+
+/**
+ * Send the "your tribute is ready" delivery email. Plain-text + HTML
+ * multipart so any client can render it; HTML is intentionally minimal
+ * (no images, no tracking pixels — matches the spec's restrained tone).
+ */
+export async function sendDeliveryEmail(
+  input: SendDeliveryEmailInput,
+): Promise<SendDeliveryEmailResult> {
+  const subject = `Your tribute for ${input.petName} is ready`;
+  const textBody = [
+    `Your tribute for ${input.petName} is ready.`,
+    '',
+    'You can view, download, and share it here:',
+    input.shareUrl,
+    '',
+    'Take all the time you need with it.',
+    '',
+    '— Peterna',
+  ].join('\n');
+
+  const htmlBody = renderHtmlBody({
+    petName: input.petName,
+    shareUrl: input.shareUrl,
+  });
+
+  return sendBrevoEmail({ to: input.to, subject, textBody, htmlBody });
+}
+
 function renderHtmlBody(input: { petName: string; shareUrl: string }): string {
   const safeName = escapeHtml(input.petName);
   const safeUrl = escapeHtml(input.shareUrl);
@@ -143,7 +158,8 @@ function renderHtmlBody(input: { petName: string; shareUrl: string }): string {
   ].join('');
 }
 
-function escapeHtml(value: string): string {
+/** Exported for the auth magic-link mailer + any other Brevo HTML composers. */
+export function escapeHtml(value: string): string {
   return value
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
