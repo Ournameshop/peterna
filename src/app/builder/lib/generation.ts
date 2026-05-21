@@ -231,25 +231,31 @@ export async function generateCharacterSheet(
   if (urls.length === 0) return null;
 
   const species = (profile?.species ?? 'pet').toLowerCase();
-  const breed = profile?.breedGuess ? `${profile.breedGuess} ` : '';
 
   // Skill Stage 2.3 — on a re-roll, embed the family's corrections in the prompt.
   const note = userNote?.trim();
   const refineList = (refinements ?? []).filter(Boolean).map((r) => r.replace(/_/g, ' '));
   const corrections =
     refineList.length || note
-      ? `\n\nThe family reviewed a previous attempt and asked for corrections — apply these while keeping it unmistakably the same ${species}:${
+      ? `\n\nThe family reviewed a previous attempt and asked for corrections — apply these while keeping it unmistakably the same individual ${species}:${
           refineList.length ? ` adjust the ${refineList.join(', ')}.` : ''
         }${note ? ` ${note}` : ''}`
       : '';
 
-  const prompt = `A character reference sheet for ${petName}, a ${breed}${species}. Four views arranged in a 2x2 grid on a clean neutral background:
-- Top left: Front-facing portrait, head and shoulders, looking at the camera.
-- Top right: 3-quarter angle portrait, head and shoulders, slight smile/relaxed expression.
-- Bottom left: Full side profile, full body, standing in a neutral pose.
-- Bottom right: Full body relaxed pose — sitting or lying down, alert and content.
+  // Photo-led prompt: the breed name is deliberately NOT stated — naming a breed
+  // makes the model generate a textbook breed example instead of THIS pet. The
+  // reference photos are the source of truth for likeness.
+  const prompt = `The attached reference photo(s) show ONE real, specific pet — an individual ${species} named ${petName}. Study them very closely.
 
-Replicate the EXACT likeness, markings, fur color and pattern, ear shape, eye color, body proportions, and distinguishing features from the reference photos. Soft natural studio lighting. Realistic, warm, alive. No background scenery — clean off-white backdrop. No text, no labels, no watermarks.${corrections}`;
+Create a character reference sheet of THIS EXACT pet — the SAME individual animal in the photos, NOT a generic or idealized example of its breed. Faithfully reproduce ${petName}'s precise face and head shape, the exact ear shape and set, eye colour, spacing and expression, muzzle and nose, body build and proportions, and — above all — the EXACT colours, pattern and placement of its fur markings exactly as they appear in the photos. Someone who knows ${petName} must instantly recognise this as the same pet, not a look-alike.
+
+Arrange four views in a 2x2 grid on a clean off-white background:
+- Top left: front-facing portrait, head and shoulders, looking at the camera.
+- Top right: three-quarter angle portrait, head and shoulders, relaxed expression.
+- Bottom left: full side profile, full body, standing in a neutral pose.
+- Bottom right: full body, sitting or lying down, alert and content.
+
+It must be the same individual ${petName} in all four views, perfectly consistent with the photos and with each other. Soft natural studio lighting, realistic, warm, alive. No background scenery — clean off-white backdrop. No text, no labels, no watermarks. Do not invent a different animal and do not default to a stereotypical breed appearance.${corrections}`;
 
   return editImage({ prompt, imageUrls: urls, aspect: 'square_hd', quality: 'medium' });
 }
