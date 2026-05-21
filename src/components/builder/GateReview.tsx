@@ -3,6 +3,11 @@
 import { type CSSProperties, type ReactNode } from "react";
 import { motion } from "framer-motion";
 import { C, FONT_DISPLAY, FONT_SANS } from "@/lib/peterna-tokens";
+import {
+  fadeUp,
+  staggerChildren,
+} from "@/lib/builder/motion-tokens";
+import { tap, confirm } from "@/lib/builder/haptic";
 
 // Pattern E — Gate Review.
 //
@@ -51,6 +56,19 @@ type Props = {
   extraBody?: ReactNode;
   /** Accessibility label fallback for the wrapper section. */
   ariaLabel?: string;
+  /**
+   * When true, the pill row mounts via a staggered fadeUp cascade. Used by
+   * the choreographed reveal moments (character sheet, combination preview,
+   * final cut, eulogy). The artifact slot owns its own reveal motion in
+   * the caller. Default: false (pills appear instantly with the gate).
+   */
+  staggerPills?: boolean;
+  /**
+   * Id treated as the "approve" / affirmation action — fires the
+   * `confirm()` haptic pattern (vs the default `tap()` for everything else).
+   * Default: "approve" — matches our id convention across all gates.
+   */
+  approveId?: string;
 };
 
 const baseActionStyle: CSSProperties = {
@@ -114,7 +132,20 @@ export default function GateReview({
   disabled = false,
   extraBody,
   ariaLabel,
+  staggerPills = false,
+  approveId = "approve",
 }: Props) {
+  const pillItemVariants = fadeUp(8);
+  const pillRowVariants = staggerChildren(0.06, 0.04);
+  function handleAction(action: GateAction) {
+    if (disabled) return;
+    if (action.id === approveId) {
+      confirm();
+    } else {
+      tap();
+    }
+    onAction(action.id);
+  }
   return (
     <section
       aria-label={ariaLabel ?? headline ?? "Review"}
@@ -175,9 +206,12 @@ export default function GateReview({
       </div>
 
       {/* Pill row. Small, deliberately quiet, never crowds the artifact. */}
-      <div
+      <motion.div
         role="group"
         aria-label="Choose how to continue"
+        variants={staggerPills ? pillRowVariants : undefined}
+        initial={staggerPills ? "hidden" : false}
+        animate={staggerPills ? "visible" : undefined}
         style={{
           display: "flex",
           flexWrap: "wrap",
@@ -190,8 +224,9 @@ export default function GateReview({
           <motion.button
             key={action.id}
             type="button"
-            onClick={() => !disabled && onAction(action.id)}
+            onClick={() => handleAction(action)}
             disabled={disabled}
+            variants={staggerPills ? pillItemVariants : undefined}
             whileHover={!disabled ? { scale: 1.02 } : {}}
             whileTap={!disabled ? { scale: 0.98 } : {}}
             transition={{ type: "spring", stiffness: 400, damping: 25 }}
@@ -200,7 +235,7 @@ export default function GateReview({
             {action.label}
           </motion.button>
         ))}
-      </div>
+      </motion.div>
 
       {pillsHint ? (
         <p
