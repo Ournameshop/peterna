@@ -108,10 +108,11 @@ jobs:
             "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}" bash -s <<EOF
           set -e
           export PATH="\$HOME/.nvm/versions/node/\$(ls \$HOME/.nvm/versions/node 2>/dev/null | tail -n1)/bin:\$PATH:/usr/local/bin:/usr/bin"
-          export SUNO_API_KEY="${SUNO_API_KEY}"
-          export FAL_KEY="${FAL_KEY}"
-          export GEMINI_API_KEY="${GEMINI_API_KEY}"
           cd "${APP_DIR}"
+          # Write .env from secrets injected by the runner — runs AFTER rsync so --delete cannot remove it
+          printf 'SUNO_API_KEY=%s\nFAL_KEY=%s\nGEMINI_API_KEY=%s\n' \
+            "${SUNO_API_KEY}" "${FAL_KEY}" "${GEMINI_API_KEY}" \
+            > "${APP_DIR}/.env"
           npm ci --omit=dev
           if pm2 describe "${APP_NAME}" >/dev/null 2>&1; then
             pm2 restart "${APP_NAME}" --update-env
