@@ -16,6 +16,7 @@ import type {
   MemoryPromptId,
   PersonalityTraitId,
 } from '@/lib/library/intake';
+import type { BeatWire } from './wire-types';
 
 // -----------------------------------------------------------------------------
 // Stage tags — one per screen. URL-driven (?step=...).
@@ -53,7 +54,11 @@ export type StageTag =
   | 'style_pick'
   | 'combination_preview_render'
   | 'combination_preview_review'
-  | 'stage_3_complete';
+  | 'stage_3_complete'
+  // Stage 4 — Beat Sheet
+  | 'beat_sheet_render'
+  | 'beat_sheet_review'
+  | 'beat_sheet_complete';
 
 // -----------------------------------------------------------------------------
 // Session data carried alongside the stage. Mirrors the columns on `sessions`
@@ -129,6 +134,12 @@ export type WizardData = {
   pending_theme_category: string | null;
   /** The rendered combination-preview asset (Stage 3.5). */
   combination_preview: CharacterSheetAsset | null;
+
+  // Stage 4 — Beat Sheet
+  /** N-beat array drafted by the model and edited by the user. Null until
+   *  Stage 4's generate route returns. Replaced wholesale on every edit
+   *  (whole-array PATCH per spec). */
+  beat_sheet: BeatWire[] | null;
 };
 
 export type WizardState = {
@@ -163,6 +174,7 @@ export const INITIAL_WIZARD_DATA: WizardData = {
   style_id: null,
   pending_theme_category: null,
   combination_preview: null,
+  beat_sheet: null,
 };
 
 export function createInitialState(sessionId: string | null = null): WizardState {
@@ -241,6 +253,12 @@ export type WizardEvent =
   | { type: 'preview_restart_style' }
   | { type: 'preview_restart_theme' }
   | { type: 'preview_restart_all' }
+  // Stage 4 — Beat Sheet
+  | { type: 'beat_sheet_render_started' }
+  | { type: 'beat_sheet_rendered'; beats: BeatWire[] }
+  | { type: 'beat_sheet_edited'; beats: BeatWire[] }
+  | { type: 'beat_sheet_approved' }
+  | { type: 'beat_sheet_regenerated' }
   | { type: 'session_loaded'; state: WizardState }
   | { type: 'goto'; stage: StageTag };
 
@@ -706,7 +724,53 @@ export function reduceState(state: WizardState, event: WizardEvent): WizardState
       return state;
     }
 
-    case 'stage_3_complete':
+    case 'stage_3_complete': {
+      // Hand-off into Stage 4: the user taps "Start the beat sheet" which
+      // fires `beat_sheet_render_started` and lands them on the render
+      // (generation in flight) screen.
+      if (event.type === 'beat_sheet_render_started') {
+        return { ...state, stage: 'beat_sheet_render' };
+      }
+      return state;
+    }
+
+    // Stage 4 — Beat Sheet
+    case 'beat_sheet_render': {
+      if (event.type === 'beat_sheet_rendered') {
+        return {
+          stage: 'beat_sheet_review',
+          data: { ...state.data, beat_sheet: event.beats },
+        };
+      }
+      return state;
+    }
+
+    case 'beat_sheet_review': {
+      if (event.type === 'beat_sheet_edited') {
+        // Inline edits — caption / scene_description changes. Stay on review;
+        // the PATCH is fired by the BuilderClient side-effect, the reducer
+        // just keeps the local copy in sync.
+        return {
+          ...state,
+          data: { ...state.data, beat_sheet: event.beats },
+        };
+      }
+      if (event.type === 'beat_sheet_approved') {
+        return { ...state, stage: 'beat_sheet_complete' };
+      }
+      if (event.type === 'beat_sheet_regenerated') {
+        // "Rewrite the whole sheet" — clear the local copy so the loading
+        // screen renders cleanly, and bounce back to render. The BuilderClient
+        // assigns a fresh Idempotency-Key on this transition.
+        return {
+          stage: 'beat_sheet_render',
+          data: { ...state.data, beat_sheet: null },
+        };
+      }
+      return state;
+    }
+
+    case 'beat_sheet_complete':
       return state;
 
     default: {
@@ -756,6 +820,10 @@ export const ALL_STAGE_TAGS = [
   'combination_preview_render',
   'combination_preview_review',
   'stage_3_complete',
+  // Stage 4 — Beat Sheet
+  'beat_sheet_render',
+  'beat_sheet_review',
+  'beat_sheet_complete',
 ] as const satisfies readonly StageTag[];
 
 const STAGE_TAG_SET: ReadonlySet<string> = new Set<string>(ALL_STAGE_TAGS);
@@ -836,6 +904,12 @@ const PROBE_EVENTS: WizardEvent[] = [
   { type: 'preview_restart_style' },
   { type: 'preview_restart_theme' },
   { type: 'preview_restart_all' },
+  // Stage 4 transitions
+  { type: 'beat_sheet_render_started' },
+  { type: 'beat_sheet_rendered', beats: [] },
+  { type: 'beat_sheet_edited', beats: [] },
+  { type: 'beat_sheet_approved' },
+  { type: 'beat_sheet_regenerated' },
 ];
 
 export function legalNextStages(current: StageTag): Set<StageTag> {
@@ -887,7 +961,7 @@ export function reorderCuratorPicks<T extends ReorderablePick>(
 
 export function bannerKeyForStage(
   stage: StageTag,
-): 'intake' | 'character_sheet' | 'format_theme_style' {
+): 'intake' | 'character_sheet' | 'format_theme_style' | 'beat_sheet' {
   if (stage.startsWith('intake_')) return 'intake';
   if (
     stage.startsWith('character_sheet_') ||
@@ -896,5 +970,6 @@ export function bannerKeyForStage(
   ) {
     return 'character_sheet';
   }
+  if (stage.startsWith('beat_sheet_')) return 'beat_sheet';
   return 'format_theme_style';
 }
