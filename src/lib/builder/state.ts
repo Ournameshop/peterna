@@ -16,7 +16,7 @@ import type {
   MemoryPromptId,
   PersonalityTraitId,
 } from '@/lib/library/intake';
-import type { BeatWire } from './wire-types';
+import type { BeatWire, StoryboardFrameWire } from './wire-types';
 
 // -----------------------------------------------------------------------------
 // Stage tags — one per screen. URL-driven (?step=...).
@@ -58,7 +58,15 @@ export type StageTag =
   // Stage 4 — Beat Sheet
   | 'beat_sheet_render'
   | 'beat_sheet_review'
-  | 'beat_sheet_complete';
+  | 'beat_sheet_complete'
+  // Stage 5 — Storyboard
+  | 'storyboard_render'
+  | 'storyboard_review'
+  | 'storyboard_frame_reroll'
+  | 'storyboard_complete'
+  // Stage 6 placeholder — Stage 5.5 "The Words" entry. The reducer just lands
+  // here on storyboard_approved; no further wiring in Phase 4b.
+  | 'words_render';
 
 // -----------------------------------------------------------------------------
 // Session data carried alongside the stage. Mirrors the columns on `sessions`
@@ -140,6 +148,15 @@ export type WizardData = {
    *  Stage 4's generate route returns. Replaced wholesale on every edit
    *  (whole-array PATCH per spec). */
   beat_sheet: BeatWire[] | null;
+
+  // Stage 5 — Storyboard
+  /** N-frame array, one frame per beat. Null until Stage 5's render route
+   *  returns. On per-frame reroll the matching entry is replaced in place
+   *  (same beat_idx). Length is always === beat_sheet.length when present. */
+  storyboard_frames: StoryboardFrameWire[] | null;
+  /** Which beat_idx is currently being rerolled (UI guard). Null when no
+   *  reroll is in flight. */
+  reroll_beat_idx: number | null;
 };
 
 export type WizardState = {
@@ -175,6 +192,8 @@ export const INITIAL_WIZARD_DATA: WizardData = {
   pending_theme_category: null,
   combination_preview: null,
   beat_sheet: null,
+  storyboard_frames: null,
+  reroll_beat_idx: null,
 };
 
 export function createInitialState(sessionId: string | null = null): WizardState {
@@ -259,6 +278,12 @@ export type WizardEvent =
   | { type: 'beat_sheet_edited'; beats: BeatWire[] }
   | { type: 'beat_sheet_approved' }
   | { type: 'beat_sheet_regenerated' }
+  // Stage 5 — Storyboard
+  | { type: 'storyboard_render_started' }
+  | { type: 'storyboard_rendered'; frames: StoryboardFrameWire[] }
+  | { type: 'storyboard_frame_reroll_started'; beatIdx: number }
+  | { type: 'storyboard_frame_rerolled'; frame: StoryboardFrameWire }
+  | { type: 'storyboard_approved' }
   | { type: 'session_loaded'; state: WizardState }
   | { type: 'goto'; stage: StageTag };
 
@@ -770,7 +795,93 @@ export function reduceState(state: WizardState, event: WizardEvent): WizardState
       return state;
     }
 
-    case 'beat_sheet_complete':
+    case 'beat_sheet_complete': {
+      // Hand-off into Stage 5: tapping "Start the storyboard" fires
+      // `storyboard_render_started` and lands the user on the render screen.
+      if (event.type === 'storyboard_render_started') {
+        return {
+          stage: 'storyboard_render',
+          data: {
+            ...state.data,
+            // Defensive: a fresh storyboard render clears any prior frames so
+            // the loading state renders cleanly on re-entries.
+            storyboard_frames: null,
+            reroll_beat_idx: null,
+          },
+        };
+      }
+      return state;
+    }
+
+    // Stage 5 — Storyboard
+    case 'storyboard_render': {
+      if (event.type === 'storyboard_rendered') {
+        return {
+          stage: 'storyboard_review',
+          data: {
+            ...state.data,
+            storyboard_frames: event.frames,
+            reroll_beat_idx: null,
+          },
+        };
+      }
+      return state;
+    }
+
+    case 'storyboard_review': {
+      if (event.type === 'storyboard_frame_reroll_started') {
+        return {
+          stage: 'storyboard_frame_reroll',
+          data: { ...state.data, reroll_beat_idx: event.beatIdx },
+        };
+      }
+      if (event.type === 'storyboard_approved') {
+        // The approve route locks the storyboard and advances the wizard to
+        // Stage 5.5 (Phase 5 entry). `storyboard_complete` is a soft pause
+        // screen; the user advances from there by tapping a CTA that lands
+        // them on `words_render`. We model both transitions because the spec
+        // allows either landing pattern depending on whether the approve
+        // route fires `words_render` directly or via the pause screen.
+        return { ...state, stage: 'storyboard_complete' };
+      }
+      return state;
+    }
+
+    case 'storyboard_frame_reroll': {
+      if (event.type === 'storyboard_frame_rerolled') {
+        // Replace the matching frame in place; bounce back to review so the
+        // user sees the full grid with the updated frame.
+        const frames = state.data.storyboard_frames ?? [];
+        const next = frames.map((f) =>
+          f.beat_idx === event.frame.beat_idx ? event.frame : f,
+        );
+        return {
+          stage: 'storyboard_review',
+          data: {
+            ...state.data,
+            storyboard_frames: next,
+            reroll_beat_idx: null,
+          },
+        };
+      }
+      // The user can also bail out of a reroll without committing — the UI
+      // dispatches `goto: storyboard_review`, which is handled at the top.
+      return state;
+    }
+
+    case 'storyboard_complete': {
+      // Hand-off into Stage 5.5 (Phase 5 entry — placeholder). The user taps
+      // "Start The Words" which fires `storyboard_approved`; we use that
+      // event because the approve route was already called when entering
+      // `storyboard_complete` — keeping the same event name keeps the state
+      // machine's edge-set small.
+      if (event.type === 'storyboard_approved') {
+        return { ...state, stage: 'words_render' };
+      }
+      return state;
+    }
+
+    case 'words_render':
       return state;
 
     default: {
@@ -824,6 +935,13 @@ export const ALL_STAGE_TAGS = [
   'beat_sheet_render',
   'beat_sheet_review',
   'beat_sheet_complete',
+  // Stage 5 — Storyboard
+  'storyboard_render',
+  'storyboard_review',
+  'storyboard_frame_reroll',
+  'storyboard_complete',
+  // Stage 5.5 placeholder
+  'words_render',
 ] as const satisfies readonly StageTag[];
 
 const STAGE_TAG_SET: ReadonlySet<string> = new Set<string>(ALL_STAGE_TAGS);
@@ -910,6 +1028,15 @@ const PROBE_EVENTS: WizardEvent[] = [
   { type: 'beat_sheet_edited', beats: [] },
   { type: 'beat_sheet_approved' },
   { type: 'beat_sheet_regenerated' },
+  // Stage 5 transitions
+  { type: 'storyboard_render_started' },
+  { type: 'storyboard_rendered', frames: [] },
+  { type: 'storyboard_frame_reroll_started', beatIdx: 0 },
+  {
+    type: 'storyboard_frame_rerolled',
+    frame: { beat_idx: 0, asset_id: 'probe', public_url: 'probe' },
+  },
+  { type: 'storyboard_approved' },
 ];
 
 export function legalNextStages(current: StageTag): Set<StageTag> {
@@ -961,7 +1088,12 @@ export function reorderCuratorPicks<T extends ReorderablePick>(
 
 export function bannerKeyForStage(
   stage: StageTag,
-): 'intake' | 'character_sheet' | 'format_theme_style' | 'beat_sheet' {
+):
+  | 'intake'
+  | 'character_sheet'
+  | 'format_theme_style'
+  | 'beat_sheet'
+  | 'storyboard' {
   if (stage.startsWith('intake_')) return 'intake';
   if (
     stage.startsWith('character_sheet_') ||
@@ -971,5 +1103,8 @@ export function bannerKeyForStage(
     return 'character_sheet';
   }
   if (stage.startsWith('beat_sheet_')) return 'beat_sheet';
+  if (stage.startsWith('storyboard_') || stage === 'words_render') {
+    return 'storyboard';
+  }
   return 'format_theme_style';
 }

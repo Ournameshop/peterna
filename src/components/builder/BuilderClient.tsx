@@ -31,6 +31,13 @@ import type {
   PreviewRenderResponse,
   SessionCreateResponse,
   SessionPatchBody,
+  StoryboardApproveRequest,
+  StoryboardApproveResponse,
+  StoryboardFrameWire,
+  StoryboardRenderRequest,
+  StoryboardRenderResponse,
+  StoryboardRerollRequest,
+  StoryboardRerollResponse,
   VisionPassResponse,
 } from "@/lib/builder/wire-types";
 import {
@@ -46,6 +53,8 @@ import {
   YEARS_FRAMING,
   STAGE_2_INTRO,
   STAGE_3_COMPLETE,
+  BEAT_SHEET_COMPLETE,
+  STORYBOARD_COMPLETE,
   substitutePetName,
 } from "@/lib/library/copy";
 import { FORMATS } from "@/lib/library/formats";
@@ -90,6 +99,9 @@ import StyleGrid from "./StyleGrid";
 import CombinationPreviewReview, {
   type PreviewReviewAction,
 } from "./CombinationPreviewReview";
+import StoryboardView, {
+  type StoryboardAction,
+} from "./StoryboardView";
 
 // Orchestrates the Stage 1 wizard. Owns the state machine + the side-effects
 // (PATCH on transition, vision-pass kick on photos-and-name).
@@ -197,6 +209,22 @@ export default function BuilderClient({
   const previewIdemRef = useRef<{ key: string; createdAt: number } | null>(null);
   const previewInFlightRef = useRef(false);
   const [previewInFlight, setPreviewInFlight] = useState(false);
+  // Stage 5 storyboard render — same dedupe pattern as Stage 2/3. Re-entries
+  // within the window reuse the key; deliberate actions ("Start over") clear
+  // the ref so the next call gets a fresh key.
+  const storyboardIdemRef = useRef<{ key: string; createdAt: number } | null>(
+    null,
+  );
+  const storyboardInFlightRef = useRef(false);
+  const [storyboardInFlight, setStoryboardInFlight] = useState(false);
+  // Per-frame reroll keys are scoped to a (beat_idx) — distinct beats can
+  // get distinct keys if rerolled in quick succession. The map persists the
+  // last key + timestamp per beat so a double-tap within the dedupe window
+  // re-uses the prior key.
+  const rerollIdemRef = useRef<
+    Map<number, { key: string; createdAt: number }>
+  >(new Map());
+  const rerollInFlightRef = useRef(false);
 
   // Bootstrap: if we don't yet have a session, create one and reflect into URL.
   useEffect(() => {
@@ -558,6 +586,219 @@ export default function BuilderClient({
       setSubmitting(false);
     }
   }, [state.data.session_id, state.data.combination_preview]);
+
+  // ---------------------------------------------------------------------------
+  // Stage 5 — Storyboard render / reroll / approve
+  //
+  // Render produces N frames in parallel (one per beat); reroll is per-beat;
+  // approve locks the set and advances to `storyboard_complete`. Idempotency
+  // strategy matches Stage 2/3: dedupe window + fresh key on deliberate intent.
+  // ---------------------------------------------------------------------------
+
+  const getStoryboardIdempotencyKey = useCallback(
+    (freshIntent: boolean): string => {
+      const now = Date.now();
+      const cur = storyboardIdemRef.current;
+      if (!freshIntent && cur && now - cur.createdAt < DEDUPE_WINDOW_MS) {
+        return cur.key;
+      }
+      const key = crypto.randomUUID();
+      storyboardIdemRef.current = { key, createdAt: now };
+      return key;
+    },
+    [],
+  );
+
+  const renderStoryboard = useCallback(
+    async (freshIntent: boolean) => {
+      if (!state.data.session_id) return;
+      if (storyboardInFlightRef.current) return;
+      storyboardInFlightRef.current = true;
+      setStoryboardInFlight(true);
+
+      const idempotencyKey = getStoryboardIdempotencyKey(freshIntent);
+      const body: StoryboardRenderRequest = {
+        session_id: state.data.session_id,
+      };
+
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[builder] POST /api/storyboard/render", body);
+      }
+
+      try {
+        const res = await fetch("/api/storyboard/render", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Idempotency-Key": idempotencyKey,
+          },
+          body: JSON.stringify(body),
+        });
+        const json = (await res
+          .json()
+          .catch(() => null)) as StoryboardRenderResponse | null;
+        if (json && json.ok) {
+          dispatch({
+            type: "storyboard_rendered",
+            frames: json.frames,
+          });
+        } else if (process.env.NODE_ENV !== "production") {
+          console.warn("[builder] storyboard/render failed", res.status, json);
+        }
+      } catch (err) {
+        if (process.env.NODE_ENV !== "production") {
+          console.warn("[builder] storyboard/render network error", err);
+        }
+      } finally {
+        storyboardInFlightRef.current = false;
+        setStoryboardInFlight(false);
+      }
+    },
+    [getStoryboardIdempotencyKey, state.data.session_id],
+  );
+
+  const getRerollIdempotencyKey = useCallback(
+    (beatIdx: number, freshIntent: boolean): string => {
+      const now = Date.now();
+      const cur = rerollIdemRef.current.get(beatIdx);
+      if (!freshIntent && cur && now - cur.createdAt < DEDUPE_WINDOW_MS) {
+        return cur.key;
+      }
+      const key = crypto.randomUUID();
+      rerollIdemRef.current.set(beatIdx, { key, createdAt: now });
+      return key;
+    },
+    [],
+  );
+
+  const rerollFrame = useCallback(
+    async (beatIdx: number, refinements: string[], notes: string | null) => {
+      if (!state.data.session_id) return;
+      if (rerollInFlightRef.current) return;
+      rerollInFlightRef.current = true;
+
+      // Snap into the per-frame reroll stage so the card renders its own
+      // loading panel and other cards stay visible.
+      dispatch({ type: "storyboard_frame_reroll_started", beatIdx });
+
+      const idempotencyKey = getRerollIdempotencyKey(beatIdx, true);
+
+      // Resolve chip IDs to imperative instructions, append free-text notes
+      // verbatim. Mirrors the character-sheet refinement pattern so the
+      // backend's prompt builder sees a consistent shape.
+      const chipInstructions = getRefinementInstructions(refinements);
+      const allRefinements: string[] = notes
+        ? [...chipInstructions, notes]
+        : chipInstructions;
+
+      const body: StoryboardRerollRequest = {
+        session_id: state.data.session_id,
+        beat_idx: beatIdx,
+        refinements: allRefinements.length > 0 ? allRefinements : undefined,
+      };
+
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[builder] POST /api/storyboard/reroll", body);
+      }
+
+      try {
+        const res = await fetch("/api/storyboard/reroll", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Idempotency-Key": idempotencyKey,
+          },
+          body: JSON.stringify(body),
+        });
+        const json = (await res
+          .json()
+          .catch(() => null)) as StoryboardRerollResponse | null;
+        if (json && json.ok) {
+          // The success envelope IS the frame (no nested `frame` field per
+          // wire-types — StoryboardRerollResponse = ApiOk<StoryboardFrameWire>).
+          const frame: StoryboardFrameWire = {
+            beat_idx: json.beat_idx,
+            asset_id: json.asset_id,
+            public_url: json.public_url,
+          };
+          dispatch({ type: "storyboard_frame_rerolled", frame });
+        } else {
+          // Failure — bounce back to review without replacing the frame.
+          dispatch({ type: "goto", stage: "storyboard_review" });
+          if (process.env.NODE_ENV !== "production") {
+            console.warn("[builder] storyboard/reroll failed", res.status, json);
+          }
+        }
+      } catch (err) {
+        dispatch({ type: "goto", stage: "storyboard_review" });
+        if (process.env.NODE_ENV !== "production") {
+          console.warn("[builder] storyboard/reroll network error", err);
+        }
+      } finally {
+        rerollInFlightRef.current = false;
+      }
+    },
+    [getRerollIdempotencyKey, state.data.session_id],
+  );
+
+  const approveStoryboard = useCallback(async () => {
+    const sessionId = state.data.session_id;
+    if (!sessionId) return;
+
+    setSubmitting(true);
+    const body: StoryboardApproveRequest = { session_id: sessionId };
+
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[builder] POST /api/storyboard/approve", body);
+    }
+
+    try {
+      const res = await fetch("/api/storyboard/approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const json = (await res
+        .json()
+        .catch(() => null)) as StoryboardApproveResponse | null;
+      if (json && json.ok) {
+        dispatch({ type: "storyboard_approved" });
+      } else {
+        // 404 (backend not up yet) — advance optimistically so local dev
+        // can still walk. Mirrors the character-sheet / preview pattern.
+        if (res.status === 404) {
+          dispatch({ type: "storyboard_approved" });
+        } else if (process.env.NODE_ENV !== "production") {
+          console.warn("[builder] storyboard/approve failed", res.status, json);
+        }
+      }
+    } catch (err) {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn("[builder] storyboard/approve network error", err);
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }, [state.data.session_id]);
+
+  // Fire the storyboard render whenever we land on storyboard_render with no
+  // frames yet. Mirrors the auto-render pattern from Stage 2/3.
+  useEffect(() => {
+    if (state.stage !== "storyboard_render") return;
+    if (state.data.storyboard_frames) return;
+    if (storyboardInFlightRef.current) return;
+    void renderStoryboard(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.stage, state.data.storyboard_frames]);
+
+  // If the user deep-links to storyboard_review without frames, snap back to
+  // render so the auto-render effect picks them up. Same defensive pattern
+  // as character_sheet_review.
+  useEffect(() => {
+    if (state.stage === "storyboard_review" && !state.data.storyboard_frames) {
+      dispatch({ type: "goto", stage: "storyboard_render" });
+    }
+  }, [state.stage, state.data.storyboard_frames]);
 
   // Fire the preview render whenever we land on combination_preview_render
   // with no asset yet. Mirrors the character-sheet auto-render pattern: any
@@ -1240,6 +1481,111 @@ export default function BuilderClient({
       case "stage_3_complete":
         return <Stage3CompletePanel petName={petName} />;
 
+      // ----------------------------------------------------------------------
+      // Stage 4 — Beat Sheet (intentionally minimal in this commit).
+      //
+      // The full beat-sheet review UI lands in a separate commit; here we
+      // only handle `beat_sheet_complete` so a user landing on Stage 5 from
+      // an earlier session can advance into the storyboard render. The
+      // BeatSheetView itself is intentionally not wired here.
+      // ----------------------------------------------------------------------
+      case "beat_sheet_complete":
+        return (
+          <BeatSheetCompletePanel
+            petName={petName}
+            onStart={() => {
+              storyboardIdemRef.current = null; // fresh intent
+              void dispatchAndSave({ type: "storyboard_render_started" });
+            }}
+          />
+        );
+
+      // ----------------------------------------------------------------------
+      // Stage 5 — Storyboard
+      // ----------------------------------------------------------------------
+      case "storyboard_render":
+        return (
+          <StoryboardView
+            petName={petName}
+            mode="loading"
+            disabled
+            onAction={() => {}}
+            onRerollFrame={() => {}}
+          />
+        );
+
+      case "storyboard_review":
+      case "storyboard_frame_reroll": {
+        const frames = state.data.storyboard_frames;
+        const beats = state.data.beat_sheet;
+        if (!frames || !beats) {
+          return (
+            <StoryboardView
+              petName={petName}
+              mode="loading"
+              disabled
+              onAction={() => {}}
+              onRerollFrame={() => {}}
+            />
+          );
+        }
+        return (
+          <StoryboardView
+            petName={petName}
+            mode="review"
+            frames={frames}
+            beats={beats}
+            aspectRatio={state.data.aspect_ratio}
+            rerollBeatIdx={state.data.reroll_beat_idx}
+            disabled={submitting || storyboardInFlight}
+            onAction={(action: StoryboardAction) => {
+              if (action === "approve") {
+                void approveStoryboard();
+                return;
+              }
+              if (action === "restart") {
+                // "Start over" — bounce back to the beat-sheet hand-off; the
+                // user can re-fire the storyboard render from there. Clear
+                // the frames + idempotency key so the next call is fresh.
+                // We use `session_loaded` because we need to mutate both
+                // stage and data atomically; the reducer's other events
+                // only handle one or the other.
+                storyboardIdemRef.current = null;
+                dispatch({
+                  type: "session_loaded",
+                  state: {
+                    stage: "beat_sheet_complete",
+                    data: {
+                      ...state.data,
+                      storyboard_frames: null,
+                      reroll_beat_idx: null,
+                    },
+                  },
+                });
+              }
+            }}
+            onRerollFrame={(beatIdx, refinements, notes) => {
+              void rerollFrame(beatIdx, refinements, notes);
+            }}
+          />
+        );
+      }
+
+      case "storyboard_complete":
+      case "words_render":
+        return (
+          <StoryboardCompletePanel
+            petName={petName}
+            onStart={() => {
+              // The approve route was called when entering storyboard_complete;
+              // this CTA just advances the reducer to words_render. Stage 5.5
+              // itself is a Phase 5 concern.
+              dispatch({ type: "storyboard_approved" });
+            }}
+            isComplete={state.stage === "words_render"}
+          />
+        );
+
       default:
         return <Loading label="Loading your next step…" />;
     }
@@ -1498,6 +1844,72 @@ function CompletePanel({
   );
 }
 
+// Beat-sheet-complete hand-off — Stage 4 → Stage 5 entry. Renders the
+// "story locked" copy from BEAT_SHEET_COMPLETE and a CTA that fires
+// `storyboard_render_started`. The beat-sheet review UI itself is shipped
+// separately; this panel exists so a user already past Stage 4 can advance
+// into the storyboard render.
+function BeatSheetCompletePanel({
+  petName,
+  onStart,
+}: {
+  petName: string | null;
+  onStart: () => void;
+}) {
+  const headline = BEAT_SHEET_COMPLETE.headline;
+  const body = substitutePetName(BEAT_SHEET_COMPLETE.body, petName);
+  return (
+    <section
+      aria-label="Beat sheet complete"
+      style={handoffSection}
+    >
+      <p style={handoffHeadline}>{headline}</p>
+      <p style={handoffBody}>{body}</p>
+      <div style={handoffCtaRow}>
+        <button type="button" onClick={onStart} style={handoffCtaButton}>
+          {BEAT_SHEET_COMPLETE.start_button}
+        </button>
+      </div>
+    </section>
+  );
+}
+
+// Storyboard-complete hand-off — Stage 5 → Stage 5.5 entry. Approve has
+// already been called by the time the user lands here; the CTA just advances
+// the reducer (Stage 5.5 itself is a Phase 5 concern). When the user has
+// already advanced past, `isComplete` swaps to a quiet "next up: the words"
+// status panel.
+function StoryboardCompletePanel({
+  petName,
+  onStart,
+  isComplete,
+}: {
+  petName: string | null;
+  onStart: () => void;
+  isComplete: boolean;
+}) {
+  const headline = STORYBOARD_COMPLETE.headline;
+  const body = substitutePetName(STORYBOARD_COMPLETE.body, petName);
+  return (
+    <section
+      aria-label="Storyboard complete"
+      style={handoffSection}
+    >
+      <p style={handoffHeadline}>{headline}</p>
+      <p style={handoffBody}>{body}</p>
+      {isComplete ? (
+        <p style={handoffPending}>The Words is coming next.</p>
+      ) : (
+        <div style={handoffCtaRow}>
+          <button type="button" onClick={onStart} style={handoffCtaButton}>
+            {STORYBOARD_COMPLETE.start_button}
+          </button>
+        </div>
+      )}
+    </section>
+  );
+}
+
 // Stage 3 complete — final hand-off panel between Stage 3 and Stage 4 (not yet
 // wired). Calm "next step" copy; no Stage-4 CTA until Phase 4 lands.
 function Stage3CompletePanel({ petName }: { petName: string | null }) {
@@ -1506,40 +1918,68 @@ function Stage3CompletePanel({ petName }: { petName: string | null }) {
   return (
     <section
       aria-label="Stage 3 complete"
-      style={{
-        background: "#FFFBF3",
-        border: `1px solid rgba(0,0,0,0.06)`,
-        borderRadius: 18,
-        padding: "36px 24px",
-        textAlign: "center",
-        display: "flex",
-        flexDirection: "column",
-        gap: 14,
-      }}
+      style={handoffSection}
     >
-      <p
-        style={{
-          margin: 0,
-          fontStyle: "italic",
-          fontSize: 22,
-          lineHeight: 1.4,
-        }}
-      >
-        {headline}
-      </p>
-      <p
-        style={{
-          margin: 0,
-          fontSize: 14,
-          lineHeight: 1.6,
-          opacity: 0.78,
-          maxWidth: 540,
-          marginLeft: "auto",
-          marginRight: "auto",
-        }}
-      >
-        {body}
-      </p>
+      <p style={handoffHeadline}>{headline}</p>
+      <p style={handoffBody}>{body}</p>
     </section>
   );
 }
+
+// -----------------------------------------------------------------------------
+// Shared hand-off panel styles (Stage 3 / 4 / 5 complete screens).
+// -----------------------------------------------------------------------------
+
+const handoffSection = {
+  background: "#FFFBF3",
+  border: `1px solid rgba(0,0,0,0.06)`,
+  borderRadius: 18,
+  padding: "36px 24px",
+  textAlign: "center" as const,
+  display: "flex",
+  flexDirection: "column" as const,
+  gap: 14,
+};
+
+const handoffHeadline = {
+  margin: 0,
+  fontStyle: "italic" as const,
+  fontSize: 22,
+  lineHeight: 1.4,
+};
+
+const handoffBody = {
+  margin: 0,
+  fontSize: 14,
+  lineHeight: 1.6,
+  opacity: 0.78,
+  maxWidth: 540,
+  marginLeft: "auto",
+  marginRight: "auto",
+};
+
+const handoffCtaRow = {
+  display: "flex",
+  justifyContent: "center" as const,
+  marginTop: 6,
+};
+
+const handoffCtaButton = {
+  display: "inline-flex",
+  alignItems: "center" as const,
+  padding: "12px 24px",
+  borderRadius: 999,
+  fontFamily: "inherit",
+  fontSize: 14,
+  fontWeight: 500,
+  border: "none",
+  cursor: "pointer" as const,
+  background: "#2A211B",
+  color: "#F8F1E4",
+};
+
+const handoffPending = {
+  margin: 0,
+  fontSize: 13,
+  opacity: 0.6,
+};
