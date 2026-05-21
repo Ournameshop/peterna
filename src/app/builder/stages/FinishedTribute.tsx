@@ -92,6 +92,7 @@ function composeNarration(state: BuilderState): string {
 }
 
 type DownloadStatus = 'idle' | 'preparing' | 'done' | 'error';
+type ShareStatus = 'idle' | 'preparing' | 'done' | 'error';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export default function FinishedTribute(_props: StageProps) {
@@ -99,6 +100,10 @@ export default function FinishedTribute(_props: StageProps) {
   const [showEulogy, setShowEulogy] = useState(false);
   const [downloadStatus, setDownloadStatus] = useState<DownloadStatus>('idle');
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [shareStatus, setShareStatus] = useState<ShareStatus>('idle');
+  const [shareError, setShareError] = useState<string | null>(null);
+  const [shareLink, setShareLink] = useState<string | null>(null);
+  const [shareCopied, setShareCopied] = useState(false);
 
   // Single-fire ref guard — React StrictMode double-invokes effects.
   const musicStartedRef = useRef(false);
@@ -148,6 +153,38 @@ export default function FinishedTribute(_props: StageProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Generate the narration voiceover on mount when narration is on, so it can
+  // be HEARD in the preview (and reused at compose time, not regenerated).
+  const narrationStartedRef = useRef(false);
+  useEffect(() => {
+    if (state.words.narration === 'off') return;
+    if (state.narrationUrl) return;
+    if (narrationStartedRef.current) return;
+    narrationStartedRef.current = true;
+
+    const script = composeNarration(state);
+    if (!script) return;
+    const chosenVoice = narrationVoices.find((v) => v.id === state.words.narration);
+    const minimaxVoiceId = chosenVoice?.minimaxVoiceId ?? 'Wise_Woman';
+
+    (async () => {
+      try {
+        const res = await fetch('/api/video/narration', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: script, voice: minimaxVoiceId }),
+        });
+        if (res.ok) {
+          const json = (await res.json()) as { url?: string };
+          if (json.url) update({ narrationUrl: json.url });
+        }
+      } catch {
+        // Preview narration failure is non-blocking — compose retries at download.
+      }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const petName = state.petName || 'them';
 
   const eulogyText = composeEulogy(state);
@@ -156,152 +193,126 @@ export default function FinishedTribute(_props: StageProps) {
     update({ ...initialState });
   }
 
-  async function handleDownload() {
+  // Shared helper: compose the tribute video and return its URL.
+  // Throws on any failure so callers can handle errors uniformly.
+  async function composeVideo(): Promise<string> {
     if (Object.keys(state.beatVideos).length === 0) {
-      setDownloadError('Still rendering — try again in a moment.');
-      return;
+      throw new Error('Still rendering — try again in a moment.');
     }
-
-    // Guard: if narration is on but opening card hasn't been generated yet, surface a clear error.
     if (state.words.narration !== 'off' && !state.cardPreviewImages.opening) {
-      setDownloadError('Card images are still being generated — please wait a moment and try again.');
-      return;
+      throw new Error('Card images are still being generated — please wait a moment and try again.');
     }
 
-    setDownloadError(null);
-    setDownloadStatus('preparing');
+    const musicUrl = state.musicBedUrl ?? null;
 
-    // Never re-use a cached assembledVideoUrl — it may have been composed before
-    // the card-upload fix and contain no text. Always re-compose on download.
-
-    try {
-      // Music bed: use the generated musicBedUrl (generated on mount by the useEffect above).
-      const musicUrl = state.musicBedUrl ?? null;
-
-      // Build narration script when narration is on.
-      let narrationUrl: string | null = null;
-      if (state.words.narration !== 'off') {
-        const script = composeNarration(state);
-        if (!script) {
-          setDownloadError('Could not compose a narration script — please fill in at least a pet name.');
-          setDownloadStatus('error');
-          return;
-        }
-        // Resolve the Minimax voice_id from the chosen narration voice.
-        const chosenVoice = narrationVoices.find((v) => v.id === state.words.narration);
-        const minimaxVoiceId = chosenVoice?.minimaxVoiceId ?? 'Wise_Woman';
-        try {
-          const nRes = await fetch('/api/video/narration', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: script, voice: minimaxVoiceId }),
-          });
-          if (nRes.ok) {
-            const nJson = (await nRes.json()) as { url?: string };
-            narrationUrl = nJson.url ?? null;
-          } else {
-            const nErr = (await nRes.json().catch(() => ({}) )) as { error?: string };
-            setDownloadError(`Narration failed: ${nErr.error ?? nRes.statusText}`);
-            setDownloadStatus('error');
-            return;
-          }
-        } catch (nEx) {
-          setDownloadError(`Narration request failed: ${nEx instanceof Error ? nEx.message : 'network error'}`);
-          setDownloadStatus('error');
-          return;
-        }
+    // Reuse the voiceover already generated on mount; only generate here if the
+    // mount effect hasn't finished (or failed).
+    let narrationUrl: string | null = state.narrationUrl ?? null;
+    if (state.words.narration !== 'off' && !narrationUrl) {
+      const script = composeNarration(state);
+      if (!script) {
+        throw new Error('Could not compose a narration script — please fill in at least a pet name.');
       }
-
-      const aspectRatioMap: Record<string, '9:16' | '16:9' | '1:1'> = {
-        '9:16': '9:16',
-        '16:9': '16:9',
-        '1:1': '1:1',
-        'all_three': '9:16',
-      };
-      const aspectRatio = aspectRatioMap[state.aspectRatio] ?? '9:16';
-
-      // P1: attempt to burn caption overlays into beat footage via ffmpeg.
-      // Fall back to P0 (full-frame captionCardUrl) if ffmpeg is unavailable or fails.
-      const hasOverlays = Object.keys(state.captionOverlayImages).length > 0;
-      const burnedVideoMap: Record<number, string> = {};
-      let burnSucceeded = false;
-
-      if (hasOverlays) {
-        try {
-          const burnBeats = state.beatSheet
-            .filter((beat) => state.beatVideos[beat.index])
-            .map((beat) => ({
-              index: beat.index,
-              videoUrl: state.beatVideos[beat.index],
-              captionOverlayUrl: state.captionOverlayImages[beat.index] ?? undefined,
-            }));
-
-          const burnRes = await fetch('/api/video/burn-captions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ beats: burnBeats }),
-          });
-
-          if (burnRes.ok) {
-            const burnJson = (await burnRes.json()) as { beats?: Array<{ index: number; burnedVideoUrl: string }> };
-            if (Array.isArray(burnJson.beats)) {
-              for (const b of burnJson.beats) {
-                burnedVideoMap[b.index] = b.burnedVideoUrl;
-              }
-              burnSucceeded = true;
-              update({ burnedBeatVideos: burnedVideoMap });
-            }
-          }
-        } catch {
-          // ffmpeg not installed or route error — fall through to P0
-        }
-      }
-
-      // Duration math: distribute time evenly across beats, clamped 4–15s.
-      // When P1 burn succeeded, caption cards are NOT in the compose timeline, so count = 0.
-      const captionCardCount = burnSucceeded ? 0 : Object.keys(state.captionCardImages).length;
-      const cardsSeconds = 6 + captionCardCount * 2.5;
-      const beatLength = state.beatSheet.length || 1;
-      const perBeatSeconds = Math.min(
-        15,
-        Math.max(4, Math.round((state.targetMinutes * 60 - cardsSeconds) / beatLength))
-      );
-      const perBeatMs = perBeatSeconds * 1000;
-
-      // Build the beats array for compose.
-      // P1 success: use burned video URLs, omit captionCardUrl (captions are in footage).
-      // P0 fallback: use original videos + full-frame captionCardUrl.
-      const composeBeatVideoMap = burnSucceeded ? burnedVideoMap : state.beatVideos;
-
-      const res = await fetch('/api/video/compose', {
+      const chosenVoice = narrationVoices.find((v) => v.id === state.words.narration);
+      const minimaxVoiceId = chosenVoice?.minimaxVoiceId ?? 'Wise_Woman';
+      const nRes = await fetch('/api/video/narration', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          openingCardUrl: state.cardPreviewImages.opening,
-          closingCardUrl: state.cardPreviewImages.closing,
-          beats: state.beatSheet.map((beat) => ({
-            index: beat.index,
-            videoUrl: composeBeatVideoMap[beat.index] ?? state.beatVideos[beat.index],
-            // When P1 burned captions into footage, don't send captionCardUrl.
-            captionCardUrl: burnSucceeded ? undefined : state.captionCardImages[beat.index],
-          })),
-          aspectRatio,
-          perBeatMs,
-          // Skill: narration is the foreground voice; the music bed plays
-          // beneath it, ducked to -18dB by the compose route's audio mix.
-          narrationUrl: narrationUrl || null,
-          musicUrl: musicUrl || null,
-        }),
+        body: JSON.stringify({ text: script, voice: minimaxVoiceId }),
       });
-      const json = await res.json() as { url?: string; error?: string };
-      if (!res.ok || !json.url) {
-        throw new Error(json.error ?? 'Assembly failed');
+      if (nRes.ok) {
+        const nJson = (await nRes.json()) as { url?: string };
+        narrationUrl = nJson.url ?? null;
+        if (narrationUrl) update({ narrationUrl });
+      } else {
+        const nErr = (await nRes.json().catch(() => ({}))) as { error?: string };
+        throw new Error(`Narration failed: ${nErr.error ?? nRes.statusText}`);
       }
-      update({ assembledVideoUrl: json.url });
+    }
 
-      // Fetch the composed MP4 as a blob so the browser downloads it
-      // rather than opening it in a tab (cross-origin fal URLs trigger open-in-tab).
-      const videoBlob = await fetch(json.url).then((r) => r.blob());
+    const aspectRatioMap: Record<string, '9:16' | '16:9' | '1:1'> = {
+      '9:16': '9:16',
+      '16:9': '16:9',
+      '1:1': '1:1',
+      'all_three': '9:16',
+    };
+    const aspectRatio = aspectRatioMap[state.aspectRatio] ?? '9:16';
+
+    const hasOverlays = Object.keys(state.captionOverlayImages).length > 0;
+    const burnedVideoMap: Record<number, string> = {};
+    let burnSucceeded = false;
+
+    if (hasOverlays) {
+      try {
+        const burnBeats = state.beatSheet
+          .filter((beat) => state.beatVideos[beat.index])
+          .map((beat) => ({
+            index: beat.index,
+            videoUrl: state.beatVideos[beat.index],
+            captionOverlayUrl: state.captionOverlayImages[beat.index] ?? undefined,
+          }));
+        const burnRes = await fetch('/api/video/burn-captions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ beats: burnBeats }),
+        });
+        if (burnRes.ok) {
+          const burnJson = (await burnRes.json()) as { beats?: Array<{ index: number; burnedVideoUrl: string }> };
+          if (Array.isArray(burnJson.beats)) {
+            for (const b of burnJson.beats) {
+              burnedVideoMap[b.index] = b.burnedVideoUrl;
+            }
+            burnSucceeded = true;
+            update({ burnedBeatVideos: burnedVideoMap });
+          }
+        }
+      } catch {
+        // ffmpeg not installed — fall through to P0
+      }
+    }
+
+    const captionCardCount = burnSucceeded ? 0 : Object.keys(state.captionCardImages).length;
+    const cardsSeconds = 6 + captionCardCount * 2.5;
+    const beatLength = state.beatSheet.length || 1;
+    const perBeatSeconds = Math.min(
+      15,
+      Math.max(4, Math.round((state.targetMinutes * 60 - cardsSeconds) / beatLength))
+    );
+    const perBeatMs = perBeatSeconds * 1000;
+    const composeBeatVideoMap = burnSucceeded ? burnedVideoMap : state.beatVideos;
+
+    const res = await fetch('/api/video/compose', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        openingCardUrl: state.cardPreviewImages.opening,
+        closingCardUrl: state.cardPreviewImages.closing,
+        beats: state.beatSheet.map((beat) => ({
+          index: beat.index,
+          videoUrl: composeBeatVideoMap[beat.index] ?? state.beatVideos[beat.index],
+          captionCardUrl: burnSucceeded ? undefined : state.captionCardImages[beat.index],
+        })),
+        aspectRatio,
+        perBeatMs,
+        narrationUrl: narrationUrl || null,
+        musicUrl: musicUrl || null,
+      }),
+    });
+    const json = (await res.json()) as { url?: string; error?: string };
+    if (!res.ok || !json.url) {
+      throw new Error(json.error ?? 'Assembly failed');
+    }
+    update({ assembledVideoUrl: json.url });
+    return json.url;
+  }
+
+  async function handleDownload() {
+    setDownloadError(null);
+    setDownloadStatus('preparing');
+    try {
+      // Never re-use a cached assembledVideoUrl — always re-compose on download.
+      const videoUrl = await composeVideo();
+      const videoBlob = await fetch(videoUrl).then((r) => r.blob());
       const objectUrl = URL.createObjectURL(videoBlob);
       const a = document.createElement('a');
       a.href = objectUrl;
@@ -312,6 +323,47 @@ export default function FinishedTribute(_props: StageProps) {
     } catch (err) {
       setDownloadError(err instanceof Error ? err.message : 'Download failed');
       setDownloadStatus('error');
+    }
+  }
+
+  async function handleShare() {
+    setShareError(null);
+    setShareLink(null);
+    setShareStatus('preparing');
+    try {
+      const videoUrl = state.assembledVideoUrl ?? (await composeVideo());
+      const res = await fetch('/api/tribute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          petName: state.petName || 'Unknown',
+          videoUrl,
+          openingText: state.cardText.opening || undefined,
+          closingText: state.cardText.closing || undefined,
+          years: state.yearsIncluded && state.years ? state.years : undefined,
+          creatorName: state.creatorName || undefined,
+        }),
+      });
+      const json = (await res.json()) as { id?: string; error?: string };
+      if (!res.ok || !json.id) {
+        throw new Error(json.error ?? 'Could not create memorial page');
+      }
+      setShareLink(`${window.location.origin}/tribute/${json.id}`);
+      setShareStatus('done');
+    } catch (err) {
+      setShareError(err instanceof Error ? err.message : 'Share failed');
+      setShareStatus('error');
+    }
+  }
+
+  async function handleCopyLink() {
+    if (!shareLink) return;
+    try {
+      await navigator.clipboard.writeText(shareLink);
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 2000);
+    } catch {
+      // fallback: select the text manually
     }
   }
 
@@ -376,13 +428,73 @@ export default function FinishedTribute(_props: StageProps) {
             </Sans>
           </div>
         )}
-        <PrimaryButton onClick={() => {}} secondary>
-          Get my memorial page link
+        <PrimaryButton onClick={handleShare} disabled={shareStatus === 'preparing'} secondary>
+          {shareStatus === 'preparing' ? 'Creating your page…' : 'Get my memorial page link'}
         </PrimaryButton>
         <PrimaryButton onClick={() => {}} secondary>
           Add to family channel
         </PrimaryButton>
       </div>
+
+      {/* Share panel */}
+      {(shareStatus === 'done' || shareStatus === 'error') && (
+        <div
+          style={{
+            marginTop: 20,
+            padding: '18px 20px',
+            background: shareStatus === 'error' ? '#FEF2F2' : PALETTE.boneSoft,
+            border: `1px solid ${shareStatus === 'error' ? '#FCA5A5' : PALETTE.parchmentLight}`,
+            borderRadius: 4,
+            maxWidth: 520,
+          }}
+        >
+          {shareStatus === 'error' && shareError && (
+            <Sans style={{ fontSize: 14, color: '#B91C1C', lineHeight: 1.5 }}>
+              {shareError}
+            </Sans>
+          )}
+          {shareStatus === 'done' && shareLink && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <Eyebrow>Your memorial page</Eyebrow>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <Sans
+                  as="a"
+                  href={shareLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    fontSize: 14,
+                    color: PALETTE.espressoSoft,
+                    wordBreak: 'break-all',
+                    flex: 1,
+                    minWidth: 0,
+                  }}
+                >
+                  {shareLink}
+                </Sans>
+                <button
+                  onClick={handleCopyLink}
+                  style={{
+                    fontFamily: 'Inter, sans-serif',
+                    fontSize: 12,
+                    letterSpacing: '0.06em',
+                    padding: '6px 14px',
+                    border: `1px solid ${PALETTE.espresso}`,
+                    background: shareCopied ? PALETTE.espresso : 'transparent',
+                    color: shareCopied ? PALETTE.bone : PALETTE.espresso,
+                    borderRadius: 2,
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    transition: 'all 180ms ease',
+                  }}
+                >
+                  {shareCopied ? 'Copied!' : 'Copy link'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Eulogy PDF offer */}
       <div

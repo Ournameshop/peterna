@@ -5,6 +5,14 @@ Working branch: `Adding-skill-in-webflow`.
 
 ## 2026-05-22
 
+### Narration now plays in the in-app preview
+The `TributePlayer` preview only ever played the music bed — narration was
+generated solely at download time, so playing the preview with narration on
+was silent (and misleading: it looked like narration was broken). Now the
+narration voiceover is generated when the tribute screen loads, stored in
+`state.narrationUrl`, played by the preview, and reused at compose time
+(no longer regenerated on download).
+
 ### Video pipeline — fixed "no text" and "no narration"
 End-to-end audit of the tribute video generation. Confirmed user-reported
 failures fixed:

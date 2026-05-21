@@ -62,11 +62,14 @@ function buildSegments(
 export default function TributePlayer() {
   const { state } = useBuilder();
 
-  // Continuous music bed in the preview. Narration is generated only at export
-  // time and is not previewed, so the music bed plays here regardless of the
-  // narration setting. When the user chose silence, no bed exists and the beat
-  // clips' own ambient audio carries the preview instead.
-  const activeBedUrl = state.musicBedUrl ?? null;
+  // Continuous audio bed in the preview. When narration is on, the voiceover
+  // IS the tribute's audio (it's what the final composed video plays), so the
+  // preview plays the narration; otherwise it plays the music bed. Either is
+  // generated on the FinishedTribute screen's mount.
+  const activeBedUrl =
+    state.words.narration !== 'off'
+      ? (state.narrationUrl ?? null)
+      : (state.musicBedUrl ?? null);
 
   const petName = state.petName || 'them';
   const gender = state.gender ?? 'neutral';

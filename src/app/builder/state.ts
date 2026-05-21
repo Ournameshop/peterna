@@ -123,6 +123,7 @@ export interface BuilderState {
   assembledVideoUrl: string | null;
   musicBedUrl: string | null;
   musicBedDurationMs: number | null;
+  narrationUrl: string | null;        // generated TTS voiceover — previewed + reused at compose
   words: WordsState;
   cardText: { opening: string; closing: string };
   cardPreviewImages: { opening: string | null; closing: string | null; caption: string | null };
@@ -178,6 +179,7 @@ export const initialState: BuilderState = {
   assembledVideoUrl: null,
   musicBedUrl: null,
   musicBedDurationMs: null,
+  narrationUrl: null,
   words: {
     opening: 'simple',
     openingCustom: ['', ''],
