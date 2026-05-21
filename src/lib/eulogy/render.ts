@@ -11,6 +11,8 @@ import {
 } from '@react-pdf/renderer';
 import React from 'react';
 
+import { logRender } from '@/lib/ai/observability';
+
 import { favoriteLabels, joinList, traitLabels } from './compose';
 
 /**
@@ -232,6 +234,13 @@ export async function renderEulogyPdf(input: {
   characterSheetMime: string | null;
   openingText: string | null;
   closingText: string | null;
+  /**
+   * Phase 14 — observability. When supplied, a `renders` row is written with
+   * `stage='eulogy_pdf'`, `capability='eulogy_pdf'`, `vendor_served='react_pdf'`,
+   * `cost_usd_est=0`. Optional for test paths that call the renderer directly.
+   */
+  sessionId?: string;
+  idempotencyKey?: string;
 }): Promise<Buffer> {
   const { session, characterSheetBytes, characterSheetMime, openingText, closingText } = input;
 
@@ -262,7 +271,61 @@ export async function renderEulogyPdf(input: {
     }),
   );
 
-  return renderToBuffer(doc);
+  const t0 = performance.now();
+  try {
+    const bytes = await renderToBuffer(doc);
+    await maybeLogEulogyRender(input, Math.round(performance.now() - t0), bytes.length, null);
+    return bytes;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    await maybeLogEulogyRender(input, Math.round(performance.now() - t0), 0, message);
+    throw err;
+  }
+}
+
+/**
+ * Write a single `renders` row describing the react-pdf render. Best-effort:
+ * observability failures don't bring down a successful PDF generation.
+ */
+async function maybeLogEulogyRender(
+  input: {
+    session: EulogySessionInput;
+    characterSheetBytes: Buffer | null;
+    openingText: string | null;
+    closingText: string | null;
+    sessionId?: string;
+    idempotencyKey?: string;
+  },
+  durationMs: number,
+  byteCount: number,
+  error: string | null,
+): Promise<void> {
+  if (!input.sessionId || !input.idempotencyKey) return;
+  try {
+    await logRender({
+      sessionId: input.sessionId,
+      stage: 'eulogy_pdf',
+      capability: 'eulogy_pdf',
+      vendorAttempted: ['react_pdf'],
+      vendorServed: error ? null : 'react_pdf',
+      model: 'react-pdf',
+      requestBody: {
+        has_character_sheet: Boolean(input.characterSheetBytes),
+        has_opening_text: Boolean(input.openingText),
+        has_closing_text: Boolean(input.closingText),
+        bytes: byteCount,
+      },
+      costUsdEst: 0,
+      durationMs,
+      idempotencyKey: input.idempotencyKey,
+      error,
+    });
+  } catch (err) {
+    console.warn('[eulogy.render] renders log failed', {
+      session_id: input.sessionId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
 }
 
 function imageFormatFromMime(mime: string | null): 'png' | 'jpg' {

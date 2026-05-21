@@ -361,6 +361,13 @@ async function runAssemblyJob(job: RenderJob): Promise<void> {
     closingCardUrl ? fetchAsBuffer(closingCardUrl) : Promise.resolve(null),
   ]);
 
+  // Pre-compute the S3 key + URL so we can tell the stitcher where the bytes
+  // are going to live — that URL ends up on the renders row alongside the
+  // ffmpeg outcome.
+  const finalUuid = uuidv7();
+  const s3Key = `sessions/${job.sessionId}/final/${finalUuid}.mp4`;
+  const publicUrl = getPublicUrl(s3Key);
+
   let assemblyOut;
   try {
     assemblyOut = await stitchTribute({
@@ -370,6 +377,9 @@ async function runAssemblyJob(job: RenderJob): Promise<void> {
       musicBuffer: null,
       narrationBuffer: null,
       aspect,
+      sessionId: job.sessionId,
+      idempotencyKey: `job-${job.id}`,
+      responseUrl: publicUrl,
     });
   } catch (err) {
     logError(`[worker] stitch failed for session ${job.sessionId}`, err);
@@ -377,10 +387,7 @@ async function runAssemblyJob(job: RenderJob): Promise<void> {
     return;
   }
 
-  const finalUuid = uuidv7();
-  const s3Key = `sessions/${job.sessionId}/final/${finalUuid}.mp4`;
   await uploadObject({ key: s3Key, body: assemblyOut.bytes, contentType: assemblyOut.mimeType });
-  const publicUrl = getPublicUrl(s3Key);
 
   const finalAssetId = uuidv7();
   await db.insert(assets).values({

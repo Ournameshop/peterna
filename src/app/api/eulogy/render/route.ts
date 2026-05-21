@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import { eq } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
 
@@ -114,6 +116,12 @@ export async function POST(req: Request): Promise<Response> {
       }
     }
 
+    // Idempotency-Key for the renders row. Prefer the header (so a client
+    // retry collapses to a single row via the schema's unique index); fall
+    // back to a fresh UUID per request.
+    const idempotencyKey =
+      req.headers.get('idempotency-key')?.trim() || randomUUID();
+
     let pdfBuffer: Buffer;
     try {
       pdfBuffer = await renderEulogyPdf({
@@ -129,6 +137,8 @@ export async function POST(req: Request): Promise<Response> {
         characterSheetMime,
         openingText: session.openingTitleCardText,
         closingText: session.closingCardText,
+        sessionId,
+        idempotencyKey,
       });
     } catch (err) {
       slot.slot.commit();

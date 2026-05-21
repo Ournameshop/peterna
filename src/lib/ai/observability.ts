@@ -7,12 +7,33 @@ import { renders } from '@/lib/db/schema';
 
 import type { VendorTag } from './types';
 
+/**
+ * Capabilities tracked in `renders.capability`. AI vendor calls use the
+ * `generate_*` / `run_*` set; Phase 14 added local-only "renders" — ffmpeg
+ * assembly + react-pdf eulogy — that have no vendor cost but do have a
+ * latency / outcome story we want on the same audit log.
+ */
+export type RenderCapability =
+  | 'generate_image'
+  | 'run_vision_pass'
+  | 'generate_video'
+  | 'run_beat_sheet'
+  | 'assembly'
+  | 'eulogy_pdf';
+
+/**
+ * Vendor identifiers. AI vendors stay in `VendorTag`; local renderers
+ * (ffmpeg, react-pdf) get their own opaque tags so the cost dashboard can
+ * group by-capability cleanly without inventing fake AI vendors.
+ */
+export type RenderVendor = VendorTag | 'ffmpeg' | 'react_pdf';
+
 export type LogRenderInput = {
   sessionId: string;
   stage: string;
-  capability: 'generate_image' | 'run_vision_pass' | 'generate_video' | 'run_beat_sheet';
-  vendorAttempted: VendorTag[];
-  vendorServed: VendorTag | null;
+  capability: RenderCapability;
+  vendorAttempted: RenderVendor[];
+  vendorServed: RenderVendor | null;
   model?: string;
   requestBody?: unknown;
   responseUrl?: string | null;

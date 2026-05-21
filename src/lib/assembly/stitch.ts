@@ -7,6 +7,8 @@ import path from 'node:path';
 
 import ffmpegStatic from 'ffmpeg-static';
 
+import { logRender } from '@/lib/ai/observability';
+
 /**
  * Phase 7 (Stage 7) — Assembly.
  *
@@ -73,6 +75,23 @@ export type AssemblyInput = {
   narrationFilename?: string;
   /** Session aspect ratio — drives the still→video size for the cards. */
   aspect: AssemblyAspect;
+  /**
+   * Phase 14 — observability. When supplied, a `renders` row is written with
+   * `stage='assembly'`, `capability='assembly'`, `vendor_served='ffmpeg'`,
+   * `cost_usd_est=0`. Optional for backwards compatibility with any test path
+   * that still calls the stitcher directly, but every production caller
+   * (worker, /api/assembly/render) supplies both.
+   */
+  sessionId?: string;
+  idempotencyKey?: string;
+  /**
+   * Optional public URL where the stitched MP4 will live once uploaded —
+   * persisted onto the `renders.response_url` column. The caller knows this
+   * before it asks us to stitch (it's `getPublicUrl(s3Key)` for the key it
+   * will upload to). When omitted, the renders row is still written but with
+   * `response_url=null`.
+   */
+  responseUrl?: string;
 };
 
 export type AssemblyOutput = {
@@ -94,6 +113,7 @@ export async function stitchTribute(input: AssemblyInput): Promise<AssemblyOutpu
   const t0 = performance.now();
   const work = await mkdtemp(path.join(tmpdir(), 'peternal-assembly-'));
 
+  let stitchError: Error | null = null;
   try {
     // 1. Write all input artifacts to disk.
     const clipPaths: string[] = [];
@@ -241,14 +261,66 @@ export async function stitchTribute(input: AssemblyInput): Promise<AssemblyOutpu
     }
 
     const bytes = await readFile(finalPath);
+    const durationMs = Math.round(performance.now() - t0);
+    await maybeLogAssemblyRender(input, durationMs, null);
     return {
       bytes,
       mimeType: 'video/mp4',
-      durationMs: Math.round(performance.now() - t0),
+      durationMs,
     };
+  } catch (err) {
+    stitchError = err instanceof Error ? err : new Error(String(err));
+    await maybeLogAssemblyRender(
+      input,
+      Math.round(performance.now() - t0),
+      stitchError.message,
+    );
+    throw stitchError;
   } finally {
     await rm(work, { recursive: true, force: true }).catch(() => {
       // tmpdir cleanup is best-effort
+    });
+  }
+}
+
+/**
+ * Write a single `renders` row describing this ffmpeg invocation. Best-effort:
+ * if the DB write throws, we swallow + warn so an observability failure
+ * doesn't trash an otherwise-successful stitch. Skips entirely when the caller
+ * didn't supply `sessionId`/`idempotencyKey` (test paths).
+ */
+async function maybeLogAssemblyRender(
+  input: AssemblyInput,
+  durationMs: number,
+  error: string | null,
+): Promise<void> {
+  if (!input.sessionId || !input.idempotencyKey) return;
+  try {
+    await logRender({
+      sessionId: input.sessionId,
+      stage: 'assembly',
+      capability: 'assembly',
+      vendorAttempted: ['ffmpeg'],
+      vendorServed: error ? null : 'ffmpeg',
+      model: 'ffmpeg-static',
+      requestBody: {
+        clip_count: input.clipBuffers.length,
+        aspect: input.aspect,
+        has_opening_card: Boolean(input.openingCardPng),
+        has_closing_card: Boolean(input.closingCardPng),
+        has_music: Boolean(input.musicBuffer),
+        has_narration: Boolean(input.narrationBuffer),
+      },
+      responseUrl: error ? null : input.responseUrl ?? null,
+      costUsdEst: 0,
+      durationMs,
+      idempotencyKey: input.idempotencyKey,
+      error,
+    });
+  } catch (err) {
+    console.warn('[assembly.stitch] renders log failed', {
+      session_id: input.sessionId,
+      error: err instanceof Error ? err.message : String(err),
     });
   }
 }
