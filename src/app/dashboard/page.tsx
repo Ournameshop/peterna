@@ -1,30 +1,25 @@
-import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
-import Link from "next/link";
+import { headers } from "next/headers";
 import type { Metadata } from "next";
-import Pill from "@/components/Pill";
-import { GoldBtn } from "@/components/Buttons";
-import QuietLine from "@/components/QuietLine";
-import { AUTH } from "@/lib/library/copy";
+import DashboardClient from "@/components/dashboard/DashboardClient";
+import { readUserIdFromCookie } from "@/lib/auth/user-cookie";
 import type { AuthMeResponse, UserWire } from "@/lib/builder/wire-types";
-import {
-  C,
-  FONT_DISPLAY,
-  FONT_SANS,
-  sectionMaxStyle,
-} from "@/lib/peterna-tokens";
 
-// Phase 10 — dashboard placeholder.
+// Phase 11 — Memorial Management dashboard.
 //
-// Server Component. Auth gate is a single cookie check; if the auth_user
-// cookie isn't present, we bounce to /signin. If it IS present, we hit
-// /api/auth/me to read the canonical user record (the cookie alone isn't
-// authoritative — a tampered cookie still won't pass /api/auth/me, and we'd
-// rather render anonymous fallback than trust the client).
+// Server Component. The auth gate is two-pronged:
+//   1. Cheap HMAC-verified cookie check via `readUserIdFromCookie` — if the
+//      cookie isn't present (or is tampered / expired) we bounce to /signin
+//      without a network call.
+//   2. Canonical `/api/auth/me` fetch — the cookie says "we trust this id"
+//      but `users` rows can be deleted server-side; we still resolve to the
+//      live row so the client gets the canonical email + name.
 //
-// The actual tribute-list rendering is Phase 11. This page is intentionally
-// minimal but real: a header that reads the user's email + a primary CTA
-// back into the builder.
+// Tribute list rendering lives in <DashboardClient/>. This page does not
+// fetch the tribute list itself — the list is user-mutable (rename / delete)
+// and a client component owns that state. We also can't claim mid-build
+// anonymous sessions from the server (the claim POST sets cookies on the
+// response), so the client kicks off both calls on mount.
 
 export const metadata: Metadata = {
   title: "Your tributes — Peterna",
@@ -32,17 +27,13 @@ export const metadata: Metadata = {
     "Every tribute you've made with Peterna, gathered in one place.",
 };
 
-const AUTH_COOKIE_NAME = "auth_user";
-
 async function fetchCurrentUser(): Promise<UserWire | null> {
-  // Build an absolute URL — Next 16 RSC fetches don't resolve relative paths.
-  // Same pattern as src/app/builder/r/[token]/page.tsx.
+  // Next 16 RSC fetches don't resolve relative paths — same pattern as
+  // src/app/builder/r/[token]/page.tsx + the previous dashboard placeholder.
   const hdrs = await headers();
   const host = hdrs.get("host") ?? "localhost:3000";
   const protocol = hdrs.get("x-forwarded-proto") ?? "http";
   const base = `${protocol}://${host}`;
-
-  // Forward the request cookies so /api/auth/me can read auth_user.
   const cookieHeader = hdrs.get("cookie") ?? "";
 
   try {
@@ -61,134 +52,19 @@ async function fetchCurrentUser(): Promise<UserWire | null> {
 }
 
 export default async function PageDashboard() {
-  const cookieStore = await cookies();
-  const authCookie = cookieStore.get(AUTH_COOKIE_NAME);
-
-  // Cheap gate first — no cookie, no auth, bounce immediately. This avoids
-  // a wasted /api/auth/me round-trip for the very common unauthenticated
-  // visitor case (e.g. someone landing here via a stale bookmark).
-  if (!authCookie || !authCookie.value) {
+  // Cheap gate — no cookie, no auth. Avoids a wasted /api/auth/me round-trip
+  // for the common unauthenticated visitor case (e.g. stale bookmark).
+  const userId = await readUserIdFromCookie();
+  if (!userId) {
     redirect("/signin");
   }
 
-  // Cookie present — verify with the canonical source. If verification fails
-  // (expired session, server cleared the row, etc.), still bounce to signin.
+  // Canonical verification — `users` row may have been deleted, or the HMAC
+  // helper may be using a rotated secret. Either way, fall back to signin.
   const user = await fetchCurrentUser();
   if (!user) {
     redirect("/signin");
   }
 
-  return (
-    <main>
-      <section
-        style={{
-          padding: "112px 0 160px",
-          background: C.cream,
-          position: "relative",
-          overflow: "hidden",
-          minHeight: "70vh",
-        }}
-      >
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            pointerEvents: "none",
-            background:
-              "radial-gradient(ellipse 70% 60% at 80% -10%, rgba(201,169,97,0.13), transparent 60%)",
-          }}
-          aria-hidden="true"
-        />
-        <div style={{ ...sectionMaxStyle, position: "relative" }}>
-          <div style={{ maxWidth: 760 }}>
-            <Pill tone="gold">{AUTH.dashboard.eyebrow}</Pill>
-            <h1
-              style={{
-                marginTop: 24,
-                fontFamily: FONT_DISPLAY,
-                fontWeight: 400,
-                fontSize: "clamp(40px, 6vw, 84px)",
-                lineHeight: 1.0,
-                letterSpacing: "-0.015em",
-                color: C.ink,
-              }}
-            >
-              {AUTH.dashboard.headline_lead}{" "}
-              <em style={{ color: C.goldDeep }}>{AUTH.dashboard.headline_em}</em>
-            </h1>
-            <p
-              style={{
-                marginTop: 16,
-                fontSize: 14,
-                color: C.inkSofter,
-                fontFamily: FONT_SANS,
-                letterSpacing: "0.04em",
-              }}
-            >
-              Signed in as{" "}
-              <span style={{ color: C.ink }}>{user.email}</span>
-            </p>
-
-            {/* Phase 10 ships the auth gate + entry point only. The tribute
-                list itself is Phase 11 — until then we render an empty-state
-                that frames the page clearly and points back into the builder. */}
-            <div
-              style={{
-                marginTop: 56,
-                padding: "48px 32px",
-                borderRadius: 16,
-                background: "rgba(248,241,228,0.6)",
-                border: `1px solid ${C.line}`,
-              }}
-            >
-              <p
-                style={{
-                  margin: 0,
-                  fontSize: 17,
-                  lineHeight: 1.65,
-                  color: C.inkSoft,
-                  fontFamily: FONT_SANS,
-                  maxWidth: 560,
-                }}
-              >
-                {AUTH.dashboard.empty_body}
-              </p>
-              <div
-                style={{
-                  marginTop: 32,
-                  display: "flex",
-                  flexWrap: "wrap",
-                  alignItems: "center",
-                  gap: 20,
-                }}
-              >
-                <GoldBtn href="/builder">{AUTH.dashboard.build_cta}</GoldBtn>
-                <Link
-                  href="/family-channel"
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 8,
-                    fontSize: 14,
-                    fontWeight: 500,
-                    color: C.ink,
-                    paddingBottom: 4,
-                    borderBottom: `1px solid ${C.ink}`,
-                    fontFamily: FONT_SANS,
-                    textDecoration: "none",
-                  }}
-                >
-                  Learn about the Family Channel →
-                </Link>
-              </div>
-            </div>
-
-            <div style={{ marginTop: 80 }}>
-              <QuietLine label="Every pet · Every memory · Kept" />
-            </div>
-          </div>
-        </div>
-      </section>
-    </main>
-  );
+  return <DashboardClient user={user} />;
 }
