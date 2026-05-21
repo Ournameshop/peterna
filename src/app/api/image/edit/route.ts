@@ -1,24 +1,13 @@
 // POST /api/image/edit
-// Reference-conditioned image generation via Gemini 2.5 Flash Image.
+// Image-to-image via fal.ai openai/gpt-image-2/edit.
 // Body: { prompt: string, imageUrls: string[], quality?, aspect?, outputFormat? }
-// Response: { url: string } — url is a data:image/...;base64,... data URL.
+// `imageUrls[0]` is the primary reference (e.g. the user's pet photo).
 
 import { NextResponse } from "next/server";
-import { GoogleGenAI, type Part } from "@google/genai";
+import { fal } from "@/lib/fal";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const IMAGE_MODEL = "gemini-2.5-flash-image";
-
-// Map fal aspect strings to Gemini aspect ratio hints appended to the prompt.
-const ASPECT_HINT: Record<string, string> = {
-  square_hd: "1:1 square aspect ratio",
-  landscape_16_9: "16:9 landscape aspect ratio",
-  portrait_16_9: "9:16 portrait aspect ratio",
-  landscape_4_3: "4:3 landscape aspect ratio",
-  portrait_4_3: "3:4 portrait aspect ratio",
-};
 
 interface ReqBody {
   prompt?: string;
@@ -35,31 +24,11 @@ interface ReqBody {
   outputFormat?: "png" | "jpeg" | "webp";
 }
 
-async function resolveToInlineData(
-  url: string,
-): Promise<{ mimeType: string; data: string } | null> {
-  if (url.startsWith("data:")) {
-    const m = url.match(/^data:([^;]+);base64,(.+)$/);
-    if (!m) return null;
-    return { mimeType: m[1], data: m[2] };
-  }
-  try {
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    const mimeType =
-      res.headers.get("content-type")?.split(";")[0].trim() || "image/jpeg";
-    const data = Buffer.from(await res.arrayBuffer()).toString("base64");
-    return { mimeType, data };
-  } catch {
-    return null;
-  }
-}
-
 export async function POST(req: Request) {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    return NextResponse.json({ error: "GEMINI_API_KEY not configured" }, { status: 500 });
+  if (!process.env.FAL_KEY) {
+    return NextResponse.json({ error: "FAL_KEY not configured" }, { status: 500 });
   }
+  // OPENAI_API_KEY is optional — fal proxies openai/gpt-image-2/edit with FAL_KEY alone.
 
   let body: ReqBody;
   try {
@@ -76,56 +45,54 @@ export async function POST(req: Request) {
   if (imageUrls.length === 0) {
     return NextResponse.json(
       { error: "imageUrls[] required (at least one source image)" },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
-  // Resolve all reference images to inline base64.
-  const inlineImages = (
-    await Promise.all(imageUrls.map(resolveToInlineData))
-  ).filter((x): x is { mimeType: string; data: string } => x !== null);
-
-  if (inlineImages.length === 0) {
-    return NextResponse.json({ error: "could not resolve any imageUrls" }, { status: 400 });
+  // gpt-image-2/edit needs real URLs — upload any data: URIs (the user's
+  // uploaded photo files) to fal storage first.
+  let resolvedUrls: string[];
+  try {
+    resolvedUrls = await Promise.all(
+      imageUrls.map(async (u) => {
+        if (!u.startsWith("data:")) return u;
+        const m = u.match(/^data:([^;]+);base64,(.+)$/);
+        if (!m) throw new Error("malformed data URI");
+        const blob = new Blob([Buffer.from(m[2], "base64")], { type: m[1] });
+        return await fal.storage.upload(blob);
+      }),
+    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "reference upload failed";
+    return NextResponse.json({ error: message }, { status: 502 });
   }
 
-  // Build the aspect hint suffix.
-  const aspectHint = body.aspect && body.aspect !== "auto"
-    ? ` (${ASPECT_HINT[body.aspect] ?? body.aspect})`
-    : "";
-  const fullPrompt = prompt + aspectHint;
-
   try {
-    const ai = new GoogleGenAI({ apiKey });
+    const input: Record<string, unknown> = {
+      prompt,
+      image_urls: resolvedUrls,
+      image_size: body.aspect || "auto",
+      quality: body.quality || "medium",
+      output_format: body.outputFormat || "png",
+      ...(process.env.OPENAI_API_KEY ? { openai_api_key: process.env.OPENAI_API_KEY } : {}),
+    };
+    if (body.maskImageUrl) input.mask_image_url = body.maskImageUrl;
 
-    const parts: Part[] = [
-      ...inlineImages.map((img): Part => ({
-        inlineData: { mimeType: img.mimeType, data: img.data },
-      })),
-      { text: fullPrompt },
-    ];
-
-    const response = await ai.models.generateContent({
-      model: IMAGE_MODEL,
-      contents: parts,
+    const result = await fal.subscribe("openai/gpt-image-2/edit", {
+      input,
+      logs: false,
     });
 
-    const out: Part[] = response.candidates?.[0]?.content?.parts ?? [];
-    const imgPart = out.find((p) => p.inlineData?.data);
-
-    if (!imgPart?.inlineData?.data) {
-      const text = response.text ?? "";
+    const url = result?.data?.images?.[0]?.url;
+    if (!url) {
       return NextResponse.json(
-        { error: "model returned no image", detail: text },
-        { status: 502 },
+        { error: "no image url in fal response" },
+        { status: 502 }
       );
     }
-
-    const mimeType = imgPart.inlineData.mimeType || "image/png";
-    const url = `data:${mimeType};base64,${imgPart.inlineData.data}`;
     return NextResponse.json({ url });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = err instanceof Error ? err.message : "unknown error";
     return NextResponse.json({ error: message }, { status: 502 });
   }
 }

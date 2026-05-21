@@ -5,6 +5,14 @@ Working branch: `Adding-skill-in-webflow`.
 
 ## 2026-05-22
 
+### Image generation reverted to fal `gpt-image-2`
+The fal.ai account was topped up (credit check confirmed it's no longer
+locked). Reverted `/api/image/edit` from Gemini 2.5 Flash Image back to fal
+`openai/gpt-image-2/edit` — the skill-mandated model, and the one with the
+stronger pet-likeness fidelity. `/api/card/render` keeps returning a data URL
+(no need to put it back on fal.storage). Video generation also unblocked by
+the top-up.
+
 ### Card layout — text no longer covers the pet's face
 Per the skill, every caption container is *"centered in the lower portion of
 the frame."* The renderer was placing opening/closing title panels at 38% frame
