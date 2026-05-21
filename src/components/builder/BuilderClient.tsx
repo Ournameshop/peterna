@@ -21,6 +21,10 @@ import {
   type PhotoAsset,
 } from "@/lib/builder/state";
 import type {
+  AssemblyApproveRequest,
+  AssemblyApproveResponse,
+  AssemblyRenderRequest,
+  AssemblyRenderResponse,
   CardPreviewApproveRequest,
   CardPreviewApproveResponse,
   CardPreviewRenderRequest,
@@ -52,6 +56,12 @@ import type {
   StoryboardRenderResponse,
   StoryboardRerollRequest,
   StoryboardRerollResponse,
+  VideoClipWire,
+  VideoRenderRequest,
+  VideoRenderResponse,
+  VideoRerollRequest,
+  VideoRerollResponse,
+  VideoStatusResponse,
   VisionPassResponse,
   WordsApproveRequest,
   WordsApproveResponse,
@@ -59,6 +69,8 @@ import type {
   WordsUpdateResponse,
 } from "@/lib/builder/wire-types";
 import {
+  ASSEMBLY_COMPLETE,
+  CINEMATOGRAPHY_COMPLETE,
   COPY,
   RETURNING_USER,
   NAME_PROMPT,
@@ -127,6 +139,8 @@ import CinematographyView, {
   type CinematographyAction,
 } from "./CinematographyView";
 import { type CinematographyFieldName } from "./CinematographyTable";
+import VideoRenderProgress from "./VideoRenderProgress";
+import AssemblyView, { type AssemblyAction } from "./AssemblyView";
 
 // Orchestrates the Stage 1 wizard. Owns the state machine + the side-effects
 // (PATCH on transition, vision-pass kick on photos-and-name).
@@ -267,6 +281,33 @@ export default function BuilderClient({
   );
   const cinematographyInFlightRef = useRef(false);
   const [cinematographyInFlight, setCinematographyInFlight] = useState(false);
+  // Stage 6 — video render kickoff + status polling.
+  //
+  // `videoRenderIdemRef` dedupes the POST /api/video/render call (the kickoff
+  // is expensive — N Seedance jobs queued — so a transient re-mount must not
+  // double-fire). `videoRenderStartedRef` is a per-session latch: once we've
+  // fired the kickoff for this session in this tab, we don't fire it again
+  // even across remounts; the user can still tap "Restart" elsewhere.
+  // `videoPollInFlightRef` guards against overlapping status polls on slow
+  // networks. `videoRerollInFlightRef` keyed by beat_idx so distinct reroll
+  // attempts on different beats don't block each other.
+  const videoRenderIdemRef = useRef<{ key: string; createdAt: number } | null>(
+    null,
+  );
+  const videoRenderStartedRef = useRef(false);
+  const videoRenderInFlightRef = useRef(false);
+  const videoPollInFlightRef = useRef(false);
+  const videoRerollInFlightRef = useRef<Set<number>>(new Set());
+  const [videoRerollBeatIdx, setVideoRerollBeatIdx] = useState<number | null>(
+    null,
+  );
+  // Stage 7 — assembly render kickoff.
+  const assemblyIdemRef = useRef<{ key: string; createdAt: number } | null>(
+    null,
+  );
+  const assemblyStartedRef = useRef(false);
+  const assemblyInFlightRef = useRef(false);
+  const [assemblyInFlight, setAssemblyInFlight] = useState(false);
 
   // Bootstrap: if we don't yet have a session, create one and reflect into URL.
   useEffect(() => {
@@ -1213,6 +1254,350 @@ export default function BuilderClient({
       setSubmitting(false);
     }
   }, [state.data.session_id]);
+
+  // ---------------------------------------------------------------------------
+  // Stage 6 — Video render: POST /api/video/render → poll /api/video/status
+  // → reroll failed clips. The poll lives in a useEffect below; this section
+  // owns the kickoff + reroll request helpers.
+  //
+  // Polling cadence: 5s while we're on `video_render` and `all_done === false`.
+  // Stop conditions: (a) reducer sees `all_done === true` and transitions to
+  // `assembly_render`, (b) the user leaves the stage (component unmount /
+  // stage change cancels the interval), (c) the page hides (we don't pause
+  // the poll on visibility-change — the server is doing the work either way;
+  // the next tick on visible re-fires).
+  // ---------------------------------------------------------------------------
+
+  const getVideoRenderIdempotencyKey = useCallback(
+    (freshIntent: boolean): string => {
+      const now = Date.now();
+      const cur = videoRenderIdemRef.current;
+      if (!freshIntent && cur && now - cur.createdAt < DEDUPE_WINDOW_MS) {
+        return cur.key;
+      }
+      const key = crypto.randomUUID();
+      videoRenderIdemRef.current = { key, createdAt: now };
+      return key;
+    },
+    [],
+  );
+
+  const renderVideoClips = useCallback(
+    async (freshIntent: boolean) => {
+      if (!state.data.session_id) return;
+      if (videoRenderInFlightRef.current) return;
+      videoRenderInFlightRef.current = true;
+
+      const idempotencyKey = getVideoRenderIdempotencyKey(freshIntent);
+      const body: VideoRenderRequest = {
+        session_id: state.data.session_id,
+      };
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[builder] POST /api/video/render", body);
+      }
+      try {
+        const res = await fetch("/api/video/render", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Idempotency-Key": idempotencyKey,
+          },
+          body: JSON.stringify(body),
+        });
+        const json = (await res
+          .json()
+          .catch(() => null)) as VideoRenderResponse | null;
+        if (json && json.ok) {
+          // Seed the local clip array from the kickoff response so the grid
+          // doesn't read empty until the first poll lands.
+          dispatch({
+            type: "video_status_polled",
+            clips: json.clips as VideoClipWire[],
+          });
+        } else if (process.env.NODE_ENV !== "production") {
+          console.warn("[builder] /api/video/render failed", res.status, json);
+        }
+      } catch (err) {
+        if (process.env.NODE_ENV !== "production") {
+          console.warn("[builder] /api/video/render network error", err);
+        }
+      } finally {
+        videoRenderInFlightRef.current = false;
+      }
+    },
+    [getVideoRenderIdempotencyKey, state.data.session_id],
+  );
+
+  const pollVideoStatus = useCallback(async () => {
+    if (!state.data.session_id) return;
+    if (videoPollInFlightRef.current) return;
+    videoPollInFlightRef.current = true;
+    try {
+      const url = `/api/video/status?session_id=${encodeURIComponent(state.data.session_id)}`;
+      const res = await fetch(url, { method: "GET" });
+      const json = (await res
+        .json()
+        .catch(() => null)) as VideoStatusResponse | null;
+      if (json && json.ok) {
+        dispatch({
+          type: "video_status_polled",
+          clips: json.clips as VideoClipWire[],
+        });
+        if (json.all_done) {
+          dispatch({ type: "all_clips_done" });
+        }
+      } else if (process.env.NODE_ENV !== "production") {
+        console.warn("[builder] /api/video/status failed", res.status, json);
+      }
+    } catch (err) {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn("[builder] /api/video/status network error", err);
+      }
+    } finally {
+      videoPollInFlightRef.current = false;
+    }
+  }, [state.data.session_id]);
+
+  const rerollVideoClip = useCallback(
+    async (beatIdx: number) => {
+      const sessionId = state.data.session_id;
+      if (!sessionId) return;
+      if (videoRerollInFlightRef.current.has(beatIdx)) return;
+      videoRerollInFlightRef.current.add(beatIdx);
+      setVideoRerollBeatIdx(beatIdx);
+
+      // Optimistic local update: flip the matching clip back to 'queued' so
+      // the grid card shows the right state immediately. The next poll
+      // overwrites this with the canonical server view.
+      const clips = state.data.video_clips ?? [];
+      const current = clips.find((c) => c.beat_idx === beatIdx);
+      if (current) {
+        const optimistic: VideoClipWire = {
+          ...current,
+          status: "queued",
+          asset_id: null,
+          public_url: null,
+          error: undefined,
+        };
+        dispatch({ type: "video_clip_rerolled", clip: optimistic });
+      }
+
+      const body: VideoRerollRequest = {
+        session_id: sessionId,
+        beat_idx: beatIdx,
+      };
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[builder] POST /api/video/reroll", body);
+      }
+      try {
+        const res = await fetch("/api/video/reroll", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Idempotency-Key": crypto.randomUUID(),
+          },
+          body: JSON.stringify(body),
+        });
+        const json = (await res
+          .json()
+          .catch(() => null)) as VideoRerollResponse | null;
+        if (json && json.ok) {
+          dispatch({
+            type: "video_clip_rerolled",
+            clip: {
+              beat_idx: json.beat_idx,
+              status: json.status,
+              asset_id: json.asset_id,
+              public_url: json.public_url,
+              error: json.error,
+            },
+          });
+        } else if (process.env.NODE_ENV !== "production") {
+          console.warn("[builder] /api/video/reroll failed", res.status, json);
+        }
+      } catch (err) {
+        if (process.env.NODE_ENV !== "production") {
+          console.warn("[builder] /api/video/reroll network error", err);
+        }
+      } finally {
+        videoRerollInFlightRef.current.delete(beatIdx);
+        // Clear the visual rerolling indicator on this beat — the next poll
+        // will flip it to rendering / done based on the server's view.
+        setVideoRerollBeatIdx((prev) => (prev === beatIdx ? null : prev));
+      }
+    },
+    [state.data.session_id, state.data.video_clips],
+  );
+
+  // Kick off the video render once, when we land on video_render and we
+  // don't yet have a clip array. Latched per-session so a transient re-mount
+  // doesn't refire the kickoff.
+  useEffect(() => {
+    if (state.stage !== "video_render") return;
+    if (!state.data.session_id) return;
+    if (videoRenderStartedRef.current) return;
+    if (state.data.video_clips && state.data.video_clips.length > 0) {
+      // Resume: backend already kicked off — no kickoff, just poll.
+      videoRenderStartedRef.current = true;
+      return;
+    }
+    videoRenderStartedRef.current = true;
+    void renderVideoClips(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.stage, state.data.session_id]);
+
+  // Poll /api/video/status every 5s while on video_render and not yet done.
+  // Stops on stage transition or unmount. Doesn't poll on video_review (we
+  // hit that stage only after all_done is true).
+  useEffect(() => {
+    if (state.stage !== "video_render") return;
+    if (!state.data.session_id) return;
+    const allDone =
+      (state.data.video_clips ?? []).length > 0 &&
+      (state.data.video_clips ?? []).every((c) => c.status === "done");
+    if (allDone) return;
+
+    // First poll fires immediately (no 5s wait before the user sees anything).
+    void pollVideoStatus();
+    const interval = window.setInterval(() => {
+      void pollVideoStatus();
+    }, 5_000);
+    return () => {
+      window.clearInterval(interval);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.stage, state.data.session_id, state.data.video_clips]);
+
+  // ---------------------------------------------------------------------------
+  // Stage 7 — Assembly render → review → approve.
+  //
+  // Assembly is a single long render (ffmpeg, server-side). We post once on
+  // entry, then sit on a "stitching…" panel until the response lands with the
+  // final MP4. No polling — assembly is one job, not N. On approve we POST
+  // /api/assembly/approve and advance to `eulogy_pdf` (Phase 8 placeholder).
+  // ---------------------------------------------------------------------------
+
+  const getAssemblyIdempotencyKey = useCallback(
+    (freshIntent: boolean): string => {
+      const now = Date.now();
+      const cur = assemblyIdemRef.current;
+      if (!freshIntent && cur && now - cur.createdAt < DEDUPE_WINDOW_MS) {
+        return cur.key;
+      }
+      const key = crypto.randomUUID();
+      assemblyIdemRef.current = { key, createdAt: now };
+      return key;
+    },
+    [],
+  );
+
+  const renderAssembly = useCallback(
+    async (freshIntent: boolean) => {
+      if (!state.data.session_id) return;
+      if (assemblyInFlightRef.current) return;
+      assemblyInFlightRef.current = true;
+      setAssemblyInFlight(true);
+
+      const idempotencyKey = getAssemblyIdempotencyKey(freshIntent);
+      const body: AssemblyRenderRequest = {
+        session_id: state.data.session_id,
+      };
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[builder] POST /api/assembly/render", body);
+      }
+      try {
+        const res = await fetch("/api/assembly/render", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Idempotency-Key": idempotencyKey,
+          },
+          body: JSON.stringify(body),
+        });
+        const json = (await res
+          .json()
+          .catch(() => null)) as AssemblyRenderResponse | null;
+        if (json && json.ok) {
+          dispatch({
+            type: "assembly_complete_event",
+            assetId: json.asset_id,
+            publicUrl: json.public_url,
+          });
+        } else if (process.env.NODE_ENV !== "production") {
+          console.warn("[builder] /api/assembly/render failed", res.status, json);
+        }
+      } catch (err) {
+        if (process.env.NODE_ENV !== "production") {
+          console.warn("[builder] /api/assembly/render network error", err);
+        }
+      } finally {
+        assemblyInFlightRef.current = false;
+        setAssemblyInFlight(false);
+      }
+    },
+    [getAssemblyIdempotencyKey, state.data.session_id],
+  );
+
+  const approveAssembly = useCallback(async () => {
+    const sessionId = state.data.session_id;
+    if (!sessionId) return;
+    setSubmitting(true);
+    const body: AssemblyApproveRequest = { session_id: sessionId };
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[builder] POST /api/assembly/approve", body);
+    }
+    try {
+      const res = await fetch("/api/assembly/approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const json = (await res
+        .json()
+        .catch(() => null)) as AssemblyApproveResponse | null;
+      if (json && json.ok) {
+        dispatch({ type: "assembly_approved" });
+        // Advance to Phase 8 placeholder so the URL reflects completion.
+        dispatch({ type: "goto", stage: "eulogy_pdf" });
+      } else if (res.status === 404) {
+        // Backend not up yet — advance optimistically.
+        dispatch({ type: "assembly_approved" });
+        dispatch({ type: "goto", stage: "eulogy_pdf" });
+      } else if (process.env.NODE_ENV !== "production") {
+        console.warn("[builder] /api/assembly/approve failed", res.status, json);
+      }
+    } catch (err) {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn("[builder] /api/assembly/approve network error", err);
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }, [state.data.session_id]);
+
+  // Auto-fire the assembly render when we land on assembly_render with no
+  // result yet. Mirrors the auto-render pattern from earlier stages; the
+  // latch ref guards against a transient re-mount double-firing.
+  useEffect(() => {
+    if (state.stage !== "assembly_render") return;
+    if (!state.data.session_id) return;
+    if (state.data.assembly_public_url) return;
+    if (assemblyStartedRef.current) return;
+    assemblyStartedRef.current = true;
+    void renderAssembly(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.stage, state.data.session_id, state.data.assembly_public_url]);
+
+  // Defensive snap-back: if the user deep-links to assembly_review with no
+  // URL yet (e.g. session-GET hasn't hydrated), bounce them back to render.
+  useEffect(() => {
+    if (
+      state.stage === "assembly_review" &&
+      !state.data.assembly_public_url
+    ) {
+      dispatch({ type: "goto", stage: "assembly_render" });
+    }
+  }, [state.stage, state.data.assembly_public_url]);
 
   // Auto-fire derive whenever we land on cinematography_render with no
   // briefs yet. Same auto-render pattern as Stage 2/3/5/5.6.
@@ -2264,13 +2649,173 @@ export default function BuilderClient({
       }
 
       case "cinematography_complete":
-        // Soft pause before Phase 7 entry — the video generation UI isn't
-        // wired yet, so we render a calm "next up" line. No CTA: Phase 7
-        // will own its own entry surface (mirrors the words/storyboard
-        // complete pattern).
+        // Soft pause between Stage 5.7 and Stage 6 (video render). The CTA
+        // fires `video_render_started`, which the reducer flips to
+        // `video_render`, which the kickoff effect picks up and POSTs to
+        // /api/video/render. Latch refs are cleared on every fresh-intent CTA.
         return (
-          <CinematographyHandoffPanel
+          <CinematographyToVideoPanel
             petName={petName}
+            onStart={() => {
+              videoRenderIdemRef.current = null;
+              videoRenderStartedRef.current = false;
+              dispatch({ type: "video_render_started" });
+            }}
+          />
+        );
+
+      // ----------------------------------------------------------------------
+      // Stage 6 — Video render progress.
+      //
+      // The grid renders one card per beat, reads from `state.data.video_clips`
+      // (whole-array replace on every poll). Failed clips offer a "Try again"
+      // pill which calls rerollVideoClip(beat_idx). The transition to
+      // assembly_render is driven by the reducer on `all_clips_done`.
+      // ----------------------------------------------------------------------
+      case "video_render": {
+        const beats = state.data.beat_sheet ?? [];
+        return (
+          <VideoRenderProgress
+            petName={petName}
+            clips={state.data.video_clips}
+            beats={beats}
+            storyboardFrames={state.data.storyboard_frames}
+            aspectRatio={state.data.aspect_ratio}
+            disabled={submitting}
+            rerollBeatIdx={videoRerollBeatIdx}
+            onRerollClip={(beatIdx) => {
+              void rerollVideoClip(beatIdx);
+            }}
+          />
+        );
+      }
+
+      // Reserved for a future "Review the clips before stitching" pause —
+      // currently unused in the happy path (we transition directly to
+      // assembly_render). Render the same grid as video_render so a deep-
+      // link land here doesn't crash.
+      case "video_review": {
+        const beats = state.data.beat_sheet ?? [];
+        return (
+          <VideoRenderProgress
+            petName={petName}
+            clips={state.data.video_clips}
+            beats={beats}
+            storyboardFrames={state.data.storyboard_frames}
+            aspectRatio={state.data.aspect_ratio}
+            disabled={submitting}
+            rerollBeatIdx={videoRerollBeatIdx}
+            onRerollClip={(beatIdx) => {
+              void rerollVideoClip(beatIdx);
+            }}
+          />
+        );
+      }
+
+      // ----------------------------------------------------------------------
+      // Stage 7 — Assembly render → review → approve.
+      // ----------------------------------------------------------------------
+      case "assembly_render":
+        return (
+          <AssemblyView
+            petName={petName}
+            mode="loading"
+            aspectRatio={state.data.aspect_ratio}
+            disabled
+            onAction={() => {}}
+          />
+        );
+
+      case "assembly_review": {
+        const videoUrl = state.data.assembly_public_url;
+        if (!videoUrl) {
+          return (
+            <AssemblyView
+              petName={petName}
+              mode="loading"
+              aspectRatio={state.data.aspect_ratio}
+              disabled
+              onAction={() => {}}
+            />
+          );
+        }
+        return (
+          <AssemblyView
+            petName={petName}
+            mode="review"
+            videoUrl={videoUrl}
+            aspectRatio={state.data.aspect_ratio}
+            disabled={submitting || assemblyInFlight}
+            onAction={(action: AssemblyAction) => {
+              if (action === "approve") {
+                void approveAssembly();
+                return;
+              }
+              if (action === "restitch") {
+                // "Re-stitch with changes" — bounce back to the Words editor
+                // so the user can adjust opening/closing/music/narration,
+                // then walk forward through the cinematography → video →
+                // assembly chain. The previously approved cinematography
+                // briefs and rendered clips stay in place; only the
+                // assembly itself re-runs once the user advances back here.
+                assemblyStartedRef.current = false;
+                assemblyIdemRef.current = null;
+                dispatch({
+                  type: "session_loaded",
+                  state: {
+                    stage: "words_editor",
+                    data: {
+                      ...state.data,
+                      assembly_asset_id: null,
+                      assembly_public_url: null,
+                    },
+                  },
+                });
+                return;
+              }
+              if (action === "reroll_clips") {
+                // "Re-render specific clips" — bounce back to the Stage 6
+                // progress grid so the user can tap "Try again" on any clip
+                // they want reworked. The latched flag stays true (we don't
+                // re-fire /api/video/render); the user is opting in to
+                // selective rerolls, not a full re-render.
+                assemblyStartedRef.current = false;
+                assemblyIdemRef.current = null;
+                dispatch({
+                  type: "session_loaded",
+                  state: {
+                    stage: "video_render",
+                    data: {
+                      ...state.data,
+                      assembly_asset_id: null,
+                      assembly_public_url: null,
+                    },
+                  },
+                });
+                return;
+              }
+            }}
+          />
+        );
+      }
+
+      case "assembly_complete":
+        return (
+          <AssemblyCompletePanel
+            petName={petName}
+            onStart={() => {
+              dispatch({ type: "goto", stage: "eulogy_pdf" });
+            }}
+          />
+        );
+
+      case "eulogy_pdf":
+        // Phase 8 placeholder — the eulogy PDF UI is not wired here. Render
+        // a quiet status panel so the URL has a landing spot.
+        return (
+          <AssemblyCompletePanel
+            petName={petName}
+            onStart={() => {}}
             isComplete
           />
         );
@@ -2663,6 +3208,65 @@ function CinematographyHandoffPanel({
       {isComplete ? (
         <p style={handoffPending}>The video render is coming next.</p>
       ) : null}
+    </section>
+  );
+}
+
+// Stage 5.7 → Stage 6 hand-off. "Cinematography locked, video next" with a
+// CTA that fires `video_render_started`. The kick-off effect picks that up
+// and POSTs /api/video/render; the poller takes over from there.
+function CinematographyToVideoPanel({
+  petName,
+  onStart,
+}: {
+  petName: string | null;
+  onStart: () => void;
+}) {
+  const headline = CINEMATOGRAPHY_COMPLETE.headline;
+  const body = substitutePetName(CINEMATOGRAPHY_COMPLETE.body, petName);
+  return (
+    <section
+      aria-label="Cinematography complete"
+      style={handoffSection}
+    >
+      <p style={handoffHeadline}>{headline}</p>
+      <p style={handoffBody}>{body}</p>
+      <div style={handoffCtaRow}>
+        <button type="button" onClick={onStart} style={handoffCtaButton}>
+          {CINEMATOGRAPHY_COMPLETE.start_button}
+        </button>
+      </div>
+    </section>
+  );
+}
+
+// Stage 7 → Stage 8 hand-off. "Tribute locked, eulogy next." `isComplete`
+// swaps the CTA for a quiet status line — Phase 8 (eulogy PDF) is not wired
+// here, so a user landing on `eulogy_pdf` sees a calm "coming next" line.
+function AssemblyCompletePanel({
+  petName,
+  onStart,
+  isComplete = false,
+}: {
+  petName: string | null;
+  onStart: () => void;
+  isComplete?: boolean;
+}) {
+  const headline = substitutePetName(ASSEMBLY_COMPLETE.headline, petName);
+  const body = ASSEMBLY_COMPLETE.body;
+  return (
+    <section aria-label="Assembly complete" style={handoffSection}>
+      <p style={handoffHeadline}>{headline}</p>
+      <p style={handoffBody}>{body}</p>
+      {isComplete ? (
+        <p style={handoffPending}>The eulogy PDF is coming next.</p>
+      ) : (
+        <div style={handoffCtaRow}>
+          <button type="button" onClick={onStart} style={handoffCtaButton}>
+            {ASSEMBLY_COMPLETE.start_button}
+          </button>
+        </div>
+      )}
     </section>
   );
 }
