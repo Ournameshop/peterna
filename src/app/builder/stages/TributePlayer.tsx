@@ -61,6 +61,10 @@ function buildSegments(
 export default function TributePlayer() {
   const { state } = useBuilder();
 
+  // Continuous audio bed in the preview: music bed when narration is off.
+  // Narration is generated only at export time and is not previewed here.
+  const activeBedUrl = state.words.narration === 'off' ? (state.musicBedUrl ?? null) : null;
+
   const petName = state.petName || 'them';
   const gender = state.gender ?? 'neutral';
   const ctx = { gender, petName };
@@ -100,6 +104,7 @@ export default function TributePlayer() {
   const [segIdx, setSegIdx] = useState(0);
   const [playing, setPlaying] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearTimer = () => {
@@ -170,6 +175,18 @@ export default function TributePlayer() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playing]);
 
+  // Sync the music bed audio with the player transport.
+  // The audio element is independent of segIdx — it runs continuously across all segments.
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (playing) {
+      audio.play().catch(() => {});
+    } else {
+      audio.pause();
+    }
+  }, [playing]);
+
   function handleRestart() {
     clearTimer();
     setSegIdx(0);
@@ -177,6 +194,10 @@ export default function TributePlayer() {
     if (videoRef.current) {
       videoRef.current.pause();
       videoRef.current.currentTime = 0;
+    }
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
     }
   }
 
@@ -217,6 +238,16 @@ export default function TributePlayer() {
         justifyContent: 'center',
       }}
     >
+      {/* Hidden continuous audio bed — plays across all segments, independent of segIdx */}
+      {activeBedUrl && (
+        // eslint-disable-next-line jsx-a11y/media-has-caption
+        <audio
+          ref={audioRef}
+          src={activeBedUrl}
+          loop
+          style={{ display: 'none' }}
+        />
+      )}
       {/* Frame */}
       <div
         style={{
@@ -273,7 +304,7 @@ export default function TributePlayer() {
           />
         )}
 
-        {/* Video segment */}
+        {/* Video segment — muted because the music bed is the sole audio source */}
         {seg && seg.kind === 'video' && (
           <video
             ref={videoRef}
@@ -281,7 +312,7 @@ export default function TributePlayer() {
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
             playsInline
             preload="auto"
-            muted={false}
+            muted
           />
         )}
 

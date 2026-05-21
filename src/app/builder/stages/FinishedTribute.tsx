@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Download } from 'lucide-react';
 import { PALETTE } from '../lib/palette';
 import { Serif, Sans, Eyebrow, PrimaryButton } from '../lib/primitives';
@@ -10,7 +10,7 @@ import type { StageProps } from './types';
 import type { BuilderState } from '../state';
 import { resolveText } from '@/lib/peternal-resolvers';
 import { downloadEulogyPdf } from '@/lib/peternal-eulogy-pdf';
-import { musicTracks } from '@/lib/peternal-library';
+import { musicTracks, themes } from '@/lib/peternal-library';
 import TributePlayer from './TributePlayer';
 
 // ---------------------------------------------------------------------------
@@ -53,6 +53,52 @@ export default function FinishedTribute(_props: StageProps) {
   const [downloadStatus, setDownloadStatus] = useState<DownloadStatus>('idle');
   const [downloadError, setDownloadError] = useState<string | null>(null);
 
+  // Single-fire ref guard — React StrictMode double-invokes effects.
+  const musicStartedRef = useRef(false);
+
+  useEffect(() => {
+    // Only generate a music bed when narration is off and we don't already have one.
+    if (state.words.narration !== 'off') return;
+    if (state.musicBedUrl) return;
+    if (musicStartedRef.current) return;
+    musicStartedRef.current = true;
+
+    const themeObj = themes.find((t) => t.id === state.theme);
+    const themeMood = themeObj ? themeObj.desc : 'gentle, peaceful, memorial';
+    const selectedTrack = musicTracks.find((t) => t.id === state.words.music);
+    const trackMood = selectedTrack ? `${selectedTrack.mood} — ${selectedTrack.description}` : 'warm and contemplative';
+    const artStyleDesc = state.style ? state.style.replace(/_/g, ' ') : 'cinematic';
+
+    const prompt =
+      `Gentle, instrumental, emotional memorial music bed for a pet tribute video. ` +
+      `Mood: ${themeMood}. Music character: ${trackMood}. Visual style: ${artStyleDesc}. ` +
+      `No vocals. Soft, continuous, ambient — suitable as a background underscore for a 2-4 minute tribute.`;
+
+    // Duration: total tribute length in seconds.
+    const captionCardCount = Object.keys(state.captionCardImages).length;
+    const cardsSeconds = 6 + captionCardCount * 2.5;
+    const totalSeconds = Math.ceil(state.targetMinutes * 60 + cardsSeconds + captionCardCount * 2.5);
+
+    (async () => {
+      try {
+        const res = await fetch('/api/video/music', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt, durationSeconds: totalSeconds }),
+        });
+        if (res.ok) {
+          const json = (await res.json()) as { url?: string; durationMs?: number };
+          if (json.url) {
+            update({ musicBedUrl: json.url, musicBedDurationMs: json.durationMs ?? null });
+          }
+        }
+      } catch {
+        // Music failure must never block the tribute — musicBedUrl stays null.
+      }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const petName = state.petName || 'them';
 
   const eulogyText = composeEulogy(state);
@@ -91,9 +137,8 @@ export default function FinishedTribute(_props: StageProps) {
       );
       const perBeatMs = perBeatSeconds * 1000;
 
-      // Resolve music URL (MP3 assets must be in public/music/ and wired to fileUrl).
-      const selectedTrack = musicTracks.find((t) => t.id === state.words.music);
-      const musicUrl = selectedTrack?.fileUrl ?? null;
+      // Music bed: use the generated musicBedUrl (generated on mount by the useEffect above).
+      const musicUrl = state.musicBedUrl ?? null;
 
       // Build narration script when narration is on.
       let narrationUrl: string | null = null;
@@ -141,6 +186,7 @@ export default function FinishedTribute(_props: StageProps) {
           // narration takes priority over music (XOR)
           narrationUrl: narrationUrl || null,
           musicUrl: narrationUrl ? null : (musicUrl || null),
+          musicDurationMs: narrationUrl ? null : (state.musicBedDurationMs || null),
         }),
       });
       const json = await res.json() as { url?: string; error?: string };

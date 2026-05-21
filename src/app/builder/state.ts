@@ -119,6 +119,8 @@ export interface BuilderState {
   beatVideos: Record<number, string>;        // beat index -> Seedance video URL
   captionCardImages: Record<number, string>; // beat index -> gpt-image-2 caption-card URL
   assembledVideoUrl: string | null;
+  musicBedUrl: string | null;
+  musicBedDurationMs: number | null;
   words: WordsState;
   cardText: { opening: string; closing: string };
   cardPreviewImages: { opening: string | null; closing: string | null; caption: string | null };
@@ -170,6 +172,8 @@ export const initialState: BuilderState = {
   beatVideos: {},
   captionCardImages: {},
   assembledVideoUrl: null,
+  musicBedUrl: null,
+  musicBedDurationMs: null,
   words: {
     opening: 'simple',
     openingCustom: ['', ''],
@@ -205,6 +209,8 @@ export function resetDownstream(state: BuilderState, fromStage: StepId): Partial
         beatVideos: {},
         captionCardImages: {},
         assembledVideoUrl: null,
+        musicBedUrl: null,
+        musicBedDurationMs: null,
         cinematographyBriefs: [],
         cinematographyApproved: false,
       };
@@ -221,6 +227,8 @@ export function resetDownstream(state: BuilderState, fromStage: StepId): Partial
         beatVideos: {},
         captionCardImages: {},
         assembledVideoUrl: null,
+        musicBedUrl: null,
+        musicBedDurationMs: null,
         cinematographyBriefs: [],
         cinematographyApproved: false,
         ...(fromStage === 'style' ? { cardPreviewApproved: false, typographyLocked: null, cardPreviewImages: { opening: null, closing: null, caption: null } } : {}),
@@ -232,6 +240,8 @@ export function resetDownstream(state: BuilderState, fromStage: StepId): Partial
         beatVideos: {},
         captionCardImages: {},
         assembledVideoUrl: null,
+        musicBedUrl: null,
+        musicBedDurationMs: null,
         cinematographyBriefs: [],
         cinematographyApproved: false,
       };

@@ -38,14 +38,19 @@ export async function POST(req: Request) {
   }
 
   try {
-    const input: Record<string, unknown> = { text };
-    if (body.voice) input.voice_id = body.voice;
+    // MinimaxSpeech02HdInput has no top-level voice_id — the correct field is
+    // voice_setting.voice_id (VoiceSetting object). The previous code was silently
+    // ignored by the API. voice_id values are Minimax preset strings e.g. "Wise_Woman".
+    const input: Parameters<typeof fal.subscribe<"fal-ai/minimax/speech-02-hd">>[1]["input"] = {
+      text,
+      ...(body.voice ? { voice_setting: { voice_id: body.voice } } : {}),
+    };
 
     const result = await fal.subscribe("fal-ai/minimax/speech-02-hd", {
       input,
       logs: false,
     });
-    const url = (result?.data as SpeechOutput)?.audio?.url;
+    const url = (result?.data as unknown as SpeechOutput)?.audio?.url;
     if (!url) {
       return NextResponse.json({ error: "no audio url in fal response" }, { status: 502 });
     }

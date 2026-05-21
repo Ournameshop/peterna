@@ -108,7 +108,9 @@ export async function POST(req: Request) {
     duration: body.duration || "5",
     resolution: body.resolution || "720p",
     aspect_ratio: body.aspectRatio || "16:9",
-    generate_audio: true,
+    // Muted: the music bed (or narration) is the sole audio track in the final tribute.
+    // Keeping clip audio would fight the continuous bed and cause choppy cuts.
+    generate_audio: false,
   };
   if (body.imageUrls?.length) input.image_urls = body.imageUrls.slice(0, 9);
   if (body.videoUrls?.length) input.video_urls = body.videoUrls.slice(0, 3);
