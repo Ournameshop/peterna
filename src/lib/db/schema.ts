@@ -53,6 +53,12 @@ export const sessions = pgTable(
     // Stage 4 — beat sheet (array of BeatWire). Null until /api/beat-sheet/generate runs.
     beatSheet: jsonb('beat_sheet'),
     beatSheetApprovedAt: timestamp('beat_sheet_approved_at', { withTimezone: true }),
+
+    // Stage 5 — storyboard. Length-N array of asset_ids (one per beat). Each entry
+    // points at an `assets` row with `kind='storyboard_frame'` and metadata.beat_idx.
+    // Replaced wholesale when a beat is rerolled (entry at beat_idx swaps).
+    storyboardFrameAssetIds: text('storyboard_frame_asset_ids').array(),
+    storyboardApprovedAt: timestamp('storyboard_approved_at', { withTimezone: true }),
   },
   (table) => [
     index('sessions_resume_token_idx').on(table.resumeToken),

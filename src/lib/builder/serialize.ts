@@ -57,5 +57,13 @@ export function serializeSession(s: Session): SessionWire {
         : s.beatSheetApprovedAt
           ? String(s.beatSheetApprovedAt)
           : null,
+
+    storyboard_frame_asset_ids: s.storyboardFrameAssetIds ?? null,
+    storyboard_approved_at:
+      s.storyboardApprovedAt instanceof Date
+        ? s.storyboardApprovedAt.toISOString()
+        : s.storyboardApprovedAt
+          ? String(s.storyboardApprovedAt)
+          : null,
   };
 }

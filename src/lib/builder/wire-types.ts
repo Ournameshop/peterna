@@ -94,6 +94,10 @@ export type SessionWire = {
   // Null until Stage 4 starts; replaced wholesale on user edits.
   beat_sheet: BeatWire[] | null;
   beat_sheet_approved_at: string | null;  // ISO timestamp; null until approve
+
+  // Phase 4b — storyboard frame asset IDs (length N, one per beat).
+  storyboard_frame_asset_ids: string[] | null;
+  storyboard_approved_at: string | null;
 };
 
 // -----------------------------------------------------------------------------
@@ -341,6 +345,70 @@ export type BeatSheetApproveRequest = {
 export type BeatSheetApproveResponse =
   | ApiOk<{ session: SessionWire }>
   | ApiErr<'invalid-input' | 'session-not-found' | 'cookie-mismatch' | 'no-beats'>;
+
+// -----------------------------------------------------------------------------
+// Phase 4b — Storyboard (Stage 5) wire types.
+// -----------------------------------------------------------------------------
+
+/** Single frame in the storyboard — one per beat. */
+export type StoryboardFrameWire = {
+  beat_idx: number;
+  asset_id: string;
+  public_url: string;
+};
+
+// POST /api/storyboard/render — generates ALL N frames in parallel (or batched).
+// Idempotency-Key honored. Per-session 1-in-flight + budget cap.
+export type StoryboardRenderRequest = {
+  session_id: string;
+};
+
+export type StoryboardRenderResponse =
+  | ApiOk<{ frames: StoryboardFrameWire[] }>
+  | ApiErr<
+      | 'invalid-input'
+      | 'session-not-found'
+      | 'cookie-mismatch'
+      | 'no-session'
+      | 'render-in-flight'
+      | 'session-budget-exceeded'
+      | 'render_failed'
+      | 'content-policy-violation'
+      | 'no-beats'
+      | 'beat-sheet-not-approved'
+    >;
+
+// POST /api/storyboard/reroll — re-renders a single frame at beat_idx with
+// optional user refinements appended to the prompt.
+export type StoryboardRerollRequest = {
+  session_id: string;
+  beat_idx: number;
+  refinements?: string[];
+};
+
+export type StoryboardRerollResponse =
+  | ApiOk<StoryboardFrameWire>
+  | ApiErr<
+      | 'invalid-input'
+      | 'session-not-found'
+      | 'cookie-mismatch'
+      | 'no-session'
+      | 'render-in-flight'
+      | 'session-budget-exceeded'
+      | 'render_failed'
+      | 'content-policy-violation'
+      | 'beat-not-found'
+    >;
+
+// POST /api/storyboard/approve — locks the N-frame set and advances stage to
+// 'words_render' (Phase 5 entry).
+export type StoryboardApproveRequest = {
+  session_id: string;
+};
+
+export type StoryboardApproveResponse =
+  | ApiOk<{ session: SessionWire }>
+  | ApiErr<'invalid-input' | 'session-not-found' | 'cookie-mismatch' | 'incomplete-storyboard'>;
 
 // -----------------------------------------------------------------------------
 // Helper: PhotoAsset re-export so frontend imports come from one place.
