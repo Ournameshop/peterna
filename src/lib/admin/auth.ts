@@ -69,7 +69,8 @@ export type AdminAuthResult = AdminAuthOk | AdminAuthErr;
  * but is part of the signature so we can later support bearer-token-style
  * service auth without churning every call site.
  */
-export async function requireAdmin(_req: Request): Promise<AdminAuthResult> {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export async function requireAdmin(req: Request): Promise<AdminAuthResult> {
   const userId = await readUserIdFromCookie();
   if (!userId) return { ok: false, error: 'unauthenticated' };
 
