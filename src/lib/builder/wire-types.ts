@@ -234,6 +234,50 @@ export type CharacterSheetApproveResponse =
     >;
 
 // -----------------------------------------------------------------------------
+// Phase 3 — Format / Theme / Style (Stage 3) wire types.
+// -----------------------------------------------------------------------------
+
+// POST /api/preview/render
+// Renders ONE combination-preview frame showing the user's pet in the chosen
+// format+theme+style. Requires character_sheet_asset_id, format_id, theme_id,
+// style_id, aspect_ratio all set on the session row.
+export type PreviewRenderRequest = {
+  session_id: string;
+};
+
+export type PreviewRenderResponse =
+  | ApiOk<{ render_id: string; asset_id: string; public_url: string }>
+  | ApiErr<
+      | 'invalid-input'
+      | 'session-not-found'
+      | 'cookie-mismatch'
+      | 'no-session'
+      | 'render-in-flight'
+      | 'session-budget-exceeded'
+      | 'render_failed'
+      | 'content-policy-violation'
+      | 'character-sheet-not-locked'
+      | 'incomplete-stage-3'
+    >;
+
+// POST /api/preview/approve
+// Locks combination_preview_asset_id and marks Stage 3 complete.
+export type PreviewApproveRequest = {
+  session_id: string;
+  asset_id: string;
+};
+
+export type PreviewApproveResponse =
+  | ApiOk<{ session: SessionWire }>
+  | ApiErr<
+      | 'invalid-input'
+      | 'session-not-found'
+      | 'cookie-mismatch'
+      | 'asset-not-found'
+      | 'asset-wrong-kind'
+    >;
+
+// -----------------------------------------------------------------------------
 // Helper: PhotoAsset re-export so frontend imports come from one place.
 // -----------------------------------------------------------------------------
 
