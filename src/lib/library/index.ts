@@ -1,9 +1,13 @@
 import { ART_STYLES } from './art-styles';
+import { CLOSING_ARCHETYPES } from './closing-archetypes';
 import { COPY } from './copy';
 import { CURATORS_PICKS } from './curators-picks';
-import { DEFAULTS } from './defaults';
+import { DEFAULTS, DEFAULT_WORDS } from './defaults';
 import { FAVORITE_THINGS, MEMORY_PROMPTS, PERSONALITY_TRAITS } from './intake';
 import { FORMATS } from './formats';
+import { MUSIC_TRACKS } from './music-tracks';
+import { NARRATION_VOICES } from './narration-voices';
+import { OPENING_ARCHETYPES } from './opening-archetypes';
 import { GENDER_OPTIONS, PRONOUNS_AND_VOCATIVES } from './pronouns';
 import { RELATIONSHIPS } from './relationships';
 import { THEMES, THEME_CATEGORIES } from './themes';
@@ -11,13 +15,18 @@ import { PET_PROFILE_SCHEMA, VISION_PASS_PROMPT } from './vision-pass';
 
 export {
   ART_STYLES,
+  CLOSING_ARCHETYPES,
   COPY,
   CURATORS_PICKS,
   DEFAULTS,
+  DEFAULT_WORDS,
   FAVORITE_THINGS,
   FORMATS,
   GENDER_OPTIONS,
   MEMORY_PROMPTS,
+  MUSIC_TRACKS,
+  NARRATION_VOICES,
+  OPENING_ARCHETYPES,
   PERSONALITY_TRAITS,
   PET_PROFILE_SCHEMA,
   PRONOUNS_AND_VOCATIVES,
@@ -65,6 +74,27 @@ function checkMinimums(): Check[] {
       name: 'curators_picks',
       ok: CURATORS_PICKS.length >= 4,
       detail: `expected >=4, got ${CURATORS_PICKS.length}`,
+    },
+    // Phase 5 — Stage 5.5 / 5.6 library minimums (spec line 311-316).
+    {
+      name: 'opening_archetypes',
+      ok: OPENING_ARCHETYPES.length >= 7,
+      detail: `expected >=7, got ${OPENING_ARCHETYPES.length}`,
+    },
+    {
+      name: 'closing_archetypes',
+      ok: CLOSING_ARCHETYPES.length >= 7,
+      detail: `expected >=7, got ${CLOSING_ARCHETYPES.length}`,
+    },
+    {
+      name: 'music_tracks',
+      ok: MUSIC_TRACKS.length >= 8,
+      detail: `expected >=8, got ${MUSIC_TRACKS.length}`,
+    },
+    {
+      name: 'narration_voices',
+      ok: NARRATION_VOICES.length >= 3,
+      detail: `expected >=3, got ${NARRATION_VOICES.length}`,
     },
   ];
 }
