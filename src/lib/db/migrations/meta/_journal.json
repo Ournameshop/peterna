@@ -29,6 +29,13 @@
       "when": 1779390012911,
       "tag": "0003_dizzy_tusk",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1779391210809,
+      "tag": "0004_tricky_nitro",
+      "breakpoints": true
     }
   ]
 }

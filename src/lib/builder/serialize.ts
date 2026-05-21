@@ -1,7 +1,13 @@
 import 'server-only';
 
 import type { Session } from '@/lib/db/schema';
-import type { BeatWire, SessionWire } from '@/lib/builder/wire-types';
+import type {
+  BeatWire,
+  DpStyleOverlayId,
+  FrameVisionWire,
+  MotionBriefWire,
+  SessionWire,
+} from '@/lib/builder/wire-types';
 import type { StageTag } from '@/lib/builder/state';
 import type { InferredProfile } from '@/lib/builder/state';
 
@@ -77,6 +83,19 @@ export function serializeSession(s: Session): SessionWire {
         ? s.cardPreviewApprovedAt.toISOString()
         : s.cardPreviewApprovedAt
           ? String(s.cardPreviewApprovedAt)
+          : null,
+
+    cinematography_frame_vision:
+      (s.cinematographyFrameVision as FrameVisionWire[] | null) ?? null,
+    cinematography_briefs:
+      (s.cinematographyBriefs as MotionBriefWire[] | null) ?? null,
+    cinematography_dp_overlay:
+      (s.cinematographyDpOverlay as DpStyleOverlayId | null) ?? null,
+    cinematography_approved_at:
+      s.cinematographyApprovedAt instanceof Date
+        ? s.cinematographyApprovedAt.toISOString()
+        : s.cinematographyApprovedAt
+          ? String(s.cinematographyApprovedAt)
           : null,
   };
 }

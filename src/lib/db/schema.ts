@@ -73,6 +73,14 @@ export const sessions = pgTable(
     // Array length 3, indexed: 0=opening, 1=closing, 2=in_scene_caption.
     cardPreviewAssetIds: text('card_preview_asset_ids').array(),
     cardPreviewApprovedAt: timestamp('card_preview_approved_at', { withTimezone: true }),
+
+    // Stage 5.7 — Cinematography Engine (v2.0). Derived motion briefs per beat
+    // (array of MotionBriefWire) + per-frame vision pass results + optional DP
+    // style overlay. Locks before any video render fires.
+    cinematographyFrameVision: jsonb('cinematography_frame_vision'),  // array of FrameVisionWire
+    cinematographyBriefs: jsonb('cinematography_briefs'),             // array of MotionBriefWire
+    cinematographyDpOverlay: text('cinematography_dp_overlay'),        // dp_style id or null
+    cinematographyApprovedAt: timestamp('cinematography_approved_at', { withTimezone: true }),
   },
   (table) => [
     index('sessions_resume_token_idx').on(table.resumeToken),

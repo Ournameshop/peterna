@@ -107,6 +107,12 @@ export type SessionWire = {
   narration_text: string | null;
   card_preview_asset_ids: string[] | null;  // length 3: [opening, closing, in_scene]
   card_preview_approved_at: string | null;
+
+  // Phase 6 — Cinematography Engine.
+  cinematography_frame_vision: FrameVisionWire[] | null;
+  cinematography_briefs: MotionBriefWire[] | null;
+  cinematography_dp_overlay: DpStyleOverlayId | null;
+  cinematography_approved_at: string | null;
 };
 
 // -----------------------------------------------------------------------------
@@ -490,6 +496,119 @@ export type CardPreviewApproveRequest = {
 export type CardPreviewApproveResponse =
   | ApiOk<{ session: SessionWire }>
   | ApiErr<'invalid-input' | 'session-not-found' | 'cookie-mismatch' | 'incomplete-cards'>;
+
+// -----------------------------------------------------------------------------
+// Phase 6 — Cinematography Engine (Stage 5.7, v2.0) wire types.
+// -----------------------------------------------------------------------------
+
+/** Per-frame vision pass output — Part 1 of the engine. */
+export type FrameVisionWire = {
+  beat_idx: number;
+  subject_energy: 'still' | 'low' | 'medium' | 'high';
+  subject_pose: 'lying' | 'sitting' | 'standing' | 'walking' | 'running' | 'mid_leap' | 'closed_eyes';
+  framing: 'extreme_close' | 'close' | 'medium' | 'wide' | 'extreme_wide';
+  environmental_motion: 'still' | 'wind' | 'water' | 'particles' | 'sky' | 'dappled_light';
+  depth_layers: 1 | 2 | 3;
+  dominant_palette_temperature: 'warm' | 'neutral' | 'cool';
+};
+
+/** Per-beat motion brief — Part 2 of the engine. */
+export type MotionBriefWire = {
+  beat_idx: number;
+  lens_mm: 24 | 35 | 50 | 85 | 105;
+  lens_character: 'wide_establishing' | 'standard' | 'portrait' | 'compression';
+  camera_move:
+    | 'locked_off'
+    | 'slow_push'
+    | 'slow_pull'
+    | 'slow_rise'
+    | 'slow_fall'
+    | 'slow_pan_L'
+    | 'slow_pan_R'
+    | 'slow_orbit'
+    | 'parallax_dolly'
+    | 'handheld_float'
+    | 'dreamy_drift';
+  move_intensity: 'barely_perceptible' | 'gentle' | 'pronounced';
+  subject_motion: 'locked' | 'breath_only' | 'loop_idle' | 'loop_action' | 'one_shot_action';
+  lighting_motion:
+    | 'static'
+    | 'drifting_sunbeam'
+    | 'leaf_dapple_breeze'
+    | 'candle_flicker'
+    | 'dust_motes'
+    | 'rim_light_pulse';
+  dof_behavior:
+    | 'locked_shallow'
+    | 'locked_deep'
+    | 'rack_to_subject'
+    | 'rack_to_environment'
+    | 'rack_to_caption';
+  shot_structure: 'single_sustained' | 'two_shot_cut' | 'three_shot_montage';
+  ambient_audio:
+    | 'birdsong'
+    | 'wind_grass'
+    | 'hearth_crackle'
+    | 'soft_rain'
+    | 'water_lapping'
+    | 'silence'
+    | 'breath_only';
+  audio_intensity: 'bed_only' | 'present' | 'forward';
+};
+
+/** DP style overlay options (Part 4 of the engine). */
+export type DpStyleOverlayId =
+  | 'deakins_minimalist'
+  | 'lubezki_natural'
+  | 'young_intimate'
+  | 'khondji_painterly'
+  | 'wong_kar_wai_dreamy'
+  | 'none';
+
+// POST /api/cinematography/derive — runs vision-pass-per-frame (Part 1),
+// per-beat brief derivation (Part 2), consistency pass (Part 3), optional DP
+// overlay (Part 4). Stores both arrays on the session. This is the expensive
+// step — N vision calls.
+export type CinematographyDeriveRequest = {
+  session_id: string;
+  dp_style_overlay?: DpStyleOverlayId;
+};
+
+export type CinematographyDeriveResponse =
+  | ApiOk<{
+      frame_vision: FrameVisionWire[];
+      briefs: MotionBriefWire[];
+    }>
+  | ApiErr<
+      | 'invalid-input'
+      | 'session-not-found'
+      | 'cookie-mismatch'
+      | 'no-session'
+      | 'render-in-flight'
+      | 'session-budget-exceeded'
+      | 'render_failed'
+      | 'storyboard-not-approved'
+    >;
+
+// PATCH /api/cinematography — user overrides individual brief fields.
+export type CinematographyUpdateRequest = {
+  session_id: string;
+  beat_idx: number;
+  field_overrides: Partial<Omit<MotionBriefWire, 'beat_idx'>>;
+};
+
+export type CinematographyUpdateResponse =
+  | ApiOk<{ session: SessionWire }>
+  | ApiErr<'invalid-input' | 'session-not-found' | 'cookie-mismatch' | 'beat-not-found'>;
+
+// POST /api/cinematography/approve — locks the briefs and advances to Phase 7.
+export type CinematographyApproveRequest = {
+  session_id: string;
+};
+
+export type CinematographyApproveResponse =
+  | ApiOk<{ session: SessionWire }>
+  | ApiErr<'invalid-input' | 'session-not-found' | 'cookie-mismatch' | 'no-briefs'>;
 
 // -----------------------------------------------------------------------------
 // Helper: PhotoAsset re-export so frontend imports come from one place.
