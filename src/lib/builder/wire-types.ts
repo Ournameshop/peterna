@@ -157,6 +157,15 @@ export type SessionPatchBody = Partial<{
   music_track_id: string | null;
   narration_voice_id: string | null;
   narration_text: string | null;
+
+  // Phase 6 — Stage 5.7. The DP-style overlay id is the only cinematography
+  // field a client may PATCH directly; `cinematography_briefs` and
+  // `cinematography_frame_vision` are written exclusively by the
+  // /api/cinematography routes (and the per-brief override PATCH at
+  // /api/cinematography). This field is here so an FE that wants to record
+  // "user chose Lubezki" before re-deriving briefs can persist that choice
+  // independently of the derive call.
+  cinematography_dp_overlay: DpStyleOverlayId | null;
 }>;
 
 // -----------------------------------------------------------------------------
