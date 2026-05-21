@@ -1,17 +1,18 @@
 // POST /api/video/music
-// Generates an instrumental music bed for the tribute using fal-ai/elevenlabs/music.
-// The ElevenLabs music model supports up to 600,000ms (10 min), so no looping is needed
-// server-side for a 2-4 minute tribute. Looping in the compose route handles edge cases.
+// Generates an instrumental music bed for the tribute.
+// PRIMARY: Suno (sunoapi.org) — instrumental, no vocals.
+// FALLBACK: fal-ai/elevenlabs/music — used when SUNO_API_KEY is absent or Suno fails.
 //
 // Body: { prompt: string, durationSeconds?: number }
 // Response: { url: string, durationMs: number }
 
 import { NextResponse } from "next/server";
 import { fal } from "@/lib/fal";
+import { sunoGenerateInstrumental } from "@/lib/suno";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 120;
+export const maxDuration = 300; // Suno polling can take up to ~3 min
 
 interface ReqBody {
   prompt?: string;
@@ -23,10 +24,6 @@ interface MusicOutput {
 }
 
 export async function POST(req: Request) {
-  if (!process.env.FAL_KEY) {
-    return NextResponse.json({ error: "FAL_KEY not configured" }, { status: 500 });
-  }
-
   let body: ReqBody;
   try {
     body = (await req.json()) as ReqBody;
@@ -39,8 +36,29 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "prompt is required" }, { status: 400 });
   }
 
+  const durationSeconds = body.durationSeconds ?? 180;
+
+  // PRIMARY: Suno
+  if (process.env.SUNO_API_KEY) {
+    try {
+      const result = await sunoGenerateInstrumental(prompt, durationSeconds);
+      return NextResponse.json(result);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("[music] Suno failed, falling back to fal:", err);
+    }
+  }
+
+  // FALLBACK: fal-ai/elevenlabs/music
+  if (!process.env.FAL_KEY) {
+    return NextResponse.json(
+      { error: "No music provider configured (SUNO_API_KEY and FAL_KEY both missing)" },
+      { status: 500 }
+    );
+  }
+
   // Clamp to ElevenLabs music model limits: 3,000ms–600,000ms.
-  const requestedMs = Math.round((body.durationSeconds ?? 180) * 1000);
+  const requestedMs = Math.round(durationSeconds * 1000);
   const music_length_ms = Math.min(600000, Math.max(3000, requestedMs));
 
   try {

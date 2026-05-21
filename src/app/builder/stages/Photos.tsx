@@ -7,6 +7,7 @@ import { Serif, Sans, Eyebrow, PrimaryButton, StageShell } from '../lib/primitiv
 import { useBuilder } from '../state';
 import type { PetPhoto } from '../state';
 import type { StageProps } from './types';
+import { normalizeImageUrl } from '../lib/generation';
 
 export default function Photos({ onNext, onBack }: StageProps) {
   const { state, update } = useBuilder();
@@ -38,10 +39,12 @@ export default function Photos({ onNext, onBack }: StageProps) {
 
   const addUrl = () => {
     if (!url.trim()) return;
+    // Normalize Google Drive / Dropbox share links to a directly-fetchable
+    // image URL so the preview and the downstream AI fetches both work.
     const photo: PetPhoto = {
       id: `url-${Date.now()}`,
-      name: url.split('/').pop() || 'linked-image',
-      url: url.trim(),
+      name: 'Linked image',
+      url: normalizeImageUrl(url.trim()),
     };
     update({ petPhotos: [...state.petPhotos, photo] });
     setUrl('');
@@ -116,6 +119,10 @@ export default function Photos({ onNext, onBack }: StageProps) {
         </div>
         <PrimaryButton onClick={addUrl} secondary>Add</PrimaryButton>
       </div>
+
+      <Sans style={{ fontSize: 12, color: PALETTE.mute, marginTop: 8, fontStyle: 'italic' }}>
+        Google Drive &amp; Dropbox links must be shared so anyone with the link can view.
+      </Sans>
 
       {state.petPhotos.length > 0 && (
         <div style={{ marginTop: 32 }}>

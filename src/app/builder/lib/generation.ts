@@ -32,10 +32,38 @@ function splitDataUrl(dataUrl: string): { data: string; mimeType: string } {
   return { data: dataUrl.slice(comma + 1), mimeType: header.split(';')[0] || 'image/jpeg' };
 }
 
-// A photo becomes either a data: URI (uploaded file) or its pasted URL.
+// Converts cloud-storage "share" links (Google Drive, Dropbox) into direct,
+// fetchable image URLs. A Drive/Dropbox share link points at an HTML preview
+// page, not the image bytes — both <img> and the server-side AI fetches fail
+// on it. Idempotent: an already-direct URL is returned unchanged.
+export function normalizeImageUrl(raw: string): string {
+  const url = raw.trim();
+
+  // Google Drive — pull the file ID out of any common link shape:
+  //   /file/d/FILE_ID/view   ·   ?id=FILE_ID   ·   uc?id=FILE_ID
+  if (/drive\.google\.com/i.test(url)) {
+    const byPath = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+    const byQuery = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+    const id = byPath?.[1] ?? byQuery?.[1] ?? '';
+    // The thumbnail endpoint reliably serves the actual image (works in <img>
+    // and for server-side fetches); sz=w2000 keeps it high-res for AI reference.
+    if (id) return `https://drive.google.com/thumbnail?id=${id}&sz=w2000`;
+  }
+
+  // Dropbox — share links serve an HTML preview unless forced to raw bytes.
+  if (/dropbox\.com/i.test(url)) {
+    if (/[?&]dl=0/.test(url)) return url.replace(/([?&])dl=0/, '$1raw=1');
+    if (!/[?&](raw|dl)=/.test(url)) return url + (url.includes('?') ? '&' : '?') + 'raw=1';
+  }
+
+  return url;
+}
+
+// A photo becomes either a data: URI (uploaded file) or its pasted URL,
+// with cloud-share links normalized to a directly-fetchable image URL.
 async function photoToImageUrl(photo: PetPhoto): Promise<string | null> {
   if (photo.file) return fileToDataUrl(photo.file);
-  if (photo.url) return photo.url;
+  if (photo.url) return normalizeImageUrl(photo.url);
   return null;
 }
 
@@ -135,7 +163,7 @@ export async function analyzePetPhoto(photo: PetPhoto): Promise<PetProfile | nul
       payload.imageBase64 = data;
       payload.imageMimeType = mimeType;
     } else if (photo.url) {
-      payload.imageUrl = photo.url;
+      payload.imageUrl = normalizeImageUrl(photo.url);
     } else {
       return null;
     }

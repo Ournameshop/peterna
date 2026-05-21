@@ -99,11 +99,18 @@ jobs:
             "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:${APP_DIR}/"
 
       - name: Install + (re)start PM2
+        env:
+          SUNO_API_KEY: ${{ secrets.SUNO_API_KEY }}
+          FAL_KEY: ${{ secrets.FAL_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no \
             "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}" bash -s <<EOF
           set -e
           export PATH="\$HOME/.nvm/versions/node/\$(ls \$HOME/.nvm/versions/node 2>/dev/null | tail -n1)/bin:\$PATH:/usr/local/bin:/usr/bin"
+          export SUNO_API_KEY="${SUNO_API_KEY}"
+          export FAL_KEY="${FAL_KEY}"
+          export GEMINI_API_KEY="${GEMINI_API_KEY}"
           cd "${APP_DIR}"
           npm ci --omit=dev
           if pm2 describe "${APP_NAME}" >/dev/null 2>&1; then

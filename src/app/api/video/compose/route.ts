@@ -1,7 +1,23 @@
 // POST /api/video/compose
 // Assembles the full tribute timeline — opening/closing card images, per-beat caption
 // card images, beat videos, and an optional audio track — into a single video using
-// fal-ai/ffmpeg-api/compose.
+// a single server-side ffmpeg concat filter command that re-encodes all inputs to
+// uniform parameters. This handles heterogeneous resolutions/fps/codecs robustly.
+//
+// REQUIRES ffmpeg on the host: apt-get install -y ffmpeg
+// If ffmpeg is absent or exits non-zero, the route returns 502 — no silent degradation.
+//
+// Flow:
+//   1. Build ordered segment list (openingCard → [captionCard → beatVideo]* → closingCard)
+//   2. Download all segment files + audio to os.tmpdir()
+//   3. Build ONE ffmpeg command with a filter_complex that:
+//      - Scales/pads every input to the target canvas (W×H, 30fps, yuv420p)
+//      - Concatenates all visual inputs with concat filter
+//      - Maps optional audio (narration XOR music), re-encodes to aac 192k
+//   4. Upload out.mp4 to fal.storage, return { url }
+//   5. Clean ALL temp files in finally block
+//
+// Segment order: openingCard → [captionCard → beatVideo]* → closingCard
 //
 // Body: {
 //   openingCardUrl: string | null,
@@ -10,13 +26,17 @@
 //   musicUrl?: string | null,
 //   narrationUrl?: string | null,
 //   aspectRatio: "9:16" | "16:9" | "1:1",
-//   perBeatMs: number,
-//   cardMs?: number,        // default 3000 — duration per opening/closing card
-//   captionMs?: number,     // default 2500 — duration per caption card image
+//   perBeatMs?: number,   // accepted for API compatibility but unused — beat clips play full length
+//   cardMs?: number,      // default 3000 — image display duration (ms)
+//   captionMs?: number,   // default 2500 — caption card display duration (ms)
 // }
 // Response: { url: string }
 
 import { NextResponse } from "next/server";
+import os from "os";
+import path from "path";
+import fs from "fs";
+import { spawn } from "child_process";
 import { fal } from "@/lib/fal";
 
 export const runtime = "nodejs";
@@ -35,15 +55,60 @@ interface ReqBody {
   beats?: BeatEntry[];
   musicUrl?: string | null;
   narrationUrl?: string | null;
-  musicDurationMs?: number | null;
   aspectRatio?: "9:16" | "16:9" | "1:1";
-  perBeatMs?: number;
+  perBeatMs?: number; // unused — beat clips play their full intrinsic length
   cardMs?: number;
   captionMs?: number;
 }
 
-interface FalComposeOutput {
-  video: { url: string };
+interface Segment {
+  kind: "image" | "video";
+  url: string;
+  durationSec?: number; // only for images
+}
+
+// Accepts only https URLs.
+function validateStorageUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+async function downloadToTmp(url: string, filename: string): Promise<string> {
+  const dest = path.join(os.tmpdir(), filename);
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`download failed: ${url} (${res.status})`);
+  const buf = Buffer.from(await res.arrayBuffer());
+  fs.writeFileSync(dest, buf);
+  return dest;
+}
+
+function runFfmpeg(args: string[]): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const proc = spawn("ffmpeg", args, { stdio: "pipe" });
+    let stderr = "";
+    proc.stderr.on("data", (d: Buffer) => { stderr += d.toString(); });
+    proc.on("close", (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`ffmpeg exited ${code}: ${stderr.slice(-600)}`));
+    });
+    proc.on("error", (err) => {
+      if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+        reject(new Error("ffmpeg not available on server — install with: apt-get install -y ffmpeg"));
+      } else {
+        reject(new Error(`ffmpeg spawn failed: ${err.message}`));
+      }
+    });
+  });
+}
+
+function canvasForAspectRatio(ar: string): { W: number; H: number } {
+  if (ar === "16:9") return { W: 1280, H: 720 };
+  if (ar === "1:1")  return { W: 720,  H: 720 };
+  return { W: 720, H: 1280 }; // 9:16 default
 }
 
 export async function POST(req: Request) {
@@ -63,103 +128,142 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "beats must be a non-empty array" }, { status: 400 });
   }
 
-  const perBeatMs = body.perBeatMs ?? 5000;
-  const cardMs = body.cardMs ?? 3000;
+  const cardMs    = body.cardMs    ?? 3000;
   const captionMs = body.captionMs ?? 2500;
+  const aspectRatio = body.aspectRatio ?? "9:16";
+  const { W, H } = canvasForAspectRatio(aspectRatio);
 
-  // Build video track keyframes — compute absolute timestamp for every segment.
-  // This timeline math is intentional: we compute the absolute timestamp for every
-  // segment regardless of whether we use a single mixed-keyframe track or separate
-  // image/video tracks. If fal-ai/ffmpeg-api/compose rejects mixed image+video
-  // keyframes on one track at runtime, the fallback is to emit separate single-keyframe
-  // image tracks placed at these same accumulated timestamps alongside a video track.
-  //
-  // timestamp/duration in ms — confirmed against fal-ai/ffmpeg-api/compose schema.
-  interface Keyframe { timestamp: number; duration: number; url: string }
-  interface Track { id: string; type: string; keyframes: Keyframe[] }
-  const keyframes: Keyframe[] = [];
-
-  let timestamp = 0;
+  // Build ordered segment list
+  const segments: Segment[] = [];
 
   if (body.openingCardUrl) {
-    keyframes.push({ timestamp, duration: cardMs, url: body.openingCardUrl });
-    timestamp += cardMs;
+    if (!validateStorageUrl(body.openingCardUrl)) {
+      return NextResponse.json({ error: "invalid openingCardUrl" }, { status: 400 });
+    }
+    segments.push({ kind: "image", url: body.openingCardUrl, durationSec: cardMs / 1000 });
   }
-
   for (const beat of beats) {
     if (beat.captionCardUrl) {
-      keyframes.push({ timestamp, duration: captionMs, url: beat.captionCardUrl });
-      timestamp += captionMs;
+      if (!validateStorageUrl(beat.captionCardUrl)) {
+        return NextResponse.json({ error: `invalid captionCardUrl for beat ${beat.index}` }, { status: 400 });
+      }
+      segments.push({ kind: "image", url: beat.captionCardUrl, durationSec: captionMs / 1000 });
     }
     if (beat.videoUrl) {
-      keyframes.push({ timestamp, duration: perBeatMs, url: beat.videoUrl });
-      timestamp += perBeatMs;
+      if (!validateStorageUrl(beat.videoUrl)) {
+        return NextResponse.json({ error: `invalid videoUrl for beat ${beat.index}` }, { status: 400 });
+      }
+      segments.push({ kind: "video", url: beat.videoUrl });
     }
   }
-
   if (body.closingCardUrl) {
-    keyframes.push({ timestamp, duration: cardMs, url: body.closingCardUrl });
-    timestamp += cardMs;
+    if (!validateStorageUrl(body.closingCardUrl)) {
+      return NextResponse.json({ error: "invalid closingCardUrl" }, { status: 400 });
+    }
+    segments.push({ kind: "image", url: body.closingCardUrl, durationSec: cardMs / 1000 });
   }
 
-  const totalTimelineMs = timestamp;
+  if (segments.length === 0) {
+    return NextResponse.json({ error: "no media segments to assemble" }, { status: 400 });
+  }
 
-  const tracks: Track[] = [
-    {
-      id: "video_main",
-      type: "video",
-      keyframes,
-    },
-  ];
-
-  // Audio: narration XOR music — narration takes priority when both are present.
-  // Narration plays once from timestamp 0 (a single keyframe covering the full timeline).
-  // Music is looped: if the generated bed is shorter than the timeline, the same keyframe
-  // is repeated back-to-back at accumulated timestamps until the timeline is fully covered.
-  // Beat clips are silent (generate_audio: false in beat route), so no clip audio competes.
   const audioUrl = body.narrationUrl || body.musicUrl || null;
-  if (audioUrl) {
-    const isNarration = Boolean(body.narrationUrl);
-    const audioKeyframes: Keyframe[] = [];
+  if (audioUrl && !validateStorageUrl(audioUrl)) {
+    return NextResponse.json({ error: "invalid audio url" }, { status: 400 });
+  }
 
-    if (isNarration) {
-      // Narration plays once — single keyframe for the full timeline.
-      audioKeyframes.push({ timestamp: 0, duration: totalTimelineMs, url: audioUrl });
-    } else {
-      // Music bed: repeat keyframes until we cover totalTimelineMs.
-      // musicDurationMs is the actual generated length; fall back to totalTimelineMs
-      // (single keyframe) when not provided so existing callers continue to work.
-      const segmentMs = body.musicDurationMs && body.musicDurationMs > 0
-        ? body.musicDurationMs
-        : totalTimelineMs;
-      let t = 0;
-      while (t < totalTimelineMs) {
-        const remaining = totalTimelineMs - t;
-        audioKeyframes.push({ timestamp: t, duration: Math.min(segmentMs, remaining), url: audioUrl });
-        t += segmentMs;
+  const now = Date.now();
+  const tmpFiles: string[] = [];
+  const outPath = path.join(os.tmpdir(), `compose_out_${now}.mp4`);
+
+  try {
+    // Download all segment files
+    const localPaths: string[] = [];
+    for (let i = 0; i < segments.length; i++) {
+      const seg = segments[i];
+      const ext = seg.kind === "image" ? "png" : "mp4";
+      const filename = `compose_seg_${now}_${i}.${ext}`;
+      const p = await downloadToTmp(seg.url, filename);
+      tmpFiles.push(p);
+      localPaths.push(p);
+    }
+
+    let audioPath: string | null = null;
+    if (audioUrl) {
+      const ext = audioUrl.includes(".mp3") ? "mp3" : "m4a";
+      audioPath = await downloadToTmp(audioUrl, `compose_audio_${now}.${ext}`);
+      tmpFiles.push(audioPath);
+    }
+
+    // Build ffmpeg args array programmatically
+    const args: string[] = ["-y"];
+
+    // Inputs: image segments get -loop 1 -t <duration>, video segments just -i
+    for (let i = 0; i < segments.length; i++) {
+      const seg = segments[i];
+      if (seg.kind === "image") {
+        args.push("-loop", "1", "-t", String(seg.durationSec!), "-i", localPaths[i]);
+      } else {
+        args.push("-i", localPaths[i]);
       }
     }
 
-    tracks.push({
-      id: "audio_main",
-      type: "audio",
-      keyframes: audioKeyframes,
-    });
-  }
-
-  type ComposeInput = { tracks: typeof tracks; aspect_ratio?: string };
-  try {
-    const result = await fal.subscribe("fal-ai/ffmpeg-api/compose", {
-      input: { tracks, aspect_ratio: body.aspectRatio ?? "9:16" } as ComposeInput,
-      logs: false,
-    });
-    const url = (result?.data as unknown as FalComposeOutput)?.video?.url;
-    if (!url) {
-      return NextResponse.json({ error: "no video url in fal response" }, { status: 502 });
+    // Audio input last
+    if (audioPath) {
+      args.push("-i", audioPath);
     }
+
+    // Build filter_complex: scale/pad each input to canvas, then concat
+    const filterParts: string[] = [];
+    for (let k = 0; k < segments.length; k++) {
+      filterParts.push(
+        `[${k}:v]scale=${W}:${H}:force_original_aspect_ratio=decrease,` +
+        `pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30,format=yuv420p[v${k}]`
+      );
+    }
+    const concatInputs = segments.map((_, k) => `[v${k}]`).join("");
+    filterParts.push(`${concatInputs}concat=n=${segments.length}:v=1:a=0[outv]`);
+
+    args.push("-filter_complex", filterParts.join(";"));
+    args.push("-map", "[outv]");
+
+    if (audioPath) {
+      const audioInputIndex = segments.length; // audio is the last input
+      args.push(
+        "-map", `${audioInputIndex}:a`,
+        "-c:a", "aac",
+        "-b:a", "192k",
+        "-shortest"
+      );
+    } else {
+      args.push("-an");
+    }
+
+    args.push(
+      "-c:v", "libx264",
+      "-preset", "veryfast",
+      "-crf", "20",
+      "-pix_fmt", "yuv420p",
+      "-movflags", "+faststart",
+      outPath
+    );
+
+    await runFfmpeg(args);
+
+    tmpFiles.push(outPath);
+
+    const videoData = fs.readFileSync(outPath);
+    const blob = new Blob([videoData], { type: "video/mp4" });
+    const url = await fal.storage.upload(blob);
+
     return NextResponse.json({ url });
   } catch (err) {
     const message = err instanceof Error ? err.message : "unknown error";
-    return NextResponse.json({ error: message }, { status: 502 });
+    const status = message.includes("ffmpeg not available") ? 502 : 502;
+    return NextResponse.json({ error: message }, { status });
+  } finally {
+    for (const p of tmpFiles) {
+      try { fs.unlinkSync(p); } catch { /* best-effort cleanup */ }
+    }
   }
 }
