@@ -21,6 +21,11 @@ import {
   type PhotoAsset,
 } from "@/lib/builder/state";
 import type {
+  CardPreviewApproveRequest,
+  CardPreviewApproveResponse,
+  CardPreviewRenderRequest,
+  CardPreviewRenderResponse,
+  CardPreviewWire,
   CharacterSheetApproveRequest,
   CharacterSheetApproveResponse,
   CharacterSheetRenderRequest,
@@ -39,6 +44,10 @@ import type {
   StoryboardRerollRequest,
   StoryboardRerollResponse,
   VisionPassResponse,
+  WordsApproveRequest,
+  WordsApproveResponse,
+  WordsUpdateRequest,
+  WordsUpdateResponse,
 } from "@/lib/builder/wire-types";
 import {
   COPY,
@@ -55,6 +64,7 @@ import {
   STAGE_3_COMPLETE,
   BEAT_SHEET_COMPLETE,
   STORYBOARD_COMPLETE,
+  WORDS_COMPLETE,
   substitutePetName,
 } from "@/lib/library/copy";
 import { FORMATS } from "@/lib/library/formats";
@@ -102,6 +112,8 @@ import CombinationPreviewReview, {
 import StoryboardView, {
   type StoryboardAction,
 } from "./StoryboardView";
+import WordsEditor, { type WordsEditorState } from "./WordsEditor";
+import CardPreviewView, { type CardPreviewAction } from "./CardPreviewView";
 
 // Orchestrates the Stage 1 wizard. Owns the state machine + the side-effects
 // (PATCH on transition, vision-pass kick on photos-and-name).
@@ -217,6 +229,14 @@ export default function BuilderClient({
   );
   const storyboardInFlightRef = useRef(false);
   const [storyboardInFlight, setStoryboardInFlight] = useState(false);
+  // Stage 5.6 card-preview render — same dedupe pattern as Stage 2/3/5. We
+  // re-use the key on transient re-entries within the dedupe window; deliberate
+  // user actions ("Try different music" → re-render) clear the ref.
+  const cardPreviewIdemRef = useRef<{ key: string; createdAt: number } | null>(
+    null,
+  );
+  const cardPreviewInFlightRef = useRef(false);
+  const [cardPreviewInFlight, setCardPreviewInFlight] = useState(false);
   // Per-frame reroll keys are scoped to a (beat_idx) — distinct beats can
   // get distinct keys if rerolled in quick succession. The map persists the
   // last key + timestamp per beat so a double-tap within the dedupe window
@@ -790,6 +810,227 @@ export default function BuilderClient({
     void renderStoryboard(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.stage, state.data.storyboard_frames]);
+
+  // ---------------------------------------------------------------------------
+  // Stage 5.5 — The Words: PATCH /api/words on every field commit + approve.
+  // ---------------------------------------------------------------------------
+
+  const patchWords = useCallback(
+    async (patch: Partial<WordsEditorState>) => {
+      const sessionId = state.data.session_id;
+      if (!sessionId) return;
+      // Optimistic local update so the UI doesn't flicker if the network is slow.
+      dispatch({ type: "words_updated", patch });
+
+      const body: WordsUpdateRequest = {
+        session_id: sessionId,
+        ...patch,
+      };
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[builder] PATCH /api/words", body);
+      }
+      try {
+        const res = await fetch("/api/words", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok && res.status !== 404) {
+          const json = (await res
+            .json()
+            .catch(() => null)) as WordsUpdateResponse | null;
+          if (process.env.NODE_ENV !== "production") {
+            console.warn("[builder] /api/words PATCH failed", res.status, json);
+          }
+        }
+      } catch (err) {
+        if (process.env.NODE_ENV !== "production") {
+          console.warn("[builder] /api/words PATCH network error", err);
+        }
+      }
+    },
+    [state.data.session_id],
+  );
+
+  const approveWords = useCallback(async () => {
+    const sessionId = state.data.session_id;
+    if (!sessionId) return;
+    setSubmitting(true);
+    const body: WordsApproveRequest = { session_id: sessionId };
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[builder] POST /api/words/approve", body);
+    }
+    try {
+      const res = await fetch("/api/words/approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const json = (await res
+        .json()
+        .catch(() => null)) as WordsApproveResponse | null;
+      if (json && json.ok) {
+        // Reducer goes from words_render → words_complete on words_approved.
+        // We then synthesize the next stage transition (words_complete →
+        // card_preview_render) so the user lands on the loading screen
+        // without an extra interstitial.
+        dispatch({ type: "words_approved" });
+        dispatch({ type: "card_preview_render_started" });
+        cardPreviewIdemRef.current = null;
+      } else if (res.status === 404) {
+        // Backend not up yet — advance optimistically.
+        dispatch({ type: "words_approved" });
+        dispatch({ type: "card_preview_render_started" });
+        cardPreviewIdemRef.current = null;
+      } else if (process.env.NODE_ENV !== "production") {
+        console.warn("[builder] /api/words/approve failed", res.status, json);
+      }
+    } catch (err) {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn("[builder] /api/words/approve network error", err);
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }, [state.data.session_id]);
+
+  // ---------------------------------------------------------------------------
+  // Stage 5.6 — Card preview render / approve.
+  // ---------------------------------------------------------------------------
+
+  const getCardPreviewIdempotencyKey = useCallback(
+    (freshIntent: boolean): string => {
+      const now = Date.now();
+      const cur = cardPreviewIdemRef.current;
+      if (!freshIntent && cur && now - cur.createdAt < DEDUPE_WINDOW_MS) {
+        return cur.key;
+      }
+      const key = crypto.randomUUID();
+      cardPreviewIdemRef.current = { key, createdAt: now };
+      return key;
+    },
+    [],
+  );
+
+  const renderCardPreview = useCallback(
+    async (freshIntent: boolean) => {
+      if (!state.data.session_id) return;
+      if (cardPreviewInFlightRef.current) return;
+      cardPreviewInFlightRef.current = true;
+      setCardPreviewInFlight(true);
+
+      const idempotencyKey = getCardPreviewIdempotencyKey(freshIntent);
+      const body: CardPreviewRenderRequest = {
+        session_id: state.data.session_id,
+      };
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[builder] POST /api/card-preview/render", body);
+      }
+      try {
+        const res = await fetch("/api/card-preview/render", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Idempotency-Key": idempotencyKey,
+          },
+          body: JSON.stringify(body),
+        });
+        const json = (await res
+          .json()
+          .catch(() => null)) as CardPreviewRenderResponse | null;
+        if (json && json.ok) {
+          dispatch({
+            type: "card_preview_rendered",
+            cards: json.cards as CardPreviewWire[],
+          });
+        } else if (process.env.NODE_ENV !== "production") {
+          console.warn(
+            "[builder] /api/card-preview/render failed",
+            res.status,
+            json,
+          );
+        }
+      } catch (err) {
+        if (process.env.NODE_ENV !== "production") {
+          console.warn(
+            "[builder] /api/card-preview/render network error",
+            err,
+          );
+        }
+      } finally {
+        cardPreviewInFlightRef.current = false;
+        setCardPreviewInFlight(false);
+      }
+    },
+    [getCardPreviewIdempotencyKey, state.data.session_id],
+  );
+
+  const approveCardPreview = useCallback(async () => {
+    const sessionId = state.data.session_id;
+    if (!sessionId) return;
+    setSubmitting(true);
+    const body: CardPreviewApproveRequest = { session_id: sessionId };
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[builder] POST /api/card-preview/approve", body);
+    }
+    try {
+      const res = await fetch("/api/card-preview/approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const json = (await res
+        .json()
+        .catch(() => null)) as CardPreviewApproveResponse | null;
+      if (json && json.ok) {
+        // Two-step transition: card_preview_review → card_preview_complete
+        // → cinematography_brief. The reducer handles both on the same
+        // event name (card_preview_approved).
+        dispatch({ type: "card_preview_approved" });
+        dispatch({ type: "card_preview_approved" });
+      } else if (res.status === 404) {
+        dispatch({ type: "card_preview_approved" });
+        dispatch({ type: "card_preview_approved" });
+      } else if (process.env.NODE_ENV !== "production") {
+        console.warn(
+          "[builder] /api/card-preview/approve failed",
+          res.status,
+          json,
+        );
+      }
+    } catch (err) {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn(
+          "[builder] /api/card-preview/approve network error",
+          err,
+        );
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }, [state.data.session_id]);
+
+  // Auto-fire the card-preview render whenever we land on card_preview_render
+  // with no cards yet. Mirrors the auto-render pattern from Stage 2/3/5.
+  useEffect(() => {
+    if (state.stage !== "card_preview_render") return;
+    if (state.data.card_preview_cards) return;
+    if (cardPreviewInFlightRef.current) return;
+    void renderCardPreview(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.stage, state.data.card_preview_cards]);
+
+  // If the user deep-links to card_preview_review without cards, snap back to
+  // render so the auto-render effect picks them up. Same defensive pattern as
+  // storyboard/character-sheet.
+  useEffect(() => {
+    if (
+      state.stage === "card_preview_review" &&
+      !state.data.card_preview_cards
+    ) {
+      dispatch({ type: "goto", stage: "card_preview_render" });
+    }
+  }, [state.stage, state.data.card_preview_cards]);
 
   // If the user deep-links to storyboard_review without frames, snap back to
   // render so the auto-render effect picks them up. Same defensive pattern
@@ -1572,17 +1813,131 @@ export default function BuilderClient({
       }
 
       case "storyboard_complete":
-      case "words_render":
         return (
           <StoryboardCompletePanel
             petName={petName}
             onStart={() => {
-              // The approve route was called when entering storyboard_complete;
-              // this CTA just advances the reducer to words_render. Stage 5.5
-              // itself is a Phase 5 concern.
+              // Approve route was called when entering storyboard_complete;
+              // this CTA just advances the reducer into Stage 5.5 (The Words).
               dispatch({ type: "storyboard_approved" });
             }}
-            isComplete={state.stage === "words_render"}
+            isComplete={false}
+          />
+        );
+
+      // ----------------------------------------------------------------------
+      // Stage 5.5 — The Words editor.
+      //
+      // `words_render` is the entry tag (from storyboard_approved); we treat
+      // it as the editor's first paint. `words_editor` is the alias used on
+      // deep-link / restart_words from Stage 5.6 — same screen, same handlers.
+      // ----------------------------------------------------------------------
+      case "words_render":
+      case "words_editor": {
+        const initial: WordsEditorState = {
+          opening_title_card_text: state.data.opening_title_card_text,
+          closing_card_text: state.data.closing_card_text,
+          music_track_id: state.data.music_track_id,
+          narration_voice_id: state.data.narration_voice_id,
+          narration_text: state.data.narration_text,
+        };
+        return (
+          <WordsEditor
+            petName={petName}
+            formatId={state.data.format_id}
+            initial={initial}
+            disabled={submitting}
+            submitting={submitting}
+            onChange={(patch) => {
+              void patchWords(patch);
+            }}
+            onContinue={() => {
+              void approveWords();
+            }}
+          />
+        );
+      }
+
+      case "words_complete":
+        return (
+          <WordsCompletePanel
+            petName={petName}
+            onStart={() => {
+              cardPreviewIdemRef.current = null;
+              dispatch({ type: "card_preview_render_started" });
+            }}
+          />
+        );
+
+      // ----------------------------------------------------------------------
+      // Stage 5.6 — Card preview render → review → approve.
+      // ----------------------------------------------------------------------
+      case "card_preview_render":
+        return (
+          <CardPreviewView
+            petName={petName}
+            mode="loading"
+            aspectRatio={state.data.aspect_ratio}
+            disabled
+            onAction={() => {}}
+          />
+        );
+
+      case "card_preview_review": {
+        const cards = state.data.card_preview_cards;
+        if (!cards || cards.length === 0) {
+          return (
+            <CardPreviewView
+              petName={petName}
+              mode="loading"
+              aspectRatio={state.data.aspect_ratio}
+              disabled
+              onAction={() => {}}
+            />
+          );
+        }
+        return (
+          <CardPreviewView
+            petName={petName}
+            mode="review"
+            cards={cards}
+            aspectRatio={state.data.aspect_ratio}
+            disabled={submitting || cardPreviewInFlight}
+            onAction={(action: CardPreviewAction) => {
+              if (action === "approve") {
+                void approveCardPreview();
+                return;
+              }
+              if (action === "restart_words") {
+                dispatch({ type: "card_preview_restart_words" });
+                return;
+              }
+              if (action === "rerender") {
+                // "Try different music" — bounce back to the editor so the
+                // user can change the music pill, then continue forward
+                // through the normal flow. The cards are cleared so the
+                // next forward pass re-renders against the updated music.
+                cardPreviewIdemRef.current = null;
+                dispatch({ type: "card_preview_restart_words" });
+                return;
+              }
+              if (action === "restart_all") {
+                cardPreviewIdemRef.current = null;
+                dispatch({ type: "card_preview_restart_all" });
+                return;
+              }
+            }}
+          />
+        );
+      }
+
+      case "card_preview_complete":
+      case "cinematography_brief":
+        // Phase 6 entry — placeholder screen until the cinematography UI lands.
+        return (
+          <CinematographyHandoffPanel
+            petName={petName}
+            isComplete={state.stage === "cinematography_brief"}
           />
         );
 
@@ -1906,6 +2261,60 @@ function StoryboardCompletePanel({
           </button>
         </div>
       )}
+    </section>
+  );
+}
+
+// Stage 5.5-complete hand-off — soft pause between words_complete and the
+// card_preview_render screen. Most users will never see this: approveWords
+// auto-fires the card_preview_render_started transition. The panel exists for
+// deep-link / refresh scenarios.
+function WordsCompletePanel({
+  petName,
+  onStart,
+}: {
+  petName: string | null;
+  onStart: () => void;
+}) {
+  const headline = WORDS_COMPLETE.headline;
+  const body = substitutePetName(WORDS_COMPLETE.body, petName);
+  return (
+    <section aria-label="Words complete" style={handoffSection}>
+      <p style={handoffHeadline}>{headline}</p>
+      <p style={handoffBody}>{body}</p>
+      <div style={handoffCtaRow}>
+        <button type="button" onClick={onStart} style={handoffCtaButton}>
+          {WORDS_COMPLETE.start_button}
+        </button>
+      </div>
+    </section>
+  );
+}
+
+// Stage 5.6-complete hand-off — placeholder for Stage 5.7 (cinematography
+// brief, Phase 6). Renders a calm "next up" line until the cinematography UI
+// lands. No CTA — Phase 6 owns its own entry surface.
+function CinematographyHandoffPanel({
+  petName,
+  isComplete,
+}: {
+  petName: string | null;
+  isComplete: boolean;
+}) {
+  const headline = "Cards locked in.";
+  const body = substitutePetName(
+    "Next, we'll plan the cinematography for every beat of [PET_NAME]'s tribute — the lens, the camera move, the lighting. We'll show you the full plan before any video renders.",
+    petName,
+  );
+  return (
+    <section aria-label="Card preview complete" style={handoffSection}>
+      <p style={handoffHeadline}>{headline}</p>
+      <p style={handoffBody}>{body}</p>
+      {isComplete ? (
+        <p style={handoffPending}>
+          The cinematography brief is coming next.
+        </p>
+      ) : null}
     </section>
   );
 }
