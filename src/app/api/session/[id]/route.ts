@@ -13,6 +13,7 @@ import { serializeSession } from '@/lib/builder/serialize';
 // `ARRAY_FIELDS` / `INT_FIELDS` / `BOOL_FIELDS` / `JSON_FIELDS` below must
 // appear there, and vice versa — that is the contract test the type system
 // can't enforce statically (because PATCH is value-typed at the boundary).
+import { readUserIdFromCookie } from '@/lib/auth/user-cookie';
 import { getDb } from '@/lib/db/client';
 import { assets, sessions } from '@/lib/db/schema';
 import { authBySession, authByResumeToken } from '@/lib/session/auth';
@@ -118,8 +119,29 @@ export async function PATCH(req: NextRequest, ctx: RouteParams): Promise<Respons
  */
 export async function DELETE(req: NextRequest, ctx: RouteParams): Promise<Response> {
   const { id } = await ctx.params;
-  const auth = await authBySession(id);
-  if (!auth.ok) return errJson(auth.error, { status: auth.status });
+
+  // Phase 11: a signed-in user is also a valid deleter if `sessions.user_id`
+  // matches their `auth_user` cookie — they don't need the original
+  // `peterna_session` cookie (which may have rotated or been cleared on a
+  // different browser). We try cookie-auth first to preserve the existing
+  // anonymous-builder flow, then fall back to the user-ownership check.
+  const cookieAuth = await authBySession(id);
+  let ownedByUser = false;
+  if (!cookieAuth.ok) {
+    const userId = await readUserIdFromCookie();
+    if (userId) {
+      const db0 = getDb();
+      const rows = await db0
+        .select({ userId: sessions.userId })
+        .from(sessions)
+        .where(eq(sessions.id, id))
+        .limit(1);
+      const row = rows[0];
+      if (!row) return errJson('session-not-found', { status: 404 });
+      if (row.userId === userId) ownedByUser = true;
+    }
+    if (!ownedByUser) return errJson(cookieAuth.error, { status: cookieAuth.status });
+  }
 
   const db = getDb();
 
@@ -146,7 +168,13 @@ export async function DELETE(req: NextRequest, ctx: RouteParams): Promise<Respon
 
   await db.delete(sessions).where(eq(sessions.id, id));
 
-  await clearSessionCookie();
+  // Only clear the `peterna_session` cookie when the deleter is the holder of
+  // that cookie. A user deleting a tribute from the dashboard (via auth_user
+  // ownership) might still have an active anonymous builder in another tab —
+  // we shouldn't disrupt that.
+  if (cookieAuth.ok) {
+    await clearSessionCookie();
+  }
 
   return okJson({});
 }
