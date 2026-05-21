@@ -25,6 +25,10 @@ import type {
   CharacterSheetApproveResponse,
   CharacterSheetRenderRequest,
   CharacterSheetRenderResponse,
+  PreviewApproveRequest,
+  PreviewApproveResponse,
+  PreviewRenderRequest,
+  PreviewRenderResponse,
   SessionCreateResponse,
   SessionPatchBody,
   VisionPassResponse,
@@ -41,8 +45,16 @@ import {
   CREATOR_FRAMING,
   YEARS_FRAMING,
   STAGE_2_INTRO,
+  STAGE_3_COMPLETE,
   substitutePetName,
 } from "@/lib/library/copy";
+import { FORMATS } from "@/lib/library/formats";
+import { THEMES } from "@/lib/library/themes";
+import { findArtStyle, type ArtStyleId } from "@/lib/library/art-styles";
+import type {
+  FormatShape,
+  ThemeShape,
+} from "@/lib/builder/stage3-shapes";
 import { getRefinementInstructions } from "@/lib/builder/refinements";
 import {
   GENDER_OPTIONS,
@@ -69,6 +81,15 @@ import ConfirmationCard from "./ConfirmationCard";
 import CharacterSheetView from "./CharacterSheetView";
 import LengthPicker from "./LengthPicker";
 import AspectPicker from "./AspectPicker";
+import CuratorPickGrid from "./CuratorPickGrid";
+import CuratorStyleConfirm from "./CuratorStyleConfirm";
+import FormatGrid from "./FormatGrid";
+import ThemeCategoryGrid from "./ThemeCategoryGrid";
+import ThemeGrid from "./ThemeGrid";
+import StyleGrid from "./StyleGrid";
+import CombinationPreviewReview, {
+  type PreviewReviewAction,
+} from "./CombinationPreviewReview";
 
 // Orchestrates the Stage 1 wizard. Owns the state machine + the side-effects
 // (PATCH on transition, vision-pass kick on photos-and-name).
@@ -169,6 +190,13 @@ export default function BuilderClient({
   // and submits again) get a new key.
   const renderIdemRef = useRef<{ key: string; createdAt: number } | null>(null);
   const renderInFlightRef = useRef(false);
+  // Same dedupe pattern for the Stage 3 preview render. Re-entries (StrictMode
+  // double-invoke, transient state churn) reuse the key; deliberate user
+  // actions ("Try a different style", "Start over") clear the ref so the next
+  // call gets a fresh key.
+  const previewIdemRef = useRef<{ key: string; createdAt: number } | null>(null);
+  const previewInFlightRef = useRef(false);
+  const [previewInFlight, setPreviewInFlight] = useState(false);
 
   // Bootstrap: if we don't yet have a session, create one and reflect into URL.
   useEffect(() => {
@@ -416,6 +444,133 @@ export default function BuilderClient({
       setSubmitting(false);
     }
   }, [state.data.session_id, state.data.character_sheet]);
+
+  // ---------------------------------------------------------------------------
+  // Stage 3 — Combination preview render + approve
+  //
+  // The dedupe / idempotency strategy matches Stage 2: same key on transient
+  // re-entries within DEDUPE_WINDOW_MS, fresh key on a deliberate "try a
+  // different style/theme/format" or "start over" action.
+  // ---------------------------------------------------------------------------
+
+  const getPreviewIdempotencyKey = useCallback(
+    (freshIntent: boolean): string => {
+      const now = Date.now();
+      const cur = previewIdemRef.current;
+      if (!freshIntent && cur && now - cur.createdAt < DEDUPE_WINDOW_MS) {
+        return cur.key;
+      }
+      const key = crypto.randomUUID();
+      previewIdemRef.current = { key, createdAt: now };
+      return key;
+    },
+    [],
+  );
+
+  const renderCombinationPreview = useCallback(
+    async (freshIntent: boolean) => {
+      if (!state.data.session_id) return;
+      if (previewInFlightRef.current) return;
+      previewInFlightRef.current = true;
+      setPreviewInFlight(true);
+
+      const idempotencyKey = getPreviewIdempotencyKey(freshIntent);
+      const body: PreviewRenderRequest = {
+        session_id: state.data.session_id,
+      };
+
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[builder] POST /api/preview/render", body);
+      }
+
+      try {
+        const res = await fetch("/api/preview/render", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Idempotency-Key": idempotencyKey,
+          },
+          body: JSON.stringify(body),
+        });
+        const json = (await res
+          .json()
+          .catch(() => null)) as PreviewRenderResponse | null;
+        if (json && json.ok) {
+          dispatch({
+            type: "preview_rendered",
+            asset: { asset_id: json.asset_id, public_url: json.public_url },
+          });
+        } else if (process.env.NODE_ENV !== "production") {
+          console.warn("[builder] preview/render failed", res.status, json);
+        }
+      } catch (err) {
+        if (process.env.NODE_ENV !== "production") {
+          console.warn("[builder] preview/render network error", err);
+        }
+      } finally {
+        previewInFlightRef.current = false;
+        setPreviewInFlight(false);
+      }
+    },
+    [getPreviewIdempotencyKey, state.data.session_id],
+  );
+
+  const approveCombinationPreview = useCallback(async () => {
+    const sessionId = state.data.session_id;
+    const asset = state.data.combination_preview;
+    if (!sessionId || !asset) return;
+
+    setSubmitting(true);
+    const body: PreviewApproveRequest = {
+      session_id: sessionId,
+      asset_id: asset.asset_id,
+    };
+
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[builder] POST /api/preview/approve", body);
+    }
+
+    try {
+      const res = await fetch("/api/preview/approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const json = (await res
+        .json()
+        .catch(() => null)) as PreviewApproveResponse | null;
+      if (json && json.ok) {
+        dispatch({ type: "preview_approved" });
+      } else {
+        // 404: backend not yet up in local dev — advance optimistically so the
+        // wizard can still walk. Matches the character-sheet pattern.
+        if (res.status === 404) {
+          dispatch({ type: "preview_approved" });
+        } else if (process.env.NODE_ENV !== "production") {
+          console.warn("[builder] preview/approve failed", res.status, json);
+        }
+      }
+    } catch (err) {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn("[builder] preview/approve network error", err);
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }, [state.data.session_id, state.data.combination_preview]);
+
+  // Fire the preview render whenever we land on combination_preview_render
+  // with no asset yet. Mirrors the character-sheet auto-render pattern: any
+  // transition into the render stage triggers a render call. The reducer
+  // clears `combination_preview` on every "back" / "restart" event, so the
+  // user gets a fresh frame after switching their picks.
+  useEffect(() => {
+    if (state.stage !== "combination_preview_render") return;
+    if (state.data.combination_preview) return;
+    if (previewInFlightRef.current) return;
+    void renderCombinationPreview(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.stage, state.data.combination_preview]);
 
   // Fire a render automatically whenever we land on character_sheet_render
   // with no asset yet. This covers: initial entry from intake_complete,
@@ -909,13 +1064,181 @@ export default function BuilderClient({
         );
 
       case "curators_pick_or_manual":
-        // Phase 3 entry. The Stage 3 screens aren't built in this phase; we
-        // land here, reflect the stage in the URL, and show a calm hand-off
-        // panel that tells the user we're working on the next step. The
-        // Phase 3 frontend agent will replace this body.
         return (
-          <Stage3Placeholder petName={petName} aspectRatio={state.data.aspect_ratio} />
+          <CuratorPickGrid
+            petName={petName}
+            relationship={state.data.relationship}
+            onPickCurator={(pick) => {
+              void dispatchAndSave(
+                {
+                  type: "curator_pick_chosen",
+                  curatorsPickId: pick.id,
+                  formatId: pick.format,
+                  themeId: pick.theme,
+                  styleId: pick.style,
+                },
+                {
+                  curators_pick_id: pick.id,
+                  format_id: pick.format,
+                  theme_id: pick.theme,
+                  style_id: pick.style,
+                },
+              );
+            }}
+            onPickManual={() => {
+              void dispatchAndSave({ type: "manual_path_chosen" });
+            }}
+          />
         );
+
+      case "curator_style_confirm": {
+        const currentStyleId = state.data.style_id;
+        if (!currentStyleId) {
+          // Defensive — shouldn't happen, but route back to the curator's pick
+          // screen if the style somehow isn't set.
+          dispatch({ type: "goto", stage: "curators_pick_or_manual" });
+          return <Loading label="Loading…" />;
+        }
+        return (
+          <CuratorStyleConfirm
+            currentStyleId={currentStyleId}
+            onKeep={() => {
+              void dispatchAndSave({ type: "curator_style_kept" });
+            }}
+            onSwitch={(styleId) => {
+              previewIdemRef.current = null; // fresh intent
+              void dispatchAndSave(
+                { type: "curator_style_switched", styleId },
+                { style_id: styleId },
+              );
+            }}
+          />
+        );
+      }
+
+      case "format_pick":
+        return (
+          <FormatGrid
+            petName={petName}
+            onChosen={(formatId) => {
+              void dispatchAndSave(
+                { type: "format_chosen", formatId },
+                { format_id: formatId },
+              );
+            }}
+          />
+        );
+
+      case "theme_category_pick":
+        return (
+          <ThemeCategoryGrid
+            relationship={state.data.relationship}
+            onChosen={(categoryId) => {
+              // Category is transient — store in reducer state only, no PATCH.
+              void dispatchAndSave({
+                type: "theme_category_chosen",
+                categoryId,
+              });
+            }}
+          />
+        );
+
+      case "theme_pick": {
+        const categoryId = state.data.pending_theme_category;
+        if (!categoryId) {
+          // Re-entry without a category — snap back to the category picker.
+          dispatch({ type: "goto", stage: "theme_category_pick" });
+          return <Loading label="Loading…" />;
+        }
+        return (
+          <ThemeGrid
+            petName={petName}
+            categoryId={categoryId}
+            onChosen={(themeId) => {
+              void dispatchAndSave(
+                { type: "theme_chosen", themeId },
+                { theme_id: themeId },
+              );
+            }}
+            onBack={() => {
+              dispatch({ type: "goto", stage: "theme_category_pick" });
+            }}
+          />
+        );
+      }
+
+      case "style_pick":
+        return (
+          <StyleGrid
+            petName={petName}
+            relationship={state.data.relationship}
+            onChosen={(styleId) => {
+              previewIdemRef.current = null; // fresh intent
+              void dispatchAndSave(
+                { type: "style_chosen", styleId },
+                { style_id: styleId },
+              );
+            }}
+          />
+        );
+
+      case "combination_preview_render":
+      case "combination_preview_review": {
+        const asset = state.data.combination_preview;
+        const formatLabel =
+          (FORMATS as ReadonlyArray<FormatShape>).find(
+            (f) => f.id === state.data.format_id,
+          )?.name ?? null;
+        const themeLabel =
+          (THEMES as ReadonlyArray<ThemeShape>).find(
+            (t) => t.id === state.data.theme_id,
+          )?.name ?? null;
+        const styleLabel =
+          findArtStyle(state.data.style_id as ArtStyleId | null)?.label ?? null;
+        const isLoading =
+          state.stage === "combination_preview_render" || !asset;
+        return (
+          <CombinationPreviewReview
+            petName={petName}
+            mode={isLoading ? "loading" : "review"}
+            imageUrl={asset?.public_url}
+            formatLabel={formatLabel ? substitutePetName(formatLabel, petName) : null}
+            themeLabel={themeLabel}
+            styleLabel={styleLabel}
+            aspectRatio={state.data.aspect_ratio}
+            disabled={submitting || previewInFlight}
+            onAction={(action: PreviewReviewAction) => {
+              if (action === "approve") {
+                void approveCombinationPreview();
+                return;
+              }
+              previewIdemRef.current = null; // fresh intent on every step-back
+              if (action === "restart_style") {
+                void dispatchAndSave({ type: "preview_restart_style" });
+                return;
+              }
+              if (action === "restart_theme") {
+                // The reducer clears theme_id locally so the user re-picks;
+                // the server keeps the prior value until a new theme_id is
+                // PATCHed in on theme_chosen — that's fine, the next render
+                // call requires it set and will reflect the new theme.
+                void dispatchAndSave({ type: "preview_restart_theme" });
+                return;
+              }
+              if (action === "restart_all") {
+                // Same — local reducer clears the four ids; PATCH only writes
+                // the new ids when the user re-picks them. The server's
+                // combination_preview_asset_id stays unset until approve.
+                void dispatchAndSave({ type: "preview_restart_all" });
+                return;
+              }
+            }}
+          />
+        );
+      }
+
+      case "stage_3_complete":
+        return <Stage3CompletePanel petName={petName} />;
 
       default:
         return <Loading label="Loading your next step…" />;
@@ -1175,21 +1498,14 @@ function CompletePanel({
   );
 }
 
-// Phase 3 hand-off placeholder. Renders a calm "next step" panel so the user
-// who advances all the way through Stage 2 in Phase 2 testing doesn't crash
-// into a default loading spinner. The Phase 3 frontend agent will replace
-// this with the Curator's Pick grid.
-function Stage3Placeholder({
-  petName,
-  aspectRatio,
-}: {
-  petName: string | null;
-  aspectRatio: string | null;
-}) {
-  const name = petName ?? "your pet";
+// Stage 3 complete — final hand-off panel between Stage 3 and Stage 4 (not yet
+// wired). Calm "next step" copy; no Stage-4 CTA until Phase 4 lands.
+function Stage3CompletePanel({ petName }: { petName: string | null }) {
+  const headline = STAGE_3_COMPLETE.headline;
+  const body = substitutePetName(STAGE_3_COMPLETE.body, petName);
   return (
     <section
-      aria-label="Next up"
+      aria-label="Stage 3 complete"
       style={{
         background: "#FFFBF3",
         border: `1px solid rgba(0,0,0,0.06)`,
@@ -1205,11 +1521,11 @@ function Stage3Placeholder({
         style={{
           margin: 0,
           fontStyle: "italic",
-          fontSize: 24,
+          fontSize: 22,
           lineHeight: 1.4,
         }}
       >
-        Next up — choosing the kind of tribute for {name}.
+        {headline}
       </p>
       <p
         style={{
@@ -1222,9 +1538,7 @@ function Stage3Placeholder({
           marginRight: "auto",
         }}
       >
-        We&apos;ll show you a small handful of pre-set tributes shaped by what you
-        told us, and a path to pick everything yourself if you&apos;d rather.
-        {aspectRatio ? ` (We'll keep ${name}'s tribute at ${aspectRatio}.)` : null}
+        {body}
       </p>
     </section>
   );
