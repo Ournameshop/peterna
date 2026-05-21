@@ -23,6 +23,7 @@ import type {
   FrameVisionWire,
   MotionBriefWire,
   StoryboardFrameWire,
+  VideoClipWire,
 } from './wire-types';
 
 // -----------------------------------------------------------------------------
@@ -100,7 +101,25 @@ export type StageTag =
   | 'cinematography_brief'
   | 'cinematography_render'
   | 'cinematography_review'
-  | 'cinematography_complete';
+  | 'cinematography_complete'
+  // Stage 6 — Video generation. Sequence:
+  //   - video_render: POST /api/video/render fires, then we poll
+  //     GET /api/video/status every 5s. Per-clip status grid renders here;
+  //     failed clips can be re-rolled in place.
+  //   - video_review: optional pause once all clips are done. The user can
+  //     re-roll any clip from here before the assembly starts.
+  // Stage 7 — Assembly. Sequence:
+  //   - assembly_render: POST /api/assembly/render fires. Long render —
+  //     "Stitching [PET_NAME]'s tribute together…"
+  //   - assembly_review: final MP4 with native <video> controls + gate pills.
+  //   - assembly_complete: soft pause before the eulogy PDF entry.
+  | 'video_render'
+  | 'video_review'
+  | 'assembly_render'
+  | 'assembly_review'
+  | 'assembly_complete'
+  // Stage 8 — Eulogy PDF (Phase 8 placeholder).
+  | 'eulogy_pdf';
 
 // -----------------------------------------------------------------------------
 // Session data carried alongside the stage. Mirrors the columns on `sessions`
@@ -221,6 +240,18 @@ export type WizardData = {
    *  individual fields via PATCH /api/cinematography; we replace the matching
    *  row in place on each successful patch. */
   cinematography_briefs: MotionBriefWire[] | null;
+
+  // Stage 6 — Video clips.
+  //
+  // Per-clip wire shape: { beat_idx, status, asset_id, public_url, error? }.
+  // The array length matches beat_sheet.length once render kicks off; until
+  // then it's null. Per-clip status flips through queued → rendering → done
+  // (or failed). The grid card per beat reads from this array.
+  video_clips: VideoClipWire[] | null;
+
+  // Stage 7 — Assembly. Final MP4 asset, set once /api/assembly/render returns.
+  assembly_asset_id: string | null;
+  assembly_public_url: string | null;
 };
 
 export type WizardState = {
@@ -267,6 +298,9 @@ export const INITIAL_WIZARD_DATA: WizardData = {
   cinematography_dp_overlay: null,
   cinematography_frame_vision: null,
   cinematography_briefs: null,
+  video_clips: null,
+  assembly_asset_id: null,
+  assembly_public_url: null,
 };
 
 export function createInitialState(sessionId: string | null = null): WizardState {
@@ -398,6 +432,27 @@ export type WizardEvent =
     }
   | { type: 'cinematography_approved' }
   | { type: 'cinematography_restart' }
+  // Stage 6 — Video generation.
+  //
+  // `video_render_started` fires when the user advances out of
+  // cinematography_complete and the BuilderClient hits POST /api/video/render.
+  // `video_status_polled` lands the latest per-clip array from a status poll
+  // (whole-array replace — the wire delivers the canonical state every tick).
+  // `video_clip_rerolled` replaces one clip in place after a successful
+  // re-roll. `all_clips_done` advances the reducer from video_render to
+  // assembly_render so the assembly call kicks off.
+  | { type: 'video_render_started' }
+  | { type: 'video_status_polled'; clips: VideoClipWire[] }
+  | { type: 'video_clip_rerolled'; clip: VideoClipWire }
+  | { type: 'all_clips_done' }
+  // Stage 7 — Assembly.
+  | { type: 'assembly_started' }
+  | {
+      type: 'assembly_complete_event';
+      assetId: string;
+      publicUrl: string;
+    }
+  | { type: 'assembly_approved' }
   | { type: 'session_loaded'; state: WizardState }
   | { type: 'goto'; stage: StageTag };
 
@@ -1173,10 +1228,108 @@ export function reduceState(state: WizardState, event: WizardEvent): WizardState
       return state;
     }
 
-    case 'cinematography_complete':
-      // Soft pause before Phase 7 entry. Phase 7 isn't wired yet; no events
-      // forward from here. Kept as a distinct stage so the BuilderClient can
-      // render a calm "next up" panel and so the URL reflects completion.
+    case 'cinematography_complete': {
+      // Soft pause before Phase 7 entry. Tapping "Start the video render"
+      // advances into `video_render`, which the BuilderClient hooks to kick
+      // off POST /api/video/render and begin polling.
+      if (event.type === 'video_render_started') {
+        return {
+          stage: 'video_render',
+          data: { ...state.data, video_clips: null },
+        };
+      }
+      return state;
+    }
+
+    // Stage 6 — Video render.
+    //
+    // The user lands here and the BuilderClient fires /api/video/render, then
+    // polls /api/video/status every 5s. The reducer accepts:
+    //   - video_status_polled: replace the canonical clips array.
+    //   - video_clip_rerolled: replace one clip in place.
+    //   - all_clips_done: advance to assembly_render (the user-visible
+    //     "stitching…" screen).
+    case 'video_render': {
+      if (event.type === 'video_status_polled') {
+        return {
+          ...state,
+          data: { ...state.data, video_clips: event.clips },
+        };
+      }
+      if (event.type === 'video_clip_rerolled') {
+        const clips = state.data.video_clips ?? [];
+        const next = clips.map((c) =>
+          c.beat_idx === event.clip.beat_idx ? event.clip : c,
+        );
+        return {
+          ...state,
+          data: { ...state.data, video_clips: next },
+        };
+      }
+      if (event.type === 'all_clips_done') {
+        return { ...state, stage: 'assembly_render' };
+      }
+      return state;
+    }
+
+    // Stage 6 (review pause). Currently unused in the happy path — the
+    // BuilderClient transitions video_render → assembly_render directly on
+    // all_clips_done — but kept as a distinct stage so a future "Review the
+    // clips before stitching" pill can land here without a stage-tag migration.
+    case 'video_review': {
+      if (event.type === 'video_status_polled') {
+        return {
+          ...state,
+          data: { ...state.data, video_clips: event.clips },
+        };
+      }
+      if (event.type === 'video_clip_rerolled') {
+        const clips = state.data.video_clips ?? [];
+        const next = clips.map((c) =>
+          c.beat_idx === event.clip.beat_idx ? event.clip : c,
+        );
+        return {
+          ...state,
+          data: { ...state.data, video_clips: next },
+        };
+      }
+      if (event.type === 'assembly_started') {
+        return { ...state, stage: 'assembly_render' };
+      }
+      return state;
+    }
+
+    // Stage 7 — Assembly render.
+    case 'assembly_render': {
+      if (event.type === 'assembly_complete_event') {
+        return {
+          stage: 'assembly_review',
+          data: {
+            ...state.data,
+            assembly_asset_id: event.assetId,
+            assembly_public_url: event.publicUrl,
+          },
+        };
+      }
+      return state;
+    }
+
+    // Stage 7 — Assembly review. The final MP4 + GateReview pills.
+    case 'assembly_review': {
+      if (event.type === 'assembly_approved') {
+        return { ...state, stage: 'assembly_complete' };
+      }
+      return state;
+    }
+
+    case 'assembly_complete': {
+      // Soft pause before Phase 8 entry. Phase 8 (eulogy PDF) is not wired
+      // here; the CTA dispatches `goto: eulogy_pdf` for deep-link continuity.
+      return state;
+    }
+
+    case 'eulogy_pdf':
+      // Phase 8 placeholder — no transitions defined yet.
       return state;
 
     default: {
@@ -1248,6 +1401,15 @@ export const ALL_STAGE_TAGS = [
   'cinematography_render',
   'cinematography_review',
   'cinematography_complete',
+  // Stage 6 — Video clips
+  'video_render',
+  'video_review',
+  // Stage 7 — Assembly
+  'assembly_render',
+  'assembly_review',
+  'assembly_complete',
+  // Stage 8 — Eulogy PDF (Phase 8 placeholder)
+  'eulogy_pdf',
 ] as const satisfies readonly StageTag[];
 
 const STAGE_TAG_SET: ReadonlySet<string> = new Set<string>(ALL_STAGE_TAGS);
@@ -1383,6 +1545,27 @@ const PROBE_EVENTS: WizardEvent[] = [
   },
   { type: 'cinematography_approved' },
   { type: 'cinematography_restart' },
+  // Stage 6 — Video render
+  { type: 'video_render_started' },
+  { type: 'video_status_polled', clips: [] },
+  {
+    type: 'video_clip_rerolled',
+    clip: {
+      beat_idx: 0,
+      status: 'queued',
+      asset_id: null,
+      public_url: null,
+    },
+  },
+  { type: 'all_clips_done' },
+  // Stage 7 — Assembly
+  { type: 'assembly_started' },
+  {
+    type: 'assembly_complete_event',
+    assetId: 'probe',
+    publicUrl: 'probe',
+  },
+  { type: 'assembly_approved' },
 ];
 
 export function legalNextStages(current: StageTag): Set<StageTag> {
@@ -1442,7 +1625,10 @@ export function bannerKeyForStage(
   | 'storyboard'
   | 'words'
   | 'card_preview'
-  | 'cinematography' {
+  | 'cinematography'
+  | 'video'
+  | 'assembly'
+  | 'eulogy' {
   if (stage.startsWith('intake_')) return 'intake';
   if (
     stage.startsWith('character_sheet_') ||
@@ -1476,6 +1662,19 @@ export function bannerKeyForStage(
     stage === 'cinematography_complete'
   ) {
     return 'cinematography';
+  }
+  if (stage === 'video_render' || stage === 'video_review') {
+    return 'video';
+  }
+  if (
+    stage === 'assembly_render' ||
+    stage === 'assembly_review' ||
+    stage === 'assembly_complete'
+  ) {
+    return 'assembly';
+  }
+  if (stage === 'eulogy_pdf') {
+    return 'eulogy';
   }
   return 'format_theme_style';
 }

@@ -73,6 +73,21 @@ export const STAGE_BANNERS = {
     headline:
       "Stage 5.7: Cinematography — how each scene will move",
   },
+  video: {
+    emoji: '🎥',
+    headline:
+      "Stage 6: Generation — bringing [PET_NAME]'s tribute to life",
+  },
+  assembly: {
+    emoji: '💝',
+    headline:
+      "Stage 7: Finishing — title cards, music, and the final cut",
+  },
+  eulogy: {
+    emoji: '📜',
+    headline:
+      "Stage 8: The eulogy — a printable letter to keep",
+  },
 } as const;
 
 /**
@@ -863,6 +878,105 @@ export const CINEMATOGRAPHY = {
   },
 } as const;
 
+// -----------------------------------------------------------------------------
+// Stage 5.7 → 6 hand-off — cinematography is locked, video render is next.
+//
+// Lives separately from `CINEMATOGRAPHY` because the soft-pause copy is shared
+// by the BuilderClient's cinematography_complete panel and the Stage 6 entry
+// banner. No vendor names — "drawing" the clips, never "fal" or "Seedance."
+// -----------------------------------------------------------------------------
+
+export const CINEMATOGRAPHY_COMPLETE = {
+  headline: 'Cinematography locked in.',
+  body: "Next, we'll render the video clips for every beat of [PET_NAME]'s tribute — one clip per scene, fifteen seconds each, in the look you approved.",
+  start_button: "Start the video render",
+} as const;
+
+// -----------------------------------------------------------------------------
+// Stage 6 — Video render progress.
+//
+// The user lands on a per-clip grid that fills in as scenes complete. No
+// vendor names — we say "drawing the scenes" / "rendering" / "finishing."
+// Per-clip status badges are scannable: Queued / Rendering / Done / Failed.
+// Failed clips offer a calm "Let's try that scene again" — never cost-pressure.
+// -----------------------------------------------------------------------------
+
+export const VIDEO_RENDER = {
+  /** Page-level headline above the grid. */
+  headline: "Bringing [PET_NAME]'s tribute to life.",
+  /** Long-render hint — the user expects minutes, not seconds. */
+  subhead:
+    'One clip per scene. They render in parallel — you can watch them fill in. Stay on this screen or come back; we keep your place.',
+  /** Per-scene status badge labels. Match the VideoClipStatus enum values. */
+  status_labels: {
+    queued: 'Queued',
+    rendering: 'Rendering',
+    done: 'Done',
+    failed: 'Failed',
+  },
+  /** Polling status line below the grid. */
+  polling_hint: 'Updating every few seconds…',
+  /** Aggregate progress prefix. Used like "[N] of [M] scenes done." */
+  progress_template: '[N] of [M] scenes done',
+  /** Per-card aria label template ("Scene N of M, status: Rendering"). */
+  card_aria_template: 'Scene [N] of [M], status: [STATUS]',
+  /** Per-card scene label ("Scene N of M"). */
+  scene_label_template: 'Scene [N] of [M]',
+  /** Try-again pill on failed clips. */
+  reroll_failed: "Let's try that scene again",
+  /** Pill on done clips — opens the per-clip mini-gate (deferred). */
+  reroll_optional: 'Try this scene differently',
+  /** Transient label while a re-roll is in flight on a single card. */
+  reroll_in_flight: 'Trying scene [N] again…',
+} as const;
+
+// -----------------------------------------------------------------------------
+// Stage 6 → 7 hand-off — every clip is done, the assembly is about to start.
+// -----------------------------------------------------------------------------
+
+export const VIDEO_COMPLETE = {
+  headline: 'Every scene is done.',
+  body: "We're stitching them together now — title cards, music, narration, and the final cut.",
+} as const;
+
+// -----------------------------------------------------------------------------
+// Stage 7 — Assembly render + review.
+//
+// The "stitching" copy uses the pet's name. The hint sets expectations for
+// the long render — title cards composite, music lays down, narration ducks
+// where it should. No vendor names; no "ffmpeg."
+// -----------------------------------------------------------------------------
+
+export const ASSEMBLY = {
+  /** Long-render loading panel. Pet's name in the line is REQUIRED per spec. */
+  loading: "Stitching [PET_NAME]'s tribute together…",
+  loading_hint:
+    "We're laying the title cards over the clips, dropping the music in, and finishing the cut. This takes a couple of minutes — stay on this screen or come back; we keep your place.",
+  /** Review screen — final MP4 + GateReview pills. */
+  review: {
+    headline: "Here's [PET_NAME]'s tribute.",
+    subhead:
+      "Watch it all the way through. If anything feels off, we can re-stitch with changes or re-render any clip you'd like to try again.",
+    pills: {
+      approve: "It's beautiful",
+      restitch: 'Re-stitch with changes',
+      reroll_clips: 'Re-render specific clips',
+    },
+    pills_hint:
+      "Approving locks the final cut. After that we'll write a printable eulogy to keep.",
+  },
+} as const;
+
+// -----------------------------------------------------------------------------
+// Stage 7 complete — soft pause before the eulogy PDF (Phase 8 entry).
+// -----------------------------------------------------------------------------
+
+export const ASSEMBLY_COMPLETE = {
+  headline: "[PET_NAME]'s tribute is locked.",
+  body: "Next, we'll write a one-page eulogy — the kind you can print or frame.",
+  start_button: 'See the eulogy',
+} as const;
+
 /**
  * One barrel export for components that want the full object.
  */
@@ -911,4 +1025,9 @@ export const COPY = {
   WORDS_COMPLETE,
   CARD_PREVIEW,
   CINEMATOGRAPHY,
+  CINEMATOGRAPHY_COMPLETE,
+  VIDEO_RENDER,
+  VIDEO_COMPLETE,
+  ASSEMBLY,
+  ASSEMBLY_COMPLETE,
 } as const;
