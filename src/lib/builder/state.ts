@@ -117,6 +117,18 @@ export type WizardData = {
   target_minutes: number | null;
   beat_count: number | null;
   aspect_ratio: AspectRatio | null;
+
+  // Stage 3 — Format / Theme / Style
+  curators_pick_id: string | null;
+  format_id: string | null;
+  theme_id: string | null;
+  style_id: string | null;
+  /** Transient — which theme category the user picked on 3.3a. Drives the 3.3b
+   *  filter; not persisted to the server (the server only cares about the
+   *  ultimately chosen theme_id). */
+  pending_theme_category: string | null;
+  /** The rendered combination-preview asset (Stage 3.5). */
+  combination_preview: CharacterSheetAsset | null;
 };
 
 export type WizardState = {
@@ -145,6 +157,12 @@ export const INITIAL_WIZARD_DATA: WizardData = {
   target_minutes: null,
   beat_count: null,
   aspect_ratio: null,
+  curators_pick_id: null,
+  format_id: null,
+  theme_id: null,
+  style_id: null,
+  pending_theme_category: null,
+  combination_preview: null,
 };
 
 export function createInitialState(sessionId: string | null = null): WizardState {
@@ -200,6 +218,29 @@ export type WizardEvent =
       beatCount: number;
     }
   | { type: 'aspect_chosen'; aspectRatio: AspectRatio }
+  // Stage 3 — Format / Theme / Style
+  | {
+      type: 'curator_pick_chosen';
+      curatorsPickId: string;
+      formatId: string;
+      themeId: string;
+      styleId: string;
+    }
+  | { type: 'curator_style_kept' }
+  | { type: 'curator_style_switched'; styleId: string }
+  | { type: 'manual_path_chosen' }
+  | { type: 'format_chosen'; formatId: string }
+  | { type: 'theme_category_chosen'; categoryId: string }
+  | { type: 'theme_chosen'; themeId: string }
+  | { type: 'style_chosen'; styleId: string }
+  | {
+      type: 'preview_rendered';
+      asset: CharacterSheetAsset;
+    }
+  | { type: 'preview_approved' }
+  | { type: 'preview_restart_style' }
+  | { type: 'preview_restart_theme' }
+  | { type: 'preview_restart_all' }
   | { type: 'session_loaded'; state: WizardState }
   | { type: 'goto'; stage: StageTag };
 
@@ -529,15 +570,142 @@ export function reduceState(state: WizardState, event: WizardEvent): WizardState
       return state;
     }
 
-    // Stage 3 stages: not yet wired in this phase — leave inert.
-    case 'curators_pick_or_manual':
-    case 'curator_style_confirm':
-    case 'format_pick':
-    case 'theme_category_pick':
-    case 'theme_pick':
-    case 'style_pick':
-    case 'combination_preview_render':
-    case 'combination_preview_review':
+    // Stage 3 — Format / Theme / Style
+    case 'curators_pick_or_manual': {
+      if (event.type === 'curator_pick_chosen') {
+        // All three are locked from the curator's pick; 3.1.5 lets the user
+        // swap the style but keeps format + theme.
+        return {
+          stage: 'curator_style_confirm',
+          data: {
+            ...state.data,
+            curators_pick_id: event.curatorsPickId,
+            format_id: event.formatId,
+            theme_id: event.themeId,
+            style_id: event.styleId,
+          },
+        };
+      }
+      if (event.type === 'manual_path_chosen') {
+        return {
+          stage: 'format_pick',
+          data: {
+            ...state.data,
+            // clear any curator-pick from a previous walk
+            curators_pick_id: null,
+          },
+        };
+      }
+      return state;
+    }
+
+    case 'curator_style_confirm': {
+      if (event.type === 'curator_style_kept') {
+        return { ...state, stage: 'combination_preview_render' };
+      }
+      if (event.type === 'curator_style_switched') {
+        return {
+          stage: 'combination_preview_render',
+          data: { ...state.data, style_id: event.styleId },
+        };
+      }
+      return state;
+    }
+
+    case 'format_pick': {
+      if (event.type === 'format_chosen') {
+        return {
+          stage: 'theme_category_pick',
+          data: { ...state.data, format_id: event.formatId },
+        };
+      }
+      return state;
+    }
+
+    case 'theme_category_pick': {
+      if (event.type === 'theme_category_chosen') {
+        return {
+          stage: 'theme_pick',
+          data: { ...state.data, pending_theme_category: event.categoryId },
+        };
+      }
+      return state;
+    }
+
+    case 'theme_pick': {
+      if (event.type === 'theme_chosen') {
+        return {
+          stage: 'style_pick',
+          data: { ...state.data, theme_id: event.themeId },
+        };
+      }
+      return state;
+    }
+
+    case 'style_pick': {
+      if (event.type === 'style_chosen') {
+        return {
+          stage: 'combination_preview_render',
+          // Clear a stale preview when the user changes the style — the next
+          // render call will produce a fresh asset to land on.
+          data: {
+            ...state.data,
+            style_id: event.styleId,
+            combination_preview: null,
+          },
+        };
+      }
+      return state;
+    }
+
+    case 'combination_preview_render': {
+      if (event.type === 'preview_rendered') {
+        return {
+          stage: 'combination_preview_review',
+          data: { ...state.data, combination_preview: event.asset },
+        };
+      }
+      return state;
+    }
+
+    case 'combination_preview_review': {
+      if (event.type === 'preview_approved') {
+        return { ...state, stage: 'stage_3_complete' };
+      }
+      if (event.type === 'preview_restart_style') {
+        return {
+          stage: 'style_pick',
+          data: { ...state.data, combination_preview: null },
+        };
+      }
+      if (event.type === 'preview_restart_theme') {
+        return {
+          stage: 'theme_category_pick',
+          data: {
+            ...state.data,
+            theme_id: null,
+            pending_theme_category: null,
+            combination_preview: null,
+          },
+        };
+      }
+      if (event.type === 'preview_restart_all') {
+        return {
+          stage: 'curators_pick_or_manual',
+          data: {
+            ...state.data,
+            curators_pick_id: null,
+            format_id: null,
+            theme_id: null,
+            style_id: null,
+            pending_theme_category: null,
+            combination_preview: null,
+          },
+        };
+      }
+      return state;
+    }
+
     case 'stage_3_complete':
       return state;
 
@@ -645,6 +813,29 @@ const PROBE_EVENTS: WizardEvent[] = [
   { type: 'character_sheet_restart' },
   { type: 'length_chosen', targetMinutes: 3, beatCount: 12 },
   { type: 'aspect_chosen', aspectRatio: '9:16' },
+  // Stage 3 transitions
+  {
+    type: 'curator_pick_chosen',
+    curatorsPickId: 'probe',
+    formatId: 'probe',
+    themeId: 'probe',
+    styleId: 'probe',
+  },
+  { type: 'manual_path_chosen' },
+  { type: 'curator_style_kept' },
+  { type: 'curator_style_switched', styleId: 'probe' },
+  { type: 'format_chosen', formatId: 'probe' },
+  { type: 'theme_category_chosen', categoryId: 'probe' },
+  { type: 'theme_chosen', themeId: 'probe' },
+  { type: 'style_chosen', styleId: 'probe' },
+  {
+    type: 'preview_rendered',
+    asset: { asset_id: 'probe', public_url: 'probe' },
+  },
+  { type: 'preview_approved' },
+  { type: 'preview_restart_style' },
+  { type: 'preview_restart_theme' },
+  { type: 'preview_restart_all' },
 ];
 
 export function legalNextStages(current: StageTag): Set<StageTag> {
@@ -658,6 +849,36 @@ export function legalNextStages(current: StageTag): Set<StageTag> {
     if (next.stage !== current) seen.add(next.stage);
   }
   return seen;
+}
+
+// -----------------------------------------------------------------------------
+// Helper: relationship-driven Curator's Pick reorder.
+//
+// Per spec §3.1, the Curator's Pick whose `id` matches the user's relationship
+// `curators_pick_priority` is moved to position #1 — the rest follow in their
+// default library order. The pure-function lives here so it can be unit-tested
+// without touching the library content, and so the UI doesn't have to
+// duplicate the matching logic.
+// -----------------------------------------------------------------------------
+
+export type ReorderablePick = { id: string };
+
+/**
+ * Reorder a Curator's Pick list so the pick with id === `priorityId` is at
+ * position #0. Stable for the remaining picks. If no match, returns the input
+ * order unchanged.
+ */
+export function reorderCuratorPicks<T extends ReorderablePick>(
+  picks: ReadonlyArray<T>,
+  priorityId: string | null | undefined,
+): T[] {
+  if (!priorityId) return [...picks];
+  const matchIdx = picks.findIndex((p) => p.id === priorityId);
+  if (matchIdx <= 0) return [...picks];
+  const next = [...picks];
+  const [match] = next.splice(matchIdx, 1);
+  next.unshift(match);
+  return next;
 }
 
 // -----------------------------------------------------------------------------
