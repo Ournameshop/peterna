@@ -123,8 +123,13 @@ function HomeHero() {
               className="peterna-hero-cta"
               style={{ marginTop: 28, display: "flex", flexWrap: "wrap", gap: 12 }}
             >
-              <GoldBtn href="/get-started">Join the waitlist</GoldBtn>
-              <GhostBtn href="/how-it-works" light>How it works</GhostBtn>
+              {/* Primary CTA — the actual product. Direct path into the
+                  tribute builder, no signup required. Sign-in is opt-in
+                  later (Phase 10). */}
+              <GoldBtn href="/builder">Build a tribute</GoldBtn>
+              {/* Secondary — the lead-form / waitlist path for visitors who
+                  aren't ready to build yet. */}
+              <GhostBtn href="/get-started" light>Join the waitlist</GhostBtn>
             </motion.div>
             <motion.div
               variants={item}
@@ -1376,7 +1381,10 @@ function HomeClosing() {
             justifyContent: "center",
           }}
         >
-          <GoldBtn href="/get-started">Join the waitlist</GoldBtn>
+          {/* Primary path — into the builder. Secondary path keeps the
+              waitlist available for visitors who'd rather wait. */}
+          <GoldBtn href="/builder">Build a tribute</GoldBtn>
+          <GhostBtn href="/get-started">Join the waitlist</GhostBtn>
         </div>
         <p
           style={{
