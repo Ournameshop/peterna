@@ -1,13 +1,19 @@
-// Peterna Phase 12 — minimal Web Push service worker.
+// Peterna Phase 12 + 13 — minimal service worker.
 //
-// Scope: push notification + click-through only. No caching, no offline,
-// no background sync — those are PWA features we don't ship yet.
+// Two responsibilities, both deliberately bare:
+//   1. Web Push (Phase 12) — receive backend pushes, show the "ready"
+//      notification, route the click into the tab if one's open.
+//   2. PWA install eligibility (Phase 13) — `skipWaiting()` on install +
+//      `clients.claim()` on activate so the browser counts the SW as
+//      "controlling" without a reload.
 //
-// Backend posts payloads shaped like:
-//   { title: string, body: string, icon?: string, url?: string }
+// We intentionally do NOT cache, precache, or handle fetch. Offline support
+// would change the contract with the API layer (stale data, retries, etc.)
+// and that's out of Phase 13 scope.
 //
-// One notification per tribute (the "ready" moment) — dedup is enforced
-// server-side via the render_jobs table.
+// Backend pushes shape: { title, body, icon?, url? }. One notification per
+// tribute (the "ready" moment) — dedup is enforced server-side via the
+// render_jobs table.
 
 self.addEventListener('install', () => {
   // Activate immediately so the first subscribe doesn't have to wait for a reload.
