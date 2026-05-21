@@ -1,4 +1,3 @@
-import 'server-only';
 
 // Curator's Picks library — Phase 3 slice.
 //

@@ -58,8 +58,8 @@ export default function ThemeGrid({
     () =>
       scopedThemes.map((t) => ({
         id: t.id,
-        label: t.name,
-        description: t.description,
+        label: t.label,
+        description: t.secondary,
         icon: t.icon,
       })),
     [scopedThemes],
@@ -98,7 +98,7 @@ export default function ThemeGrid({
             color: C.inkSofter,
           }}
         >
-          {category.emoji} {category.name}
+          {category.icon} {category.label}
         </p>
       ) : null}
       <PillPicker

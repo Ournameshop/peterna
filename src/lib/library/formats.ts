@@ -1,4 +1,3 @@
-import 'server-only';
 
 // Format library — Phase 3 slice.
 //

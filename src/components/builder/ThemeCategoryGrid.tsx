@@ -42,9 +42,9 @@ export default function ThemeCategoryGrid({ relationship, onChosen }: Props) {
     () =>
       categories.map((c) => ({
         id: c.id,
-        label: c.name,
-        description: c.description,
-        icon: c.emoji,
+        label: c.label,
+        description: c.secondary,
+        icon: c.icon,
       })),
     [categories],
   );

@@ -62,11 +62,11 @@ export default function CuratorPickGrid({
         // the "Based on what [PET_NAME] was to you" subtitle to give the
         // reorder a reason. Other picks just show their tagline.
         const description = isPriorityHit
-          ? `${subtitle}\n${pick.tagline}`
-          : pick.tagline;
+          ? `${subtitle}\n${pick.secondary}`
+          : pick.secondary;
         return {
           id: pick.id,
-          label: pick.name,
+          label: pick.label,
           description,
           icon: pick.icon,
         };

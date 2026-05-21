@@ -1073,15 +1073,15 @@ export default function BuilderClient({
                 {
                   type: "curator_pick_chosen",
                   curatorsPickId: pick.id,
-                  formatId: pick.format,
-                  themeId: pick.theme,
-                  styleId: pick.style,
+                  formatId: pick.format_id,
+                  themeId: pick.theme_id,
+                  styleId: pick.style_id,
                 },
                 {
                   curators_pick_id: pick.id,
-                  format_id: pick.format,
-                  theme_id: pick.theme,
-                  style_id: pick.style,
+                  format_id: pick.format_id,
+                  theme_id: pick.theme_id,
+                  style_id: pick.style_id,
                 },
               );
             }}
@@ -1188,11 +1188,11 @@ export default function BuilderClient({
         const formatLabel =
           (FORMATS as ReadonlyArray<FormatShape>).find(
             (f) => f.id === state.data.format_id,
-          )?.name ?? null;
+          )?.label ?? null;
         const themeLabel =
           (THEMES as ReadonlyArray<ThemeShape>).find(
             (t) => t.id === state.data.theme_id,
-          )?.name ?? null;
+          )?.label ?? null;
         const styleLabel =
           findArtStyle(state.data.style_id as ArtStyleId | null)?.label ?? null;
         const isLoading =

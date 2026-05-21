@@ -1,4 +1,3 @@
-import 'server-only';
 
 // Theme library — Phase 3 slice.
 //

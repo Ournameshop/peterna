@@ -29,8 +29,8 @@ export default function FormatGrid({ petName, onChosen }: Props) {
       formats.map((f) => ({
         id: f.id,
         // Substitute [PET_NAME] in format names like "Postcards From [PET_NAME]".
-        label: substitutePetName(f.name, petName),
-        description: f.description,
+        label: substitutePetName(f.label, petName),
+        description: f.secondary,
         icon: f.icon,
       })),
     [formats, petName],
