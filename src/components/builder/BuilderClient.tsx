@@ -25,6 +25,14 @@ import type {
   AssemblyApproveResponse,
   AssemblyRenderRequest,
   AssemblyRenderResponse,
+  DeliveryEmailRequest,
+  DeliveryEmailResponse,
+  DeliveryFinalizeRequest,
+  DeliveryFinalizeResponse,
+  EulogyApproveRequest,
+  EulogyApproveResponse,
+  EulogyRenderRequest,
+  EulogyRenderResponse,
   CardPreviewApproveRequest,
   CardPreviewApproveResponse,
   CardPreviewRenderRequest,
@@ -71,6 +79,7 @@ import type {
 import {
   ASSEMBLY_COMPLETE,
   CINEMATOGRAPHY_COMPLETE,
+  EULOGY_COMPLETE,
   COPY,
   RETURNING_USER,
   NAME_PROMPT,
@@ -141,6 +150,10 @@ import CinematographyView, {
 import { type CinematographyFieldName } from "./CinematographyTable";
 import VideoRenderProgress from "./VideoRenderProgress";
 import AssemblyView, { type AssemblyAction } from "./AssemblyView";
+import EulogyView, { type EulogyAction } from "./EulogyView";
+import DeliveryReadyView, {
+  type DeliveryArtifactItem,
+} from "./DeliveryReadyView";
 
 // Orchestrates the Stage 1 wizard. Owns the state machine + the side-effects
 // (PATCH on transition, vision-pass kick on photos-and-name).
@@ -308,6 +321,22 @@ export default function BuilderClient({
   const assemblyStartedRef = useRef(false);
   const assemblyInFlightRef = useRef(false);
   const [assemblyInFlight, setAssemblyInFlight] = useState(false);
+  // Stage 8 — eulogy PDF render kickoff. Same dedupe pattern as assembly —
+  // the eulogy render is templating-only on the backend (no vendor call),
+  // but it's still slow enough that a double-fire on transient re-mount
+  // would matter. We reuse the key inside the dedupe window.
+  const eulogyIdemRef = useRef<{ key: string; createdAt: number } | null>(
+    null,
+  );
+  const eulogyStartedRef = useRef(false);
+  const eulogyInFlightRef = useRef(false);
+  const [eulogyInFlight, setEulogyInFlight] = useState(false);
+  // Phase 9 — delivery finalize kickoff. Idempotent on the backend (the slug
+  // is generated once per session), so the dedupe pattern is light: a single
+  // latch that prevents the auto-fire effect from re-firing on remount.
+  const finalizeStartedRef = useRef(false);
+  const finalizeInFlightRef = useRef(false);
+  const [finalizeInFlight, setFinalizeInFlight] = useState(false);
 
   // Bootstrap: if we don't yet have a session, create one and reflect into URL.
   useEffect(() => {
@@ -1474,7 +1503,7 @@ export default function BuilderClient({
   // Assembly is a single long render (ffmpeg, server-side). We post once on
   // entry, then sit on a "stitching…" panel until the response lands with the
   // final MP4. No polling — assembly is one job, not N. On approve we POST
-  // /api/assembly/approve and advance to `eulogy_pdf` (Phase 8 placeholder).
+  // /api/assembly/approve and advance to `assembly_complete` (Phase 8 entry).
   // ---------------------------------------------------------------------------
 
   const getAssemblyIdempotencyKey = useCallback(
@@ -1557,12 +1586,9 @@ export default function BuilderClient({
         .catch(() => null)) as AssemblyApproveResponse | null;
       if (json && json.ok) {
         dispatch({ type: "assembly_approved" });
-        // Advance to Phase 8 placeholder so the URL reflects completion.
-        dispatch({ type: "goto", stage: "eulogy_pdf" });
       } else if (res.status === 404) {
         // Backend not up yet — advance optimistically.
         dispatch({ type: "assembly_approved" });
-        dispatch({ type: "goto", stage: "eulogy_pdf" });
       } else if (process.env.NODE_ENV !== "production") {
         console.warn("[builder] /api/assembly/approve failed", res.status, json);
       }
@@ -1598,6 +1624,241 @@ export default function BuilderClient({
       dispatch({ type: "goto", stage: "assembly_render" });
     }
   }, [state.stage, state.data.assembly_public_url]);
+
+  // ---------------------------------------------------------------------------
+  // Stage 8 — Eulogy PDF render → review → approve.
+  //
+  // Backend templating is cheap (no vendor call) but the PDF upload to R2
+  // is still ~5–10s end-to-end. We POST once on entry to eulogy_render,
+  // sit on the loading panel until the response lands, then move the user
+  // to eulogy_review with the PDF embedded inline.
+  // ---------------------------------------------------------------------------
+
+  const getEulogyIdempotencyKey = useCallback(
+    (freshIntent: boolean): string => {
+      const now = Date.now();
+      const cur = eulogyIdemRef.current;
+      if (!freshIntent && cur && now - cur.createdAt < DEDUPE_WINDOW_MS) {
+        return cur.key;
+      }
+      const key = crypto.randomUUID();
+      eulogyIdemRef.current = { key, createdAt: now };
+      return key;
+    },
+    [],
+  );
+
+  const renderEulogy = useCallback(
+    async (freshIntent: boolean) => {
+      if (!state.data.session_id) return;
+      if (eulogyInFlightRef.current) return;
+      eulogyInFlightRef.current = true;
+      setEulogyInFlight(true);
+
+      const idempotencyKey = getEulogyIdempotencyKey(freshIntent);
+      const body: EulogyRenderRequest = {
+        session_id: state.data.session_id,
+      };
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[builder] POST /api/eulogy/render", body);
+      }
+      try {
+        const res = await fetch("/api/eulogy/render", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Idempotency-Key": idempotencyKey,
+          },
+          body: JSON.stringify(body),
+        });
+        const json = (await res
+          .json()
+          .catch(() => null)) as EulogyRenderResponse | null;
+        if (json && json.ok) {
+          dispatch({
+            type: "eulogy_rendered",
+            assetId: json.asset_id,
+            publicUrl: json.public_url,
+          });
+        } else if (process.env.NODE_ENV !== "production") {
+          console.warn("[builder] /api/eulogy/render failed", res.status, json);
+        }
+      } catch (err) {
+        if (process.env.NODE_ENV !== "production") {
+          console.warn("[builder] /api/eulogy/render network error", err);
+        }
+      } finally {
+        eulogyInFlightRef.current = false;
+        setEulogyInFlight(false);
+      }
+    },
+    [getEulogyIdempotencyKey, state.data.session_id],
+  );
+
+  const approveEulogy = useCallback(async () => {
+    const sessionId = state.data.session_id;
+    if (!sessionId) return;
+    setSubmitting(true);
+    const body: EulogyApproveRequest = { session_id: sessionId };
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[builder] POST /api/eulogy/approve", body);
+    }
+    try {
+      const res = await fetch("/api/eulogy/approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const json = (await res
+        .json()
+        .catch(() => null)) as EulogyApproveResponse | null;
+      if (json && json.ok) {
+        dispatch({ type: "eulogy_approved" });
+      } else if (res.status === 404) {
+        // Backend not up yet — advance optimistically.
+        dispatch({ type: "eulogy_approved" });
+      } else if (process.env.NODE_ENV !== "production") {
+        console.warn("[builder] /api/eulogy/approve failed", res.status, json);
+      }
+    } catch (err) {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn("[builder] /api/eulogy/approve network error", err);
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }, [state.data.session_id]);
+
+  // Auto-fire the eulogy render when we land on eulogy_render with no PDF
+  // yet. Latch ref guards against transient re-mount double-firing; the
+  // "Re-render the PDF" gate pill clears `eulogy_pdf_url` AND resets the
+  // latch (see the review action handler) so this effect picks it up again.
+  useEffect(() => {
+    if (state.stage !== "eulogy_render") return;
+    if (!state.data.session_id) return;
+    if (state.data.eulogy_pdf_url) return;
+    if (eulogyStartedRef.current) return;
+    eulogyStartedRef.current = true;
+    void renderEulogy(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.stage, state.data.session_id, state.data.eulogy_pdf_url]);
+
+  // Defensive snap-back: if the user deep-links to eulogy_review with no PDF
+  // (refresh before session-GET hydrates), bounce them back to render.
+  useEffect(() => {
+    if (
+      state.stage === "eulogy_review" &&
+      !state.data.eulogy_pdf_url
+    ) {
+      dispatch({ type: "goto", stage: "eulogy_render" });
+    }
+  }, [state.stage, state.data.eulogy_pdf_url]);
+
+  // ---------------------------------------------------------------------------
+  // Phase 9 — Final delivery: finalize + email.
+  //
+  // Finalize is idempotent on the backend (it generates a share slug once
+  // per session, then re-uses it on subsequent calls). We auto-fire on
+  // delivery_ready entry; the response lands the slug + absolute share URL
+  // into local state.
+  //
+  // Email send is a separate, user-driven, non-blocking action — the
+  // DeliveryReadyView form owns the in-flight UI; we just expose an
+  // async helper.
+  // ---------------------------------------------------------------------------
+
+  const finalizeDelivery = useCallback(async () => {
+    const sessionId = state.data.session_id;
+    if (!sessionId) return;
+    if (finalizeInFlightRef.current) return;
+    finalizeInFlightRef.current = true;
+    setFinalizeInFlight(true);
+
+    const body: DeliveryFinalizeRequest = { session_id: sessionId };
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[builder] POST /api/delivery/finalize", body);
+    }
+    try {
+      const res = await fetch("/api/delivery/finalize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const json = (await res
+        .json()
+        .catch(() => null)) as DeliveryFinalizeResponse | null;
+      if (json && json.ok) {
+        dispatch({
+          type: "delivery_finalized",
+          shareSlug: json.share_slug,
+          shareUrl: json.share_url,
+        });
+      } else if (process.env.NODE_ENV !== "production") {
+        console.warn("[builder] /api/delivery/finalize failed", res.status, json);
+      }
+    } catch (err) {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn("[builder] /api/delivery/finalize network error", err);
+      }
+    } finally {
+      finalizeInFlightRef.current = false;
+      setFinalizeInFlight(false);
+    }
+  }, [state.data.session_id]);
+
+  const sendDeliveryEmail = useCallback(
+    async (email: string): Promise<void> => {
+      const sessionId = state.data.session_id;
+      if (!sessionId) throw new Error("no-session");
+      const body: DeliveryEmailRequest = {
+        session_id: sessionId,
+        email,
+      };
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[builder] POST /api/delivery/email", body);
+      }
+      const res = await fetch("/api/delivery/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const json = (await res
+        .json()
+        .catch(() => null)) as DeliveryEmailResponse | null;
+      if (json && json.ok) {
+        dispatch({
+          type: "delivery_emailed_event",
+          sentTo: json.sent_to,
+        });
+        return;
+      }
+      // 404 during dev is the same "backend not up yet" optimism we use
+      // elsewhere — we treat it as success so the wizard remains usable
+      // against an unfinished backend. In production any non-ok response
+      // is surfaced as an error to the form.
+      if (res.status === 404 && process.env.NODE_ENV !== "production") {
+        dispatch({ type: "delivery_emailed_event", sentTo: email });
+        return;
+      }
+      throw new Error("send_failed");
+    },
+    [state.data.session_id],
+  );
+
+  // Auto-fire the delivery finalize when we land on delivery_ready with no
+  // share URL yet. Idempotent on the backend so a single-latch is enough;
+  // the user may also re-enter from a refresh and we want the slug to come
+  // back from the session-GET path on the server, which serializes
+  // delivery_share_slug — that path bypasses this effect entirely.
+  useEffect(() => {
+    if (state.stage !== "delivery_ready") return;
+    if (!state.data.session_id) return;
+    if (state.data.delivery_share_url) return;
+    if (finalizeStartedRef.current) return;
+    finalizeStartedRef.current = true;
+    void finalizeDelivery();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.stage, state.data.session_id, state.data.delivery_share_url]);
 
   // Auto-fire derive whenever we land on cinematography_render with no
   // briefs yet. Same auto-render pattern as Stage 2/3/5/5.6.
@@ -2804,21 +3065,121 @@ export default function BuilderClient({
           <AssemblyCompletePanel
             petName={petName}
             onStart={() => {
-              dispatch({ type: "goto", stage: "eulogy_pdf" });
+              // Stage 7 → 8 hand-off — kick the eulogy render and land the
+              // user on the loading panel. The auto-fire effect handles the
+              // POST /api/eulogy/render call.
+              eulogyStartedRef.current = false;
+              eulogyIdemRef.current = null;
+              dispatch({ type: "eulogy_render_started" });
             }}
           />
         );
 
-      case "eulogy_pdf":
-        // Phase 8 placeholder — the eulogy PDF UI is not wired here. Render
-        // a quiet status panel so the URL has a landing spot.
+      // ----------------------------------------------------------------------
+      // Stage 8 — Eulogy PDF render → review → approve.
+      // ----------------------------------------------------------------------
+      case "eulogy_render":
         return (
-          <AssemblyCompletePanel
+          <EulogyView
             petName={petName}
-            onStart={() => {}}
-            isComplete
+            mode="loading"
+            disabled
+            onAction={() => {}}
           />
         );
+
+      case "eulogy_review": {
+        const pdfUrl = state.data.eulogy_pdf_url;
+        if (!pdfUrl) {
+          return (
+            <EulogyView
+              petName={petName}
+              mode="loading"
+              disabled
+              onAction={() => {}}
+            />
+          );
+        }
+        return (
+          <EulogyView
+            petName={petName}
+            mode="review"
+            pdfUrl={pdfUrl}
+            disabled={submitting || eulogyInFlight}
+            onAction={(action: EulogyAction) => {
+              if (action === "approve") {
+                void approveEulogy();
+                return;
+              }
+              if (action === "rerender") {
+                // "Re-render the PDF" — clear the cached PDF, reset the
+                // latch + idempotency-key ref so the auto-fire effect
+                // treats this as a fresh intent, and bounce back to the
+                // render stage. The reducer handles the data clear via
+                // the eulogy_render_started event.
+                eulogyStartedRef.current = false;
+                eulogyIdemRef.current = null;
+                dispatch({ type: "eulogy_render_started" });
+                return;
+              }
+              if (action === "restart_words") {
+                // "Edit the words" — bounce back to the Words editor so
+                // the user can adjust opening / closing / narration text.
+                // The previously rendered assembly + storyboard stay; only
+                // the eulogy re-renders on the second pass. We DO clear
+                // the eulogy state here so the user sees a fresh
+                // composition on re-entry.
+                eulogyStartedRef.current = false;
+                eulogyIdemRef.current = null;
+                dispatch({
+                  type: "session_loaded",
+                  state: {
+                    stage: "words_editor",
+                    data: {
+                      ...state.data,
+                      eulogy_pdf_asset_id: null,
+                      eulogy_pdf_url: null,
+                    },
+                  },
+                });
+                return;
+              }
+            }}
+          />
+        );
+      }
+
+      case "eulogy_complete":
+        return (
+          <EulogyCompletePanel
+            petName={petName}
+            onStart={() => {
+              // Stage 8 → Phase 9 hand-off — advance into delivery_ready
+              // and let the auto-finalize effect fire POST /api/delivery/finalize.
+              finalizeStartedRef.current = false;
+              dispatch({ type: "delivery_finalize_started" });
+            }}
+          />
+        );
+
+      // ----------------------------------------------------------------------
+      // Phase 9 — Final delivery (added beyond spec).
+      // ----------------------------------------------------------------------
+      case "delivery_ready":
+      case "delivery_emailed": {
+        const artifacts = buildDeliveryArtifacts(state);
+        return (
+          <DeliveryReadyView
+            petName={petName}
+            finalizing={finalizeInFlight}
+            shareUrl={state.data.delivery_share_url}
+            artifacts={artifacts}
+            eulogyPdfUrl={state.data.eulogy_pdf_url}
+            onEmail={sendDeliveryEmail}
+            emailedTo={state.data.delivery_emailed_to}
+          />
+        );
+      }
 
       default:
         return <Loading label="Loading your next step…" />;
@@ -3240,33 +3601,53 @@ function CinematographyToVideoPanel({
   );
 }
 
-// Stage 7 → Stage 8 hand-off. "Tribute locked, eulogy next." `isComplete`
-// swaps the CTA for a quiet status line — Phase 8 (eulogy PDF) is not wired
-// here, so a user landing on `eulogy_pdf` sees a calm "coming next" line.
+// Stage 7 → Stage 8 hand-off. "Tribute locked, eulogy next." CTA fires
+// `eulogy_render_started` and lands the user on the loading panel; the
+// BuilderClient's auto-fire effect handles the POST /api/eulogy/render call.
 function AssemblyCompletePanel({
   petName,
   onStart,
-  isComplete = false,
 }: {
   petName: string | null;
   onStart: () => void;
-  isComplete?: boolean;
 }) {
   const headline = substitutePetName(ASSEMBLY_COMPLETE.headline, petName);
-  const body = ASSEMBLY_COMPLETE.body;
+  const body = substitutePetName(ASSEMBLY_COMPLETE.body, petName);
   return (
     <section aria-label="Assembly complete" style={handoffSection}>
       <p style={handoffHeadline}>{headline}</p>
       <p style={handoffBody}>{body}</p>
-      {isComplete ? (
-        <p style={handoffPending}>The eulogy PDF is coming next.</p>
-      ) : (
-        <div style={handoffCtaRow}>
-          <button type="button" onClick={onStart} style={handoffCtaButton}>
-            {ASSEMBLY_COMPLETE.start_button}
-          </button>
-        </div>
-      )}
+      <div style={handoffCtaRow}>
+        <button type="button" onClick={onStart} style={handoffCtaButton}>
+          {ASSEMBLY_COMPLETE.start_button}
+        </button>
+      </div>
+    </section>
+  );
+}
+
+// Stage 8 → Phase 9 hand-off. "Eulogy locked, delivery next." CTA fires
+// `delivery_finalize_started` so the BuilderClient's auto-finalize effect
+// POSTs /api/delivery/finalize and lands the slug into state.
+function EulogyCompletePanel({
+  petName,
+  onStart,
+}: {
+  petName: string | null;
+  onStart: () => void;
+}) {
+  const headline = substitutePetName(EULOGY_COMPLETE.headline, petName);
+  const body = substitutePetName(EULOGY_COMPLETE.body, petName);
+  const buttonLabel = substitutePetName(EULOGY_COMPLETE.start_button, petName);
+  return (
+    <section aria-label="Eulogy complete" style={handoffSection}>
+      <p style={handoffHeadline}>{headline}</p>
+      <p style={handoffBody}>{body}</p>
+      <div style={handoffCtaRow}>
+        <button type="button" onClick={onStart} style={handoffCtaButton}>
+          {buttonLabel}
+        </button>
+      </div>
     </section>
   );
 }
@@ -3344,3 +3725,86 @@ const handoffPending = {
   fontSize: 13,
   opacity: 0.6,
 };
+
+// -----------------------------------------------------------------------------
+// Delivery artifact assembly.
+//
+// Builds the grid of DeliveryArtifactItem cards rendered on the
+// delivery_ready screen. We surface everything the user produced in this
+// wizard session — the character sheet portrait, every storyboard frame,
+// the opening + closing cards, and (as a download-badged card) the eulogy
+// PDF. The final assembled video gets its own download-badged card too.
+//
+// Items are surfaced in deliberate order:
+//   1. Character sheet (the likeness anchor)
+//   2. Opening + closing + in-scene cards (the typography)
+//   3. Storyboard frames (one per beat, in order)
+//   4. Final video (downloadable)
+//   5. Eulogy PDF (downloadable)
+//
+// All `href` values open in a new tab via the consumer's rel=noopener target;
+// the consumer (DeliveryReadyView) handles the anchor wrapping.
+// -----------------------------------------------------------------------------
+
+function buildDeliveryArtifacts(state: WizardState): DeliveryArtifactItem[] {
+  const items: DeliveryArtifactItem[] = [];
+  const d = state.data;
+
+  if (d.character_sheet?.public_url) {
+    items.push({
+      label: "Character sheet",
+      thumbnailUrl: d.character_sheet.public_url,
+      href: d.character_sheet.public_url,
+      caption: "Four-view likeness",
+    });
+  }
+
+  if (d.card_preview_cards) {
+    for (const card of d.card_preview_cards) {
+      const label =
+        card.kind === "opening"
+          ? "Opening card"
+          : card.kind === "closing"
+            ? "Closing card"
+            : "In-scene caption";
+      items.push({
+        label,
+        thumbnailUrl: card.public_url,
+        href: card.public_url,
+      });
+    }
+  }
+
+  if (d.storyboard_frames) {
+    const total = d.storyboard_frames.length;
+    for (const frame of d.storyboard_frames) {
+      items.push({
+        label: `Scene ${frame.beat_idx + 1} of ${total}`,
+        thumbnailUrl: frame.public_url,
+        href: frame.public_url,
+      });
+    }
+  }
+
+  if (d.assembly_public_url) {
+    items.push({
+      label: "Final tribute",
+      thumbnailUrl: null,
+      href: d.assembly_public_url,
+      caption: "MP4",
+      downloadable: true,
+    });
+  }
+
+  if (d.eulogy_pdf_url) {
+    items.push({
+      label: "Eulogy PDF",
+      thumbnailUrl: null,
+      href: d.eulogy_pdf_url,
+      caption: "One-page printable",
+      downloadable: true,
+    });
+  }
+
+  return items;
+}

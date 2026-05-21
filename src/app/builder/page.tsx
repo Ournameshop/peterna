@@ -52,6 +52,13 @@ const VALID_INTAKE_STAGES = new Set<StageTag>([
   "aspect_pick",
   // Stage 3 entry (placeholder body in Phase 2)
   "curators_pick_or_manual",
+  // Stage 8 — Eulogy PDF (Phase 8)
+  "eulogy_render",
+  "eulogy_review",
+  "eulogy_complete",
+  // Phase 9 — Final delivery
+  "delivery_ready",
+  "delivery_emailed",
 ]);
 
 type PageProps = {

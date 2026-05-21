@@ -146,7 +146,6 @@ function ShareBlock({ shareUrl }: { shareUrl: string }) {
           ta.style.opacity = "0";
           ta.focus();
           ta.select();
-          // eslint-disable-next-line @typescript-eslint/no-deprecated
           document.execCommand?.("copy");
         }
       }
@@ -228,13 +227,12 @@ function EmailForm({
   const [value, setValue] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [successAddr, setSuccessAddr] = useState<string | null>(null);
-
-  // Surface a "Sent to <addr>" line even on resume (the server tells us the
-  // last recipient via the session row).
-  useEffect(() => {
-    if (emailedTo) setSuccessAddr(emailedTo);
-  }, [emailedTo]);
+  // Local override for the success line — set after a successful submit
+  // from this tab. Defaults to null so the `emailedTo` prop (sourced from
+  // the session row on resume) is the canonical "Sent to <addr>" source.
+  const [localSubmittedAddr, setLocalSubmittedAddr] = useState<string | null>(
+    null,
+  );
 
   const handleSubmit = useCallback(
     async (e: FormEvent<HTMLFormElement>) => {
@@ -245,7 +243,7 @@ function EmailForm({
       setError(null);
       try {
         await onSubmit(trimmed);
-        setSuccessAddr(trimmed);
+        setLocalSubmittedAddr(trimmed);
         setValue("");
       } catch {
         setError(DELIVERY.ready.email_error);
@@ -256,8 +254,11 @@ function EmailForm({
     [onSubmit, value],
   );
 
-  const successLine = successAddr
-    ? DELIVERY.ready.email_success_template.replace("[EMAIL]", successAddr)
+  // The local submit wins (the user just sent to that address in this tab);
+  // otherwise, fall back to the session-row recipient on resume.
+  const announcedAddr = localSubmittedAddr ?? emailedTo;
+  const successLine = announcedAddr
+    ? DELIVERY.ready.email_success_template.replace("[EMAIL]", announcedAddr)
     : null;
 
   return (
