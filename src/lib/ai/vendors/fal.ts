@@ -171,3 +171,122 @@ export class FalTransportError extends Error {
 function isAbortError(err: unknown): err is Error {
   return err instanceof Error && (err.name === 'AbortError' || err.name === 'TimeoutError');
 }
+
+// -----------------------------------------------------------------------------
+// Seedance 2.0 video generation — Phase 7 (Stage 6).
+//
+// fal endpoint: `bytedance/seedance-2.0/image-to-video` — Phase 7 path. The
+// approved storyboard frame is passed as the start image; the cinematography
+// brief is composed into the prompt by `build-video-clip.ts`. fal returns a
+// short-lived CDN URL; we fetch the bytes and rehost to S3 in
+// `generate-video.ts` so callers never see a vendor URL.
+//
+// Sole vendor (no fallback) — see `risk-register.md` Risk #4.
+// -----------------------------------------------------------------------------
+
+export const FAL_VIDEO_ENDPOINT = 'bytedance/seedance-2.0/image-to-video';
+/** Stamp emitted to `renders.model` so QA can attribute cost to fal's pinned snapshot. */
+export const FAL_VIDEO_MODEL_TAG = 'fal:bytedance/seedance-2.0/image-to-video';
+
+/**
+ * Seedance 2.0 per-clip cost estimate. fal's posted rate for the
+ * `bytedance/seedance-2.0/image-to-video` endpoint is ~$0.50 / 15s 1080p
+ * clip as of 2026-05-21. We mirror that as a flat per-clip number — the
+ * spec only generates 15s clips, so a more elaborate size/quality table
+ * would be over-engineering.
+ *
+ * Used both by `renders.cost_usd_est` and by the per-session budget cap
+ * check in `generate-video.ts`. Confirm against the fal dashboard if the
+ * 20%-fallback-rate alarm in observability ever fires from drift.
+ */
+export const FAL_VIDEO_CLIP_USD_EST = 0.5;
+
+export type FalVideoInput = {
+  /** Public S3 URL of the storyboard frame used as the start image. */
+  imageUrl: string;
+  prompt: string;
+  durationSeconds: 5 | 10 | 15;
+  aspectRatio: '9:16' | '16:9' | '1:1';
+  timeoutMs: number;
+  signal?: AbortSignal;
+};
+
+export type FalVideoOutput = {
+  bytes: Buffer;
+  mimeType: 'video/mp4';
+  costUsdEst: number;
+  model: string;
+};
+
+/**
+ * Call fal's Seedance 2.0 image-to-video endpoint. Subscribes through the
+ * fal client (long-poll) — typical latency 30–60s. Errors are classified
+ * into transport vs. status so `generate-video.ts` can decide whether the
+ * single allowed retry should fire.
+ */
+export async function runFalGenerateVideo(input: FalVideoInput): Promise<FalVideoOutput> {
+  const client = getClient();
+
+  const payload: Record<string, unknown> = {
+    prompt: input.prompt,
+    image_url: input.imageUrl,
+    duration: String(input.durationSeconds),
+    aspect_ratio: input.aspectRatio,
+    resolution: '1080p',
+    // Seedance defaults audio to on for image-to-video; pass explicit so
+    // the contract doesn't drift if fal flips the default.
+    generate_audio: true,
+  };
+
+  let result;
+  try {
+    result = await client.subscribe(FAL_VIDEO_ENDPOINT, {
+      input: payload,
+      abortSignal: input.signal,
+      // fal's subscribe loop polls every ~1s; the upstream Seedance call
+      // itself runs 30–60s. The vendor-layer's outer 180s timeout is the
+      // cutoff in `generate-video.ts`.
+    });
+  } catch (err) {
+    if (err instanceof ApiError) {
+      throw new FalStatusError(err.message, err.status ?? 500);
+    }
+    if (isAbortError(err)) {
+      throw new FalTransportError(err.message || 'aborted');
+    }
+    throw new FalTransportError(err instanceof Error ? err.message : 'unknown fal error');
+  }
+
+  const data = result.data as {
+    video?: { url?: string };
+    videos?: Array<{ url?: string }>;
+  };
+  const url = data?.video?.url ?? data?.videos?.[0]?.url;
+  if (!url) {
+    throw new FalStatusError('fal seedance response missing video url', 502);
+  }
+
+  let bytes: Buffer;
+  try {
+    const resp = await fetch(url, { signal: input.signal });
+    if (!resp.ok) {
+      throw new FalStatusError(`fal CDN video fetch failed: HTTP ${resp.status}`, resp.status);
+    }
+    bytes = Buffer.from(await resp.arrayBuffer());
+  } catch (err) {
+    if (err instanceof FalStatusError) throw err;
+    if (isAbortError(err)) {
+      throw new FalTransportError(err.message || 'aborted');
+    }
+    throw new FalTransportError(
+      err instanceof Error ? err.message : 'unknown fal CDN fetch error',
+    );
+  }
+
+  return {
+    bytes,
+    mimeType: 'video/mp4',
+    costUsdEst: FAL_VIDEO_CLIP_USD_EST,
+    model: FAL_VIDEO_MODEL_TAG,
+  };
+}
