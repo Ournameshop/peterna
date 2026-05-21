@@ -50,6 +50,13 @@
       "when": 1779393795206,
       "tag": "0006_worried_gideon",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1779400663052,
+      "tag": "0007_lazy_the_stranger",
+      "breakpoints": true
     }
   ]
 }

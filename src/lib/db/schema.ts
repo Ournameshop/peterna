@@ -12,6 +12,35 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 
+// Phase 10 — user accounts via passwordless magic link. Anonymous sessions
+// continue to work; `sessions.user_id` is nullable. Signed-in sessions get
+// linked at builder entry or via dashboard claim.
+export const users = pgTable(
+  'users',
+  {
+    id: uuid('id').primaryKey(),
+    email: text('email').notNull().unique(),
+    name: text('name'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    emailVerifiedAt: timestamp('email_verified_at', { withTimezone: true }),
+  },
+);
+
+export const magicLinkTokens = pgTable(
+  'magic_link_tokens',
+  {
+    id: uuid('id').primaryKey(),
+    email: text('email').notNull(),
+    tokenHash: text('token_hash').notNull().unique(),  // SHA-256(raw token)
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    consumedAt: timestamp('consumed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('magic_link_tokens_email_idx').on(table.email),
+  ],
+);
+
 export const sessions = pgTable(
   'sessions',
   {
@@ -93,6 +122,11 @@ export const sessions = pgTable(
     assembledVideoAssetId: uuid('assembled_video_asset_id'),
     videoApprovedAt: timestamp('video_approved_at', { withTimezone: true }),
 
+    // Phase 10 — optional FK to users table. Anonymous sessions remain (null).
+    // When a user signs in, their existing anonymous session (and any prior
+    // anonymous sessions on the same browser) can be claimed and linked.
+    userId: uuid('user_id'),
+
     // Stage 8 — Eulogy PDF.
     eulogyPdfAssetId: uuid('eulogy_pdf_asset_id'),
     eulogyApprovedAt: timestamp('eulogy_approved_at', { withTimezone: true }),
@@ -107,8 +141,12 @@ export const sessions = pgTable(
   (table) => [
     index('sessions_resume_token_idx').on(table.resumeToken),
     index('sessions_updated_at_idx').on(table.updatedAt),
+    index('sessions_user_id_idx').on(table.userId),  // dashboard "my tributes" query
   ],
 );
+
+export type User = typeof users.$inferSelect;
+export type MagicLinkToken = typeof magicLinkTokens.$inferSelect;
 
 export const assets = pgTable(
   'assets',

@@ -125,5 +125,7 @@ export function serializeSession(s: Session): SessionWire {
         : s.deliveryReadyAt
           ? String(s.deliveryReadyAt)
           : null,
+
+    user_id: s.userId,
   };
 }

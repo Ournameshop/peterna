@@ -128,6 +128,9 @@ export type SessionWire = {
   delivery_share_slug: string | null;
   delivery_emailed_to: string | null;
   delivery_ready_at: string | null;
+
+  // Phase 10 — optional FK to users table; null for anonymous sessions.
+  user_id: string | null;
 };
 
 // -----------------------------------------------------------------------------
@@ -788,6 +791,46 @@ export type DeliveryEmailRequest = {
 export type DeliveryEmailResponse =
   | ApiOk<{ sent_to: string }>
   | ApiErr<'invalid-input' | 'session-not-found' | 'cookie-mismatch' | 'send_failed'>;
+
+// -----------------------------------------------------------------------------
+// Phase 10 — User accounts via passwordless magic link.
+// -----------------------------------------------------------------------------
+
+/** User row over the wire (no internal columns leaked). */
+export type UserWire = {
+  id: string;
+  email: string;
+  name: string | null;
+  created_at: string;
+  email_verified_at: string | null;
+};
+
+// POST /api/auth/magic-link/request — emails a one-time signin link.
+// Always returns ok=true regardless of whether the email exists (prevents
+// enumeration). Rate-limited per email + per IP.
+export type MagicLinkRequestRequest = {
+  email: string;
+};
+
+export type MagicLinkRequestResponse =
+  | ApiOk<{ sent: true }>
+  | ApiErr<'invalid-input' | 'rate-limited' | 'send_failed'>;
+
+// GET /api/auth/magic-link/consume?token=... — validates, sets auth_user
+// cookie, redirects to /dashboard (or /builder if no prior tributes).
+// Returns JSON when called via fetch; HTTP 302 when called by browser nav.
+export type MagicLinkConsumeResponse =
+  | ApiOk<{ user: UserWire; redirect_to: string }>
+  | ApiErr<'invalid-input' | 'token-expired' | 'token-consumed' | 'token-not-found'>;
+
+// GET /api/auth/me — current signed-in user, if any.
+export type AuthMeResponse =
+  | ApiOk<{ user: UserWire }>
+  | ApiOk<{ user: null }>
+  | ApiErr;
+
+// POST /api/auth/signout — clears auth_user cookie.
+export type AuthSignoutResponse = ApiOk<{ signed_out: true }> | ApiErr;
 
 // -----------------------------------------------------------------------------
 // Helper: PhotoAsset re-export so frontend imports come from one place.
