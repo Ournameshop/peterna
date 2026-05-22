@@ -126,6 +126,63 @@ export const PHOTO_PROMPT = {
 } as const;
 
 /**
+ * Phase 15a — Stage 1.2 typed photo roles.
+ *
+ * Photos are now collected in three sub-stages. The first (`character_reference`)
+ * is required — it's the source of likeness for the character sheet. The other
+ * two are optional and additive:
+ *   - `with_human` photos are used opportunistically by the cinematography engine
+ *     as image-to-video seeds for memory/companionship beats (never as character
+ *     sheet references — anti-trauma).
+ *   - `environment` photos seed establishing-shot beats with the pet's actual
+ *     world (their bed, the back yard, the trail).
+ *
+ * Copy is parameterized by role and substitutes `[PET_NAME]` at render time
+ * via `substitutePetName` (same helper as the locked copy block above).
+ */
+export const PHOTO_PROMPT_BY_ROLE = {
+  character_reference: {
+    headline: 'Photos of [PET_NAME]',
+    sub:
+      "Three or more photos help us capture how they really looked — a front, a side, a full body. Just of them, alone in the frame if possible.",
+    submit: 'Continue',
+    // No skip; >=1 required.
+  },
+  with_human: {
+    headline: 'Photos of [PET_NAME] with their people',
+    sub:
+      "Optional, but powerful. We use these to animate the moments when [PET_NAME] was with you — a hand on their head, a face next to theirs, a shared corner of the couch.",
+    submit: 'Continue',
+    skip: "I don't have any with people",
+  },
+  environment: {
+    headline: 'Their favorite places',
+    sub:
+      "Optional. Beds, windowsills, the backyard, the trail where they ran fastest — whatever places carry their presence. We'll use these as backgrounds in some scenes.",
+    submit: 'Continue',
+    skip: 'Skip — keep it about [PET_NAME]',
+  },
+} as const;
+
+export type PhotoRole = keyof typeof PHOTO_PROMPT_BY_ROLE;
+/**
+ * Allowlist of legal photo_role values — used at API boundaries to validate
+ * client-supplied roles before they reach the DB write. Mirrors the keys of
+ * `PHOTO_PROMPT_BY_ROLE` so adding a new role updates both at once.
+ */
+export const PHOTO_ROLES = [
+  'character_reference',
+  'with_human',
+  'environment',
+] as const satisfies readonly PhotoRole[];
+
+export function isPhotoRole(value: unknown): value is PhotoRole {
+  return (
+    typeof value === 'string' && (PHOTO_ROLES as readonly string[]).includes(value)
+  );
+}
+
+/**
  * Stage 1.3 name + pronunciation prompts.
  */
 export const NAME_PROMPT = {
@@ -1214,6 +1271,7 @@ export const COPY = {
   STAGE_BANNERS,
   RETURNING_USER,
   PHOTO_PROMPT,
+  PHOTO_PROMPT_BY_ROLE,
   NAME_PROMPT,
   CONFIRMATION_FRAMING,
   VISION_FAILURE,
