@@ -10,9 +10,10 @@ import {
 import { serializeSession } from '@/lib/builder/serialize';
 // Note: this route's allowlist mirrors `SessionPatchBody` in
 // `src/lib/builder/wire-types.ts`. Every key in `STRING_FIELDS` /
-// `ARRAY_FIELDS` / `INT_FIELDS` / `BOOL_FIELDS` / `JSON_FIELDS` below must
-// appear there, and vice versa — that is the contract test the type system
-// can't enforce statically (because PATCH is value-typed at the boundary).
+// `ARRAY_FIELDS` / `INT_FIELDS` / `BOOL_FIELDS` / `JSON_FIELDS` /
+// `JSONB_ARRAY_FIELDS` below must appear there, and vice versa — that is
+// the contract test the type system can't enforce statically (because PATCH
+// is value-typed at the boundary).
 import { readUserIdFromCookie } from '@/lib/auth/user-cookie';
 import { getDb } from '@/lib/db/client';
 import { assets, sessions } from '@/lib/db/schema';
@@ -183,15 +184,21 @@ export async function DELETE(req: NextRequest, ctx: RouteParams): Promise<Respon
 // Allowlist (snake_case wire fields → drizzle camelCase setters)
 // ----------------------------------------------------------------------------
 
-// The allowlist is the source of truth for what a PATCH can write. Any field added
-// here must also appear in `SessionPatchBody` at `src/lib/builder/wire-types.ts` so
-// the frontend's TypeScript catches drift.
+// The allowlist is the source of truth for what a PATCH can write. Every
+// field declared in `SessionPatchBody` (src/lib/builder/wire-types.ts) MUST
+// appear in exactly one of the *_FIELDS arrays below AND in `WIRE_TO_DRIZZLE`,
+// and vice versa — that is the runtime contract the value-typed boundary
+// can't enforce statically. The PATCH-allowlist-drift item in the
+// pre-Phase-15 bug audit covered both directions of drift:
 //
-// Phase 3 exception: `combination_preview_asset_id` is allowlisted here for a
-// defensive recovery path (per the Phase 3 task brief). `wire-types.ts` is frozen
-// for Phase 3 so the typed wire surface intentionally omits the field — the
-// canonical writer remains `/api/preview/approve`. Re-sync the wire-types when
-// Phase 3 lands.
+//   - `beat_sheet` was declared in `SessionPatchBody` but missing from the
+//     runtime allowlist — the field was silently dropped. Now added under
+//     JSONB_ARRAY_FIELDS so the generic PATCH writes it; the canonical writer
+//     remains `/api/beat-sheet/*` and is unaffected.
+//   - `combination_preview_asset_id` was allowlisted here but NOT declared
+//     in `SessionPatchBody`. The canonical writer is `/api/preview/approve`;
+//     no client-side PATCH path exists. Door closed (recommendation (a) from
+//     the audit) — removed from STRING_FIELDS + WIRE_TO_DRIZZLE.
 const STRING_FIELDS = [
   'stage',
   'pet_name',
@@ -207,9 +214,6 @@ const STRING_FIELDS = [
   'format_id',
   'theme_id',
   'style_id',
-  // Phase 3: defensively writable via PATCH so a recovery path exists if the
-  // approve route fails mid-update. Canonical writer is /api/preview/approve.
-  'combination_preview_asset_id',
   // Phase 5 — Stage 5.5 "The Words" fields. Canonical writer is PATCH
   // /api/words; these are also writable via the generic session PATCH so
   // the FE can pre-populate or clear them without bouncing through the
@@ -231,7 +235,11 @@ const STRING_FIELDS = [
 const ARRAY_FIELDS = ['personality_traits', 'favorite_things'] as const;
 const INT_FIELDS = ['beat_count', 'target_minutes'] as const;
 const BOOL_FIELDS = ['is_returning_user'] as const;
+// JSONB columns where the value is a plain object (e.g. inferred_profile).
 const JSON_FIELDS = ['inferred_profile'] as const;
+// JSONB columns where the value is an array (e.g. beat_sheet: BeatWire[]).
+// Kept separate from JSON_FIELDS because the object/array typeguard differs.
+const JSONB_ARRAY_FIELDS = ['beat_sheet'] as const;
 
 // Snake-case wire keys → camelCase drizzle setters.
 const WIRE_TO_DRIZZLE: Record<string, string> = {
@@ -249,7 +257,6 @@ const WIRE_TO_DRIZZLE: Record<string, string> = {
   format_id: 'formatId',
   theme_id: 'themeId',
   style_id: 'styleId',
-  combination_preview_asset_id: 'combinationPreviewAssetId',
   opening_title_card_text: 'openingTitleCardText',
   closing_card_text: 'closingCardText',
   music_track_id: 'musicTrackId',
@@ -262,6 +269,7 @@ const WIRE_TO_DRIZZLE: Record<string, string> = {
   target_minutes: 'targetMinutes',
   is_returning_user: 'returningUser',
   inferred_profile: 'inferredProfile',
+  beat_sheet: 'beatSheet',
 };
 
 function pickAllowed(body: Record<string, unknown>): Record<string, unknown> {
@@ -271,6 +279,7 @@ function pickAllowed(body: Record<string, unknown>): Record<string, unknown> {
   for (const k of INT_FIELDS) if (k in body) out[k] = body[k];
   for (const k of BOOL_FIELDS) if (k in body) out[k] = body[k];
   for (const k of JSON_FIELDS) if (k in body) out[k] = body[k];
+  for (const k of JSONB_ARRAY_FIELDS) if (k in body) out[k] = body[k];
   return out;
 }
 
@@ -316,6 +325,14 @@ function validatePatch(patch: Record<string, unknown>): Array<{ field: string; m
       const v = patch[k];
       if (typeof v !== 'object' || Array.isArray(v)) {
         issues.push({ field: k, message: 'expected object' });
+      }
+    }
+  }
+  for (const k of JSONB_ARRAY_FIELDS) {
+    if (k in patch && patch[k] != null) {
+      const v = patch[k];
+      if (!Array.isArray(v)) {
+        issues.push({ field: k, message: 'expected array' });
       }
     }
   }
