@@ -47,6 +47,7 @@ export default function Storyboard({ onNext, onBack }: StageProps) {
             state.style,
             state.format,
             state.aspectRatio,
+            state.captionContainer,
           );
           return [beat.index, url] as const;
         }),
@@ -88,6 +89,7 @@ export default function Storyboard({ onNext, onBack }: StageProps) {
         state.style,
         state.format,
         state.aspectRatio,
+        state.captionContainer,
         state.gateNotes.storyboard, // user's notes from the corrections box → into the re-render
         state.storyboardImages[beatIdx], // the frame being re-rendered — edited in place when a note is given
       );

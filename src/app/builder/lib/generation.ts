@@ -272,6 +272,7 @@ export async function generateStoryboardFrame(
   styleId: ArtStyleId | null,
   formatId: FormatId | null,
   aspect: AspectId,
+  containerId: ContainerId | null,
   userNote?: string,
   priorFrameUrl?: string, // the existing frame — a note-driven re-render EDITS this
 ): Promise<string | null> {
@@ -281,6 +282,13 @@ export async function generateStoryboardFrame(
   const style = artStyles.find((s) => s.id === styleId);
   const format = formats.find((f) => f.id === formatId);
   const note = userNote?.trim();
+
+  // Caption container + this beat's resolved caption text, baked into the frame —
+  // the skill treats every storyboard beat as a card that carries its caption.
+  const container = captionContainers.find((c) => c.id === containerId);
+  const captionBlock = container && beat.caption
+    ? `\n\nCaption: in the lower portion of the frame, place the caption container — ${container.name}: ${container.spec}\nOn the caption container, render exactly this text, spelled perfectly and completely with no missing or extra words: "${beat.caption}". Use elegant lettering that suits the container and the art style.`
+    : '';
 
   // Note-driven re-render → EDIT the frame the user is looking at (pass it as the
   // primary reference) so the requested change is visibly applied, instead of
@@ -309,7 +317,7 @@ ${format ? `Format context: ${format.name} — ${format.desc}` : ''}
 
 Composition: choose framing for this specific beat — wide for establishing beats, medium for relational beats, medium-wide for active beats. Vary the framing, camera angle, and the pet's pose from one beat to the next so no two frames look alike. Avoid extreme close-ups unless the beat is intimate.
 Lighting: soft, warm, gentle. No humans in frame. No imagery of illness, injury, or death.
-${style ? `Art style: ${style.directive}` : ''}${note ? `
+${style ? `Art style: ${style.directive}` : ''}${captionBlock}${note ? `
 
 IMPORTANT — the family reviewed this frame and asked for this specific change. Apply it while keeping ${petName}'s exact likeness from the reference: ${note}` : ''}`;
   }
