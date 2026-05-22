@@ -419,7 +419,7 @@ export default function TheWords({ onNext, onBack }: StageProps) {
                   );
                   if (firstUnused === undefined || state.words.captions.length >= 3) return;
                   const next = [...state.words.captions, { beatIndex: firstUnused, text: s.text }];
-                  update({ words: { ...state.words, captions: next } });
+                  update({ words: { ...state.words, captions: next }, storyboardImages: {}, storyboardApproved: false });
                 }}
                 style={{
                   padding: '8px 14px',

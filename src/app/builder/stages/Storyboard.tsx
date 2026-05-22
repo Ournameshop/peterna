@@ -150,7 +150,7 @@ export default function Storyboard({ onNext, onBack }: StageProps) {
   }
 
   const approvalOptions = [
-    { id: 'approve', label: 'All good — move to Card Preview', tone: 'primary' as const },
+    { id: 'approve', label: 'All good — continue', tone: 'primary' as const },
     { id: 'rerender_single', label: 'Re-render a frame' },
     { id: 'rerender_multi', label: 'Re-render multiple' },
   ];
@@ -160,6 +160,7 @@ export default function Storyboard({ onNext, onBack }: StageProps) {
     : '1';
 
   const petName = state.petName || 'your pet';
+  const resolveCtx = { gender: state.gender ?? 'neutral', petName };
 
   const colCount = state.aspectRatio === '9:16' ? 3
     : state.aspectRatio === '16:9' ? 2
@@ -190,6 +191,7 @@ export default function Storyboard({ onNext, onBack }: StageProps) {
         <div style={{ display: 'grid', gridTemplateColumns: `repeat(${colCount}, 1fr)`, gap: 12, marginBottom: 28 }}>
           {beats.map((beat, i) => {
             const isRerolling = rerollSpinning && state.storyboardRerollRequests[state.storyboardRerollRequests.length - 1] === beat.index;
+            const cap = finalBeatCaption(beat, state.words, resolveCtx);
             return (
               <div key={beat.index} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <div style={{ position: 'relative', borderRadius: 4, overflow: 'hidden', border: `1px solid ${PALETTE.parchmentLight}` }}>
@@ -229,8 +231,8 @@ export default function Storyboard({ onNext, onBack }: StageProps) {
                     Beat {i + 1} · {beat.archetype}
                   </Sans>
                   <Serif italic style={{ fontSize: 13, color: PALETTE.espresso, lineHeight: 1.35 }}>{beat.name}</Serif>
-                  {beat.caption && (
-                    <Serif italic style={{ fontSize: 12, color: PALETTE.mute, marginTop: 2 }}>{beat.caption}</Serif>
+                  {cap && (
+                    <Serif italic style={{ fontSize: 12, color: PALETTE.mute, marginTop: 2 }}>{cap}</Serif>
                   )}
                 </div>
               </div>
