@@ -5,6 +5,16 @@ Working branch: `Adding-skill-in-webflow`.
 
 ## 2026-05-22
 
+### Critical — narration ffmpeg filter mangled by the build minifier
+Every compose with narration failed: `ffmpeg exited 234 ... Invalid argument`.
+`NARR_POST` (the narration audio filter chain) was built as a
+`` `…,` + `…,` + `…` `` template-literal concatenation. The production build
+minifier (SWC) **dropped the boundary commas** during constant folding —
+`…g=-2.5,aecho=…` compiled to `…g=-2.5aecho=…` — producing an unparseable
+ffmpeg filtergraph. The source was correct; the *compiler* broke it.
+Rewrote `NARR_POST` as a single flat string literal (a minifier cannot alter
+literal content) and verified the compiled `.next` output.
+
 ### Dry-run fixes — beat motion + narration grammar
 A no-API-call dry-run (347 assertions) caught four bugs:
 - **Ship-blocker:** the cinematography engine read `beat.sceneHintSource` (a
