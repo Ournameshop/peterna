@@ -1987,6 +1987,9 @@ export default function BuilderClient({
         );
 
       case "intake_photos":
+      case "intake_photos_character_reference":
+        // Phase 15a — first sub-stage. Required (>=1 photo). The deprecated
+        // `intake_photos` tag still renders this screen for legacy sessions.
         if (!state.data.session_id) {
           return <Loading label="Setting things up…" />;
         }
@@ -1994,12 +1997,69 @@ export default function BuilderClient({
           <PhotoUrlField
             sessionId={state.data.session_id}
             petName={petName}
-            variant={state.data.pet_photos.length === 0 ? "first" : "followup"}
+            role="character_reference"
             onComplete={(photos: PhotoAsset[]) => {
-              void dispatchAndSave({ type: "photos_uploaded", photos });
+              // The reducer's character_reference case ignores empty submits;
+              // PhotoUrlField also enforces a non-empty submit for this role.
+              void dispatchAndSave({
+                type: "photos_character_reference_submitted",
+                photos,
+              });
             }}
             onSkip={() => {
-              void dispatchAndSave({ type: "photos_skipped" });
+              // Skip is hidden for character_reference; this handler exists
+              // only because the prop is required by PhotoUrlField. No-op.
+            }}
+          />
+        );
+
+      case "intake_photos_with_human":
+        // Phase 15a — optional. Skip dispatches the same event with photos=[].
+        if (!state.data.session_id) {
+          return <Loading label="Setting things up…" />;
+        }
+        return (
+          <PhotoUrlField
+            sessionId={state.data.session_id}
+            petName={petName}
+            role="with_human"
+            onComplete={(photos: PhotoAsset[]) => {
+              void dispatchAndSave({
+                type: "photos_with_human_submitted",
+                photos,
+              });
+            }}
+            onSkip={() => {
+              void dispatchAndSave({
+                type: "photos_with_human_submitted",
+                photos: [],
+              });
+            }}
+          />
+        );
+
+      case "intake_photos_environment":
+        // Phase 15a — optional. After submit-or-skip, the reducer advances
+        // into `intake_name`.
+        if (!state.data.session_id) {
+          return <Loading label="Setting things up…" />;
+        }
+        return (
+          <PhotoUrlField
+            sessionId={state.data.session_id}
+            petName={petName}
+            role="environment"
+            onComplete={(photos: PhotoAsset[]) => {
+              void dispatchAndSave({
+                type: "photos_environment_submitted",
+                photos,
+              });
+            }}
+            onSkip={() => {
+              void dispatchAndSave({
+                type: "photos_environment_submitted",
+                photos: [],
+              });
             }}
           />
         );

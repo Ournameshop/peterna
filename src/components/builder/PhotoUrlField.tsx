@@ -12,22 +12,40 @@ import {
 import { motion } from "framer-motion";
 import { Upload, X } from "lucide-react";
 import { C, FONT_SANS } from "@/lib/peterna-tokens";
-import { PHOTO_PROMPT, substitutePetName } from "@/lib/library/copy";
+import {
+  PHOTO_PROMPT,
+  PHOTO_PROMPT_BY_ROLE,
+  substitutePetName,
+  type PhotoRole,
+} from "@/lib/library/copy";
 import type { PhotoAsset } from "@/lib/builder/state";
 import type { IngestUrlResponse, UploadResponse } from "@/lib/builder/wire-types";
 
 // Pattern A — Photo + URL combo. File dropzone + URL textarea coexist.
 //
 // On submit:
-//   - files → multipart POST /api/upload (one request per file)
-//   - URLs → POST /api/ingest-url with the parsed list
+//   - files → multipart POST /api/upload (one request per file, role attached)
+//   - URLs → POST /api/ingest-url with the parsed list + role
 //
-// Both calls return { ok: true, asset_id, public_url } shapes that we
-// hand back to the parent as a unified PhotoAsset[].
+// Phase 15a — `role` is the primary driver of copy + behavior. The three
+// typed roles (character_reference / with_human / environment) each get their
+// own headline / sub / submit / skip strings from PHOTO_PROMPT_BY_ROLE. The
+// character_reference role is required (>=1 photo, no Skip pill); the other
+// two roles show Skip prominently.
+//
+// The legacy `variant: 'first' | 'followup'` prop is preserved so callers that
+// haven't been migrated still work — when `role` is omitted, we fall back to
+// the locked PHOTO_PROMPT block and the original behavior (skip only on
+// followup). New call sites should pass `role`.
 
 type Props = {
   sessionId: string;
   petName: string | null;
+  /** Phase 15a — typed photo role. When provided, drives copy + skip behavior
+   *  via PHOTO_PROMPT_BY_ROLE. When omitted, falls back to the legacy `variant`
+   *  path so existing call sites keep working unchanged. */
+  role?: PhotoRole;
+  /** Legacy variant prop. Only consulted when `role` is omitted. */
   variant?: "first" | "followup";
   onComplete: (photos: PhotoAsset[]) => void;
   onSkip: () => void;
@@ -64,6 +82,7 @@ function genId() {
 export default function PhotoUrlField({
   sessionId,
   petName,
+  role,
   variant = "first",
   onComplete,
   onSkip,
@@ -78,16 +97,44 @@ export default function PhotoUrlField({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const header =
-    variant === "first" ? PHOTO_PROMPT.header_first : PHOTO_PROMPT.header_followup;
-  const question = substitutePetName(
-    variant === "first"
-      ? petName
-        ? PHOTO_PROMPT.question_first
-        : PHOTO_PROMPT.question_first_no_name
-      : PHOTO_PROMPT.question_followup,
-    petName,
-  );
+  // Phase 15a — when role is set, drive copy from PHOTO_PROMPT_BY_ROLE.
+  // Otherwise fall back to the legacy PHOTO_PROMPT block (header_first /
+  // header_followup driven by variant).
+  const rolePrompt = role ? PHOTO_PROMPT_BY_ROLE[role] : null;
+
+  const header = rolePrompt
+    ? substitutePetName(rolePrompt.headline, petName)
+    : variant === "first"
+      ? PHOTO_PROMPT.header_first
+      : substitutePetName(PHOTO_PROMPT.header_followup, petName);
+
+  const question = rolePrompt
+    ? substitutePetName(rolePrompt.sub, petName)
+    : substitutePetName(
+        variant === "first"
+          ? petName
+            ? PHOTO_PROMPT.question_first
+            : PHOTO_PROMPT.question_first_no_name
+          : PHOTO_PROMPT.question_followup,
+        petName,
+      );
+
+  // Submit-button label depends on role/variant.
+  const submitLabel = rolePrompt
+    ? rolePrompt.submit
+    : variant === "followup"
+      ? PHOTO_PROMPT.continue_with_one
+      : PHOTO_PROMPT.submit;
+
+  // Skip affordance — only on optional roles (with_human / environment) or on
+  // the legacy followup variant. character_reference NEVER shows Skip.
+  const isCharacterReference = role === "character_reference";
+  const showSkip = role
+    ? !isCharacterReference && "skip" in rolePrompt!
+    : variant === "followup";
+  const skipLabel = rolePrompt && "skip" in rolePrompt
+    ? substitutePetName(rolePrompt.skip, petName)
+    : PHOTO_PROMPT.skip;
 
   const addFiles = useCallback(
     (files: FileList | File[]) => {
@@ -140,7 +187,7 @@ export default function PhotoUrlField({
     },
     // uploadOne is closed over below; safe to omit from deps
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [sessionId],
+    [sessionId, role],
   );
 
   async function uploadOne(localId: string, file: File) {
@@ -151,6 +198,10 @@ export default function PhotoUrlField({
       const form = new FormData();
       form.append("file", file);
       form.append("session_id", sessionId);
+      // Phase 15a — when role is set, attach it so the server stamps
+      // metadata.photo_role. The route defaults to character_reference if
+      // omitted, so legacy call sites still work.
+      if (role) form.append("role", role);
       const res = await fetch("/api/upload", {
         method: "POST",
         body: form,
@@ -253,7 +304,14 @@ export default function PhotoUrlField({
         const res = await fetch("/api/ingest-url", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ session_id: sessionId, urls }),
+          body: JSON.stringify({
+            session_id: sessionId,
+            urls,
+            // Phase 15a — attach role on URL ingest as well so multi-source
+            // photos (mix of uploads + Drive links) all carry the same
+            // metadata.photo_role.
+            ...(role ? { role } : {}),
+          }),
         });
         const json = (await res.json().catch(() => null)) as IngestUrlResponse | null;
 
@@ -281,7 +339,13 @@ export default function PhotoUrlField({
     setSubmitting(false);
 
     if (all.length === 0) {
-      // nothing succeeded
+      // Phase 15a — optional roles allow a zero-photo submit (it functions as
+      // a skip-with-the-Continue-button affordance). character_reference still
+      // requires at least one.
+      if (role && !isCharacterReference) {
+        onComplete([]);
+        return;
+      }
       setError(
         "Add at least one photo of your pet, or skip and we'll ask again later.",
       );
@@ -308,6 +372,16 @@ export default function PhotoUrlField({
 
   const hasAnything =
     uploadedAssets.length > 0 || parseUrls(urlInput).length > 0;
+
+  // Phase 15a — for optional roles, the Continue button is always live (a
+  // zero-photo submit functions as an inline skip). For character_reference
+  // and legacy first-variant, Continue stays disabled until something is
+  // queued.
+  const canSubmit = role
+    ? isCharacterReference
+      ? hasAnything
+      : true
+    : hasAnything;
 
   return (
     <form
@@ -515,9 +589,9 @@ export default function PhotoUrlField({
       <div style={{ display: "flex", gap: 12, marginTop: 4, flexWrap: "wrap" }}>
         <motion.button
           type="submit"
-          disabled={submitting || !hasAnything}
-          whileHover={hasAnything && !submitting ? { scale: 1.02 } : {}}
-          whileTap={hasAnything && !submitting ? { scale: 0.98 } : {}}
+          disabled={submitting || !canSubmit}
+          whileHover={canSubmit && !submitting ? { scale: 1.02 } : {}}
+          whileTap={canSubmit && !submitting ? { scale: 0.98 } : {}}
           transition={{ type: "spring", stiffness: 400, damping: 25 }}
           style={{
             display: "inline-flex",
@@ -528,23 +602,19 @@ export default function PhotoUrlField({
             fontSize: 14,
             fontWeight: 500,
             border: "none",
-            cursor: hasAnything && !submitting ? "pointer" : "not-allowed",
-            background: hasAnything ? C.ink : C.line,
-            color: hasAnything ? C.cream : C.inkSofter,
+            cursor: canSubmit && !submitting ? "pointer" : "not-allowed",
+            background: canSubmit ? C.ink : C.line,
+            color: canSubmit ? C.cream : C.inkSofter,
           }}
         >
-          {submitting
-            ? "Saving…"
-            : variant === "followup"
-              ? PHOTO_PROMPT.continue_with_one
-              : PHOTO_PROMPT.submit}
+          {submitting ? "Saving…" : submitLabel}
         </motion.button>
 
-        {/* Spec §1.2: minimum acceptable is 1 photo (with soft warning at
-            character-sheet time). The Skip pill is therefore only available
-            on the "followup" variant — once the user already has at least
-            one photo and is being prompted for additional angles. */}
-        {variant === "followup" && (
+        {/* Skip pill. Phase 15a — visible on optional typed roles
+            (with_human / environment) and on the legacy followup variant. The
+            required character_reference role and the legacy first variant
+            both hide it. */}
+        {showSkip && (
           <button
             type="button"
             onClick={onSkip}
@@ -560,7 +630,7 @@ export default function PhotoUrlField({
               textUnderlineOffset: 3,
             }}
           >
-            {PHOTO_PROMPT.skip}
+            {skipLabel}
           </button>
         )}
       </div>
