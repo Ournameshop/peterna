@@ -4,7 +4,7 @@ import { eq } from 'drizzle-orm';
 
 import { readUserIdFromCookie } from '@/lib/auth/user-cookie';
 import { getDb } from '@/lib/db/client';
-import { sessions, type Session } from '@/lib/db/schema';
+import { sessions, users, type Session } from '@/lib/db/schema';
 
 import { getSessionCookie, setSessionCookie } from './cookie';
 
@@ -45,6 +45,13 @@ export async function authBySession(expectedSessionId?: string): Promise<AuthRes
 
   // User-owned recovery — only applies when a specific session was requested and the user
   // owns it. Anonymous callers (no auth_user cookie) fall through to the original failure.
+  //
+  // B5 (pre-Phase-15 audit): `sessions.user_id` has no FK constraint to `users`, so a
+  // deleted user's row can leave behind orphan sessions still referencing the gone uuid.
+  // If a stale auth_user cookie for a deleted user is replayed, we MUST NOT grant access
+  // just because the (now-orphaned) user_id matches. Verify the user still exists before
+  // rebinding the cookie. A long-term fix is `references(() => users.id, onDelete: ...)`
+  // but that requires a separate migration; this is the in-app guard.
   if (expectedSessionId) {
     const userId = await readUserIdFromCookie();
     if (userId) {
@@ -56,10 +63,18 @@ export async function authBySession(expectedSessionId?: string): Promise<AuthRes
         .limit(1);
       const row = rows[0];
       if (row && row.userId === userId) {
-        // Rebind the peterna_session cookie so the browser carries the right
-        // (sessionId, cookieToken) on the next request.
-        await setSessionCookie({ sessionId: row.id, cookieToken: row.cookieToken });
-        return { ok: true, session: row };
+        const userRows = await db
+          .select({ id: users.id })
+          .from(users)
+          .where(eq(users.id, userId))
+          .limit(1);
+        if (userRows.length > 0) {
+          // Rebind the peterna_session cookie so the browser carries the right
+          // (sessionId, cookieToken) on the next request.
+          await setSessionCookie({ sessionId: row.id, cookieToken: row.cookieToken });
+          return { ok: true, session: row };
+        }
+        // user deleted — fall through to the original failure code.
       }
     }
   }
