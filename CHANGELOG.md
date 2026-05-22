@@ -5,6 +5,15 @@ Working branch: `Adding-skill-in-webflow`.
 
 ## 2026-05-22
 
+### Theme picker — Healing & Peace previews
+Generated the 2 "Healing & Peace" theme previews (`rainbow_bridge`,
+`sunrise_reunion`) via `openai/gpt-image-2` from the verbatim `imagePrompt`s
+in `peternal-library.ts`, and wired them into the Stage 3.3 `ThemePick` cards
+(`public/theme-thumbnails/`). A `THEMES_WITH_THUMBNAILS` set decides which
+themes show a generated image vs the gradient swatch — it grows as each theme
+category's previews are done. `ThemePick` is shared, so this shows in both
+`/builder` and `/builder-preview`.
+
 ### Art-style picker — real thumbnails
 Generated the 8 art-style thumbnails (`openai/gpt-image-2`, per the fal
 handover spec — a consistent dog+cat pair rendered in each medium so the

@@ -8,6 +8,12 @@ import type { StageProps } from '../state';
 import { themeCategories, themes } from '@/lib/peternal-library';
 import type { ThemeCategoryId, ThemeId } from '@/lib/peternal-library';
 
+// Themes that have a generated preview image in public/theme-thumbnails/.
+// Themes not listed here fall back to the gradient swatch. This set grows as
+// each theme category's previews are generated — to avoid duplicates, check
+// here before generating a theme thumbnail.
+const THEMES_WITH_THUMBNAILS = new Set<ThemeId>(['rainbow_bridge', 'sunrise_reunion']);
+
 export default function ThemePick({ onNext, onBack }: StageProps) {
   const { state, update } = useBuilder();
   const [subStep, setSubStep] = useState<0 | 1>(0);
@@ -63,7 +69,16 @@ export default function ThemePick({ onNext, onBack }: StageProps) {
                 onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)'; if (!isActive) (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 8px 24px rgba(42,33,27,0.08)'; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'none'; (e.currentTarget as HTMLButtonElement).style.boxShadow = 'none'; }}
               >
-                <div style={{ height: 80, background: theme.gradient, flexShrink: 0 }} />
+                {THEMES_WITH_THUMBNAILS.has(theme.id) ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={`/theme-thumbnails/peterna-theme-${theme.id}.png`}
+                    alt={`${theme.name} theme preview`}
+                    style={{ width: '100%', height: 120, objectFit: 'cover', display: 'block', flexShrink: 0 }}
+                  />
+                ) : (
+                  <div style={{ height: 120, background: theme.gradient, flexShrink: 0 }} />
+                )}
                 <div style={{ padding: '14px 16px 18px', flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
                   <Serif style={{ fontSize: 20, color: PALETTE.espresso }}>{theme.name}</Serif>
                   <Serif italic style={{ fontSize: 13, color: PALETTE.mute, lineHeight: 1.4 }}>{theme.desc}</Serif>
