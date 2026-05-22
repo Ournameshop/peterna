@@ -5,6 +5,13 @@ Working branch: `Adding-skill-in-webflow`.
 
 ## 2026-05-22
 
+### Picker framing — per-style crop + format image fill + icon color
+- `StylePick`: replaced the single zoom-crop with a per-style `STYLE_CROP`
+  map — `cinematic_realism`, `animated_3d`, `claymation`, `pixel_art` needed
+  tighter crops to clear empty background.
+- `FormatPick`: hero images now zoom-crop to fill the card; format icons
+  recolored to the brand brass (`brassDeep`) — they were reading as black.
+
 ### Format picker — 4-up grid + brand-brown line icons
 Stage 3.2 `FormatPick`: the card grid is now a fixed 4 columns (was a
 responsive `auto-fill`). The format-card icons are now monochrome

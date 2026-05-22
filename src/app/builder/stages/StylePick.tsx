@@ -25,10 +25,25 @@ const OPT_IN_NOTE: Partial<Record<ArtStyleId, string>> = {
   voxel_minecraft: 'A deliberate, joyful choice — especially meaningful for families with kids.',
 };
 
+// Per-style zoom-crop. The handover composed the pets at varying sizes with
+// breathing room, so a single crop value can't fill every card — these crop
+// each thumbnail individually so the pets fill it with no empty background.
+const STYLE_CROP: Record<ArtStyleId, { scale: number; originY: number }> = {
+  cinematic_realism: { scale: 1.46, originY: 50 },
+  watercolor: { scale: 1.38, originY: 56 },
+  storybook_illustration: { scale: 1.38, originY: 56 },
+  animated_3d: { scale: 1.66, originY: 62 },
+  claymation: { scale: 1.5, originY: 52 },
+  pencil_sketch: { scale: 1.38, originY: 56 },
+  pixel_art: { scale: 1.64, originY: 62 },
+  voxel_minecraft: { scale: 1.38, originY: 56 },
+};
+
 function StyleCard({ styleId, active, onClick }: { styleId: ArtStyleId; active: boolean; onClick: () => void }) {
   const style = artStyles.find(s => s.id === styleId);
   if (!style) return null;
   const note = OPT_IN_NOTE[styleId];
+  const crop = STYLE_CROP[styleId];
   return (
     <button
       onClick={onClick}
@@ -45,8 +60,8 @@ function StyleCard({ styleId, active, onClick }: { styleId: ArtStyleId; active: 
       onMouseEnter={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.borderColor = PALETTE.brass; }}
       onMouseLeave={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.borderColor = PALETTE.parchmentLight; }}
     >
-      {/* The handover composed the pets at ~65% of the frame with breathing
-          room; zoom-crop so they fill the card with no empty background. */}
+      {/* Each thumbnail is zoom-cropped per STYLE_CROP so the pets fill the
+          card — the handover composed them at varying sizes. */}
       <div style={{ width: '100%', aspectRatio: '4 / 3', overflow: 'hidden' }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -57,8 +72,8 @@ function StyleCard({ styleId, active, onClick }: { styleId: ArtStyleId; active: 
             height: '100%',
             objectFit: 'cover',
             display: 'block',
-            transform: 'scale(1.38)',
-            transformOrigin: 'center 56%',
+            transform: `scale(${crop.scale})`,
+            transformOrigin: `center ${crop.originY}%`,
           }}
         />
       </div>

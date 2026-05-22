@@ -75,15 +75,17 @@ export default function FormatPick({ onNext, goToStep }: StageProps) {
               onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLButtonElement).style.borderColor = PALETTE.brass; }}
               onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLButtonElement).style.borderColor = PALETTE.parchmentLight; }}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={`/format-thumbnails/peterna-format-${f.id}.png`}
-                alt={`${f.name} format preview`}
-                style={{ width: '100%', aspectRatio: '4 / 3', objectFit: 'cover', display: 'block', pointerEvents: 'none' }}
-              />
+              <div style={{ width: '100%', aspectRatio: '4 / 3', overflow: 'hidden', pointerEvents: 'none' }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`/format-thumbnails/peterna-format-${f.id}.png`}
+                  alt={`${f.name} format preview`}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', transform: 'scale(1.14)' }}
+                />
+              </div>
               <div style={{ padding: '12px 14px 14px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 4 }}>
-                  <span style={{ display: 'flex', flexShrink: 0, color: PALETTE.espressoSoft }}>
+                  <span style={{ display: 'flex', flexShrink: 0, color: PALETTE.brassDeep }}>
                     <FormatIcon id={f.id} />
                   </span>
                   <Serif style={{ fontSize: 17, color: PALETTE.espresso }}>{f.name}</Serif>
