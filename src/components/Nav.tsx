@@ -332,9 +332,14 @@ export default function Nav() {
             )}
           </div>
 
-          <span className="peterna-cta-desktop" style={{ display: "none" }}>
-            <GoldBtn href="/signin">Sign up</GoldBtn>
-          </span>
+          {/* Sign-up CTA only shows when the user is signed out — once they're
+              signed in, the email + Dashboard menu to the left is the primary
+              affordance, and a redundant "Sign up" pill would be confusing. */}
+          {auth.status !== "signed_in" && (
+            <span className="peterna-cta-desktop" style={{ display: "none" }}>
+              <GoldBtn href="/signin">Sign up</GoldBtn>
+            </span>
+          )}
           <button
             onClick={() => setOpen(!open)}
             className="peterna-menu-btn"
@@ -481,24 +486,26 @@ export default function Nav() {
                   </Link>
                 )}
               </div>
-              <Link
-                href="/signin"
-                onClick={() => setOpen(false)}
-                style={{
-                  textAlign: "left",
-                  padding: "10px 0",
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  fontFamily: FONT_SANS,
-                  fontSize: 14,
-                  color: C.goldDeep,
-                  fontWeight: 500,
-                  textDecoration: "none",
-                }}
-              >
-                Sign up →
-              </Link>
+              {auth.status !== "signed_in" && (
+                <Link
+                  href="/signin"
+                  onClick={() => setOpen(false)}
+                  style={{
+                    textAlign: "left",
+                    padding: "10px 0",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    fontFamily: FONT_SANS,
+                    fontSize: 14,
+                    color: C.goldDeep,
+                    fontWeight: 500,
+                    textDecoration: "none",
+                  }}
+                >
+                  Sign up →
+                </Link>
+              )}
             </div>
           </motion.div>
         )}

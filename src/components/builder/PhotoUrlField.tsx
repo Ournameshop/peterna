@@ -540,23 +540,29 @@ export default function PhotoUrlField({
               : PHOTO_PROMPT.submit}
         </motion.button>
 
-        <button
-          type="button"
-          onClick={onSkip}
-          style={{
-            background: "transparent",
-            border: "none",
-            color: C.inkSofter,
-            fontFamily: FONT_SANS,
-            fontSize: 13,
-            cursor: "pointer",
-            padding: "12px 16px",
-            textDecoration: "underline",
-            textUnderlineOffset: 3,
-          }}
-        >
-          {PHOTO_PROMPT.skip}
-        </button>
+        {/* Spec §1.2: minimum acceptable is 1 photo (with soft warning at
+            character-sheet time). The Skip pill is therefore only available
+            on the "followup" variant — once the user already has at least
+            one photo and is being prompted for additional angles. */}
+        {variant === "followup" && (
+          <button
+            type="button"
+            onClick={onSkip}
+            style={{
+              background: "transparent",
+              border: "none",
+              color: C.inkSofter,
+              fontFamily: FONT_SANS,
+              fontSize: 13,
+              cursor: "pointer",
+              padding: "12px 16px",
+              textDecoration: "underline",
+              textUnderlineOffset: 3,
+            }}
+          >
+            {PHOTO_PROMPT.skip}
+          </button>
+        )}
       </div>
     </form>
   );
