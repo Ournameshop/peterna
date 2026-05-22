@@ -47,7 +47,7 @@ export default function CaptionContainer({ onNext, onBack }: StageProps) {
         onClick={() => select(c.id as ContainerId)}
         style={{
           textAlign: 'left',
-          padding: '10px 12px',
+          padding: '12px 14px',
           border: `1px solid ${isSelected ? PALETTE.espresso : PALETTE.parchmentLight}`,
           background: isSelected ? PALETTE.boneSoft : 'white',
           cursor: 'pointer',
@@ -66,8 +66,8 @@ export default function CaptionContainer({ onNext, onBack }: StageProps) {
           src={`/container-thumbnails/peternal-container-${c.id}.png`}
           alt={`${c.name} caption container preview`}
           style={{
-            width: 110,
-            height: 72,
+            width: 220,
+            height: 128,
             objectFit: 'cover',
             borderRadius: 4,
             display: 'block',
