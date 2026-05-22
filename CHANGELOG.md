@@ -5,6 +5,21 @@ Working branch: `Adding-skill-in-webflow`.
 
 ## 2026-05-22
 
+### Video length, narration script, and a warmer voice
+Audit of a real downloaded tribute found a 2-minute tribute produced a **6:43**
+file — ~5 minutes of frozen frame. Three fixes (architect-planned, reviewed):
+- **Duration:** compose hard-coded a 300s last-frame freeze. Output length is
+  now exactly `max(video, narration)` — no dead frozen tail. Narration drives
+  length only when it is genuinely longer than the video.
+- **Narration script:** was a ~50-word template (~18s of speech). Now composed
+  by Gemini — a ~220-word first-person tribute that follows the beat arc and
+  uses the owner's real inputs, so it spans the video. Template kept as a
+  fallback. Narration route returns a probed `durationMs` so compose sizes the
+  timeline exactly.
+- **Voice:** switched from Minimax to ElevenLabs (`multilingual-v2`) at a slow,
+  gentle memorial pace, plus light warmth EQ + a faint room on the narration —
+  markedly less synthetic.
+
 ### Narration now plays in the in-app preview
 The `TributePlayer` preview only ever played the music bed — narration was
 generated solely at download time, so playing the preview with narration on

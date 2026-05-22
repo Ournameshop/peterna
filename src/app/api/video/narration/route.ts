@@ -1,15 +1,25 @@
 // POST /api/video/narration
-// Generates a narration audio track from text using fal-ai/minimax/speech-02-hd.
+// Generates a narration audio track from text using fal-ai/elevenlabs/tts/multilingual-v2.
 //
 // Body: { text: string, voice?: string }
 // Response: { url: string }
 
 import { NextResponse } from "next/server";
+import os from "os";
+import path from "path";
+import fs from "fs";
+import { spawn } from "child_process";
 import { fal } from "@/lib/fal";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
+
+// ElevenLabs voice quality tuning constants
+const ELEVENLABS_STABILITY        = 0.55;
+const ELEVENLABS_SIMILARITY_BOOST = 0.80;
+const ELEVENLABS_STYLE            = 0.12;
+const ELEVENLABS_SPEED            = 0.88;
 
 interface ReqBody {
   text?: string;
@@ -18,6 +28,25 @@ interface ReqBody {
 
 interface SpeechOutput {
   audio: { url: string };
+}
+
+function probeAudioDurationMs(filePath: string): Promise<number> {
+  return new Promise((resolve) => {
+    const proc = spawn("ffprobe", [
+      "-v", "error",
+      "-show_entries", "format=duration",
+      "-of", "default=noprint_wrappers=1:nokey=1",
+      filePath,
+    ], { stdio: "pipe" });
+    let stdout = "";
+    proc.stdout.on("data", (d: Buffer) => { stdout += d.toString(); });
+    proc.on("close", (code) => {
+      if (code !== 0) { resolve(0); return; }
+      const v = parseFloat(stdout.trim());
+      resolve(isNaN(v) ? 0 : Math.round(v * 1000));
+    });
+    proc.on("error", () => resolve(0));
+  });
 }
 
 export async function POST(req: Request) {
@@ -38,23 +67,39 @@ export async function POST(req: Request) {
   }
 
   try {
-    // MinimaxSpeech02HdInput has no top-level voice_id — the correct field is
-    // voice_setting.voice_id (VoiceSetting object). The previous code was silently
-    // ignored by the API. voice_id values are Minimax preset strings e.g. "Wise_Woman".
-    const input: Parameters<typeof fal.subscribe<"fal-ai/minimax/speech-02-hd">>[1]["input"] = {
-      text,
-      ...(body.voice ? { voice_setting: { voice_id: body.voice } } : {}),
-    };
-
-    const result = await fal.subscribe("fal-ai/minimax/speech-02-hd", {
-      input,
+    const result = await fal.subscribe("fal-ai/elevenlabs/tts/multilingual-v2", {
+      input: {
+        text,
+        voice: body.voice ?? "Rachel",
+        stability: ELEVENLABS_STABILITY,
+        similarity_boost: ELEVENLABS_SIMILARITY_BOOST,
+        style: ELEVENLABS_STYLE,
+        speed: ELEVENLABS_SPEED,
+      },
       logs: false,
     });
     const url = (result?.data as unknown as SpeechOutput)?.audio?.url;
     if (!url) {
+      console.error("narration: missing audio.url in fal response:", JSON.stringify(result?.data));
       return NextResponse.json({ error: "no audio url in fal response" }, { status: 502 });
     }
-    return NextResponse.json({ url });
+
+    // Probe duration so compose can use it authoritatively instead of re-probing.
+    let durationMs = 0;
+    const tmpAudio = path.join(os.tmpdir(), `narration_probe_${Date.now()}.mp3`);
+    try {
+      const audioRes = await fetch(url);
+      if (audioRes.ok) {
+        fs.writeFileSync(tmpAudio, Buffer.from(await audioRes.arrayBuffer()));
+        durationMs = await probeAudioDurationMs(tmpAudio);
+      }
+    } catch {
+      // probe failure is non-fatal — durationMs stays 0
+    } finally {
+      try { fs.unlinkSync(tmpAudio); } catch { /* best-effort */ }
+    }
+
+    return NextResponse.json({ url, durationMs });
   } catch (err) {
     const message = err instanceof Error ? err.message : "unknown error";
     return NextResponse.json({ error: message }, { status: 502 });

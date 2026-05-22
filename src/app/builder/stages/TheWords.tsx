@@ -20,17 +20,11 @@ import {
   closingArchetypes,
   captionTemplates,
   narrationVoices,
+  narrationQuestions,
 } from '@/lib/peternal-library';
 import { resolveArchetype, resolveText, musicTracksFor, captionVoiceFor } from '@/lib/peternal-resolvers';
 
-const NARRATION_QUESTIONS = [
-  'How long were you together?',
-  'What did a typical day look like?',
-  'What made them laugh — or made you laugh?',
-  'What is something only you knew about them?',
-  'What do you miss most right now?',
-  'What would you want someone to know about them?',
-];
+const NARRATION_QUESTIONS = narrationQuestions;
 
 const SUB_STEPS = ['Opening', 'Closing', 'Captions', 'Music', 'Narration', 'Review'];
 
@@ -50,9 +44,9 @@ export default function TheWords({ onNext, onBack }: StageProps) {
   const [customLine2, setCustomLine2] = useState(state.words.openingCustom[1]);
   const [customClosing, setCustomClosing] = useState(state.words.closingCustom);
   const [narrationAnswers, setNarrationAnswers] = useState<string[]>(
-    state.words.narrationLetter.length === 6
+    state.words.narrationLetter.length === narrationQuestions.length
       ? state.words.narrationLetter
-      : Array(6).fill(''),
+      : Array(narrationQuestions.length).fill(''),
   );
 
   const gender = state.gender ?? 'neutral';

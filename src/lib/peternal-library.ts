@@ -272,7 +272,7 @@ export interface NarrationVoice {
   name: string;
   description: string;
   defaultFor: ArtStyleId[];
-  minimaxVoiceId: string;
+  elevenVoice: string;
 }
 
 export interface LengthOption {
@@ -1415,29 +1415,42 @@ export const narrationVoices: readonly NarrationVoice[] = [
     name: 'Warm female alto',
     description: 'Soft, intimate, slightly breathy. Best for tender letter delivery.',
     defaultFor: ['watercolor', 'storybook_illustration'],
-    minimaxVoiceId: 'Calm_Woman',
+    elevenVoice: 'Matilda',
   },
   {
     id: 'warm_male_baritone',
     name: 'Warm male baritone',
     description: 'Gentle, steady, lower register. Best for ceremonial tributes.',
     defaultFor: ['cinematic_realism'],
-    minimaxVoiceId: 'Deep_Voice_Man',
+    elevenVoice: 'Daniel',
   },
   {
     id: 'soft_female_mezzo',
     name: 'Soft female mezzo',
     description: 'Mid-register warmth, conversational.',
     defaultFor: [],
-    minimaxVoiceId: 'Wise_Woman',
+    elevenVoice: 'Rachel',
   },
   {
     id: 'user_recorded',
     name: 'My own voice',
     description: 'User records and uploads their own narration audio.',
     defaultFor: [],
-    minimaxVoiceId: 'Wise_Woman',
+    elevenVoice: 'Rachel',
   },
+] as const;
+
+// ============================================================================
+// NARRATION QUESTIONS — source of truth; imported by TheWords.tsx and generation.ts
+// ============================================================================
+
+export const narrationQuestions: readonly string[] = [
+  'How long were you together?',
+  'What did a typical day look like?',
+  'What made them laugh — or made you laugh?',
+  'What is something only you knew about them?',
+  'What do you miss most right now?',
+  'What would you want someone to know about them?',
 ] as const;
 
 // ============================================================================

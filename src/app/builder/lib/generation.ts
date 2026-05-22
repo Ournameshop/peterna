@@ -11,9 +11,9 @@
 //
 // Everything resolves to null on failure so callers fall back to the SVG art.
 
-import { themes, artStyles, formats, captionContainers } from '@/lib/peternal-library';
+import { themes, artStyles, formats, captionContainers, narrationQuestions } from '@/lib/peternal-library';
 import type { ThemeId, ArtStyleId, FormatId, ContainerId } from '@/lib/peternal-library';
-import type { PetProfile, PetPhoto, Beat, AspectId, CinematographyBrief } from '../state';
+import type { PetProfile, PetPhoto, Beat, AspectId, CinematographyBrief, BuilderState } from '../state';
 
 // ---- helpers ---------------------------------------------------------------
 
@@ -512,6 +512,153 @@ export async function generateBeatVideo(opts: {
   } catch {
     return null;
   }
+}
+
+// ---- Narration script composition ------------------------------------------
+
+// resolveText is not available client-side in this lib; replicate the minimal
+// token substitution needed for the fallback (same tokens used in FinishedTribute).
+function resolveFallbackTokens(text: string, petName: string, gender: string): string {
+  const pronouns: Record<string, { subject: string; subjectCap: string }> = {
+    male:    { subject: 'he',   subjectCap: 'He'   },
+    female:  { subject: 'she',  subjectCap: 'She'  },
+    neutral: { subject: 'they', subjectCap: 'They' },
+  };
+  const p = pronouns[gender] ?? pronouns['neutral'];
+  return text
+    .replace(/\[PET_NAME\]/g, petName)
+    .replace(/\[PRONOUN_SUBJECT_CAP\]/g, p.subjectCap)
+    .replace(/\[PRONOUN_SUBJECT\]/g, p.subject);
+}
+
+// Verbatim body of the previous composeNarration — preserved so behaviour can't regress.
+function composeNarrationFallback(state: BuilderState): string {
+  const name = state.petName || 'them';
+  const gender = state.gender ?? 'neutral';
+  const relationship = state.relationship ?? 'unspecified';
+  const relLabel = relationship === 'unspecified' ? 'a beloved companion' : relationship.replace(/_/g, ' ');
+  const closingLine =
+    state.cardText.closing ||
+    resolveFallbackTokens('Forever loved. [PET_NAME] will always be with us.', name, gender);
+
+  const parts: string[] = [];
+
+  parts.push(
+    resolveFallbackTokens(
+      `This is a tribute to [PET_NAME] — [PRONOUN_SUBJECT] was ${relLabel}.`,
+      name,
+      gender,
+    ),
+  );
+
+  if (state.traits.length > 0) {
+    parts.push(
+      resolveFallbackTokens(`[PRONOUN_SUBJECT_CAP] was ${state.traits.join(', ')}.`, name, gender),
+    );
+  }
+
+  if (state.favorites.length > 0) {
+    parts.push(`${name} loved ${state.favorites.join(', ')}.`);
+  }
+
+  if (state.memoryPromptAnswer) {
+    parts.push(
+      resolveFallbackTokens(
+        `[PRONOUN_SUBJECT_CAP] was the kind of ${relLabel} who ${state.memoryPromptAnswer}.`,
+        name,
+        gender,
+      ),
+    );
+  }
+
+  for (const line of state.words.narrationLetter) {
+    if (line && line.trim()) {
+      parts.push(line.trim());
+    }
+  }
+
+  parts.push(resolveFallbackTokens(closingLine, name, gender));
+
+  return parts.join(' ');
+}
+
+export async function composeNarrationScript(state: BuilderState): Promise<string> {
+  const fallback = composeNarrationFallback(state);
+
+  const name = state.petName || 'them';
+  const gender = state.gender ?? 'neutral';
+  const pronounsLabel =
+    gender === 'male' ? 'he/him' : gender === 'female' ? 'she/her' : 'they/them';
+  const relationship = state.relationship ?? 'unspecified';
+  const relLabel =
+    relationship === 'unspecified' ? '' : relationship.replace(/_/g, ' ');
+  const years =
+    state.yearsIncluded && state.years ? state.years : '';
+
+  const answeredQA = (narrationQuestions as readonly string[])
+    .map((q, i) => {
+      const a = state.words.narrationLetter[i]?.trim();
+      return a ? `Q: ${q}\nA: ${a}` : null;
+    })
+    .filter((x): x is string => x !== null)
+    .join('\n\n');
+
+  const beatLines = state.beatSheet
+    .map((b, i) => `${i + 1}. ${b.name}: ${b.visual}`)
+    .join('\n');
+
+  const prompt = `You are writing the voiceover narration for a memorial tribute video for a beloved pet. Write it in the FIRST PERSON, as if spoken aloud by the pet's owner — warm, intimate, and personal, never generic.
+
+THE PET
+Name: ${name}
+Pronouns: ${pronounsLabel}${relLabel ? `\nRelationship to the owner: ${relLabel}` : ''}${years ? `\nYears: ${years}` : ''}${state.traits.length > 0 ? `\nWhat they were like: ${state.traits.join(', ')}` : ''}${state.favorites.length > 0 ? `\nThings they loved: ${state.favorites.join(', ')}` : ''}${state.memoryPromptAnswer ? `\nA treasured memory from the owner: ${state.memoryPromptAnswer}` : ''}
+
+WHAT THE OWNER TOLD US
+${answeredQA || '(no answers provided)'}
+
+THE VIDEO'S EMOTIONAL ARC (the narration must follow this order of beats)
+${beatLines || '(no beat sheet yet)'}
+
+THE OPENING TITLE CARD READS: "${state.cardText.opening}"
+THE CLOSING TITLE CARD READS: "${state.cardText.closing}"
+
+INSTRUCTIONS
+- Write ONE continuous narration script, 200 to 230 words. This is critical — it must play for roughly 90 to 105 seconds at a gentle, unhurried pace, but not longer.
+- Follow the emotional arc of the beats above, from the opening to the close.
+- Speak as the owner, to or about ${name}. Use the correct pronouns.
+- Use the owner's own details — the memory, the traits, the things ${name} loved. Weave them in naturally; do not list them.
+- Write with natural punctuation for spoken delivery: commas, ellipses, and short sentences, so the voice can breathe and pause. Avoid long run-ons.
+- Gentle, loving, and honest. Tender, not saccharine. No clichés like "rainbow bridge" unless the owner used that language themselves.
+- Do NOT mention illness, injury, or how the pet died.
+- Output ONLY the narration text. No title, no headings, no quotation marks, no stage directions, no word count.`;
+
+  const out = await generateText(prompt);
+  if (!out) return fallback;
+
+  const wordCount = out.trim().split(/\s+/).length;
+  if (wordCount < 60) return fallback;
+
+  // Sanitize: strip markdown fences, leading label, collapse whitespace, cap at 280 words.
+  let clean = out
+    .replace(/```[\s\S]*?```/g, '')
+    .replace(/^#+\s+/gm, '')
+    .replace(/^\*{1,2}(.*?)\*{1,2}$/gm, '$1')
+    .replace(/^_+(.*?)_+$/gm, '$1')
+    .replace(/^(?:Narration|Voiceover|Script)\s*:\s*/i, '')
+    .replace(/^["']/,'').replace(/["']$/, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  // Hard-cap at 280 words on a word boundary.
+  const words = clean.split(' ');
+  if (words.length > 280) {
+    clean = words.slice(0, 280).join(' ');
+    // End at the last sentence boundary if possible.
+    const lastPeriod = clean.lastIndexOf('.');
+    if (lastPeriod > clean.length * 0.6) clean = clean.slice(0, lastPeriod + 1);
+  }
+
+  return clean || fallback;
 }
 
 export async function pollBeatVideo(

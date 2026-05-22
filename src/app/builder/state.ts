@@ -124,6 +124,7 @@ export interface BuilderState {
   musicBedUrl: string | null;
   musicBedDurationMs: number | null;
   narrationUrl: string | null;        // generated TTS voiceover — previewed + reused at compose
+  narrationDurationMs: number | null; // probed duration of narrationUrl — forwarded to compose
   words: WordsState;
   cardText: { opening: string; closing: string };
   cardPreviewImages: { opening: string | null; closing: string | null; caption: string | null };
@@ -180,6 +181,7 @@ export const initialState: BuilderState = {
   musicBedUrl: null,
   musicBedDurationMs: null,
   narrationUrl: null,
+  narrationDurationMs: null,
   words: {
     opening: 'simple',
     openingCustom: ['', ''],

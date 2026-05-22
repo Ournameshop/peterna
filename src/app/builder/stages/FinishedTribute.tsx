@@ -11,6 +11,7 @@ import type { BuilderState } from '../state';
 import { resolveText } from '@/lib/peternal-resolvers';
 import { downloadEulogyPdf } from '@/lib/peternal-eulogy-pdf';
 import { musicTracks, themes, narrationVoices } from '@/lib/peternal-library';
+import { composeNarrationScript } from '../lib/generation';
 import TributePlayer from './TributePlayer';
 
 // ---------------------------------------------------------------------------
@@ -42,53 +43,6 @@ function composeEulogy(state: BuilderState): string {
     ctx,
   );
   return body;
-}
-
-// ---------------------------------------------------------------------------
-// composeNarration — builds a flowing narration script from state.
-// Always returns a non-empty string even when all optional questions are blank.
-// ---------------------------------------------------------------------------
-function composeNarration(state: BuilderState): string {
-  const name = state.petName || 'them';
-  const gender = state.gender ?? 'neutral';
-  const ctx = { gender, petName: name };
-  const relationship = state.relationship ?? 'unspecified';
-  const relLabel = relationship === 'unspecified' ? 'a beloved companion' : relationship.replace(/_/g, ' ');
-  const closingLine =
-    state.cardText.closing || resolveText('Forever loved. [PET_NAME] will always be with us.', ctx);
-
-  const parts: string[] = [];
-
-  parts.push(resolveText(`This is a tribute to [PET_NAME] — [PRONOUN_SUBJECT] was ${relLabel}.`, ctx));
-
-  if (state.traits.length > 0) {
-    parts.push(resolveText(
-      `[PRONOUN_SUBJECT_CAP] was ${state.traits.join(', ')}.`,
-      ctx,
-    ));
-  }
-
-  if (state.favorites.length > 0) {
-    parts.push(resolveText(
-      `[PET_NAME] loved ${state.favorites.join(', ')}.`,
-      ctx,
-    ));
-  }
-
-  if (state.memoryPromptAnswer) {
-    parts.push(resolveText(`[PRONOUN_SUBJECT_CAP] was the kind of ${relLabel} who ${state.memoryPromptAnswer}.`, ctx));
-  }
-
-  // Narration letter answers (optional — any non-blank answers are included)
-  for (const line of state.words.narrationLetter) {
-    if (line && line.trim()) {
-      parts.push(line.trim());
-    }
-  }
-
-  parts.push(resolveText(closingLine, ctx));
-
-  return parts.join(' ');
 }
 
 type DownloadStatus = 'idle' | 'preparing' | 'done' | 'error';
@@ -162,21 +116,21 @@ export default function FinishedTribute(_props: StageProps) {
     if (narrationStartedRef.current) return;
     narrationStartedRef.current = true;
 
-    const script = composeNarration(state);
-    if (!script) return;
     const chosenVoice = narrationVoices.find((v) => v.id === state.words.narration);
-    const minimaxVoiceId = chosenVoice?.minimaxVoiceId ?? 'Wise_Woman';
+    const elevenVoice = chosenVoice?.elevenVoice ?? 'Rachel';
 
     (async () => {
+      const script = await composeNarrationScript(state);
+      if (!script) return;
       try {
         const res = await fetch('/api/video/narration', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: script, voice: minimaxVoiceId }),
+          body: JSON.stringify({ text: script, voice: elevenVoice }),
         });
         if (res.ok) {
-          const json = (await res.json()) as { url?: string };
-          if (json.url) update({ narrationUrl: json.url });
+          const json = (await res.json()) as { url?: string; durationMs?: number };
+          if (json.url) update({ narrationUrl: json.url, narrationDurationMs: json.durationMs ?? null });
         }
       } catch {
         // Preview narration failure is non-blocking — compose retries at download.
@@ -208,22 +162,24 @@ export default function FinishedTribute(_props: StageProps) {
     // Reuse the voiceover already generated on mount; only generate here if the
     // mount effect hasn't finished (or failed).
     let narrationUrl: string | null = state.narrationUrl ?? null;
+    let narrationDurationMs: number | null = state.narrationDurationMs ?? null;
     if (state.words.narration !== 'off' && !narrationUrl) {
-      const script = composeNarration(state);
+      const script = await composeNarrationScript(state);
       if (!script) {
         throw new Error('Could not compose a narration script — please fill in at least a pet name.');
       }
       const chosenVoice = narrationVoices.find((v) => v.id === state.words.narration);
-      const minimaxVoiceId = chosenVoice?.minimaxVoiceId ?? 'Wise_Woman';
+      const elevenVoice = chosenVoice?.elevenVoice ?? 'Rachel';
       const nRes = await fetch('/api/video/narration', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: script, voice: minimaxVoiceId }),
+        body: JSON.stringify({ text: script, voice: elevenVoice }),
       });
       if (nRes.ok) {
-        const nJson = (await nRes.json()) as { url?: string };
+        const nJson = (await nRes.json()) as { url?: string; durationMs?: number };
         narrationUrl = nJson.url ?? null;
-        if (narrationUrl) update({ narrationUrl });
+        narrationDurationMs = nJson.durationMs ?? null;
+        if (narrationUrl) update({ narrationUrl, narrationDurationMs });
       } else {
         const nErr = (await nRes.json().catch(() => ({}))) as { error?: string };
         throw new Error(`Narration failed: ${nErr.error ?? nRes.statusText}`);
@@ -295,6 +251,7 @@ export default function FinishedTribute(_props: StageProps) {
         aspectRatio,
         perBeatMs,
         narrationUrl: narrationUrl || null,
+        narrationDurationMs: narrationDurationMs ?? undefined,
         musicUrl: musicUrl || null,
       }),
     });
