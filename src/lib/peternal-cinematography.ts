@@ -106,7 +106,7 @@ function mergeEnergy(
 export function simulateFrameMetadata(beat: Beat, theme: ThemeId): FrameMetadata {
   const archetype = beat.archetype;
   const baseEnergy = ARCHETYPE_ENERGY[archetype];
-  const hintEnergy = sceneHintEnergyBump(beat.sceneHintSource);
+  const hintEnergy = sceneHintEnergyBump(beat.visual);
   const subjectEnergy = mergeEnergy(baseEnergy, hintEnergy);
 
   // Pose: bump upward when hint implies motion.

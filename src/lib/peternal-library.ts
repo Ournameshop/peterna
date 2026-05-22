@@ -221,6 +221,7 @@ export interface CuratorPick {
 export interface Relationship {
   id: RelationshipId;
   label: string;
+  narrationPhrase: string;
   defaultThemeBias: ThemeId[];
   defaultStyleBias: ArtStyleId[];
   narrationTone: string;
@@ -902,6 +903,7 @@ export const relationships: readonly Relationship[] = [
   {
     id: 'childhood',
     label: 'The childhood pet I grew up with',
+    narrationPhrase: 'a cherished part of my childhood',
     defaultThemeBias: ['beloved_places', 'golden_meadow'],
     defaultStyleBias: ['storybook_illustration', 'watercolor'],
     narrationTone: 'nostalgic',
@@ -910,6 +912,7 @@ export const relationships: readonly Relationship[] = [
   {
     id: 'partnership',
     label: 'The pet we adopted together',
+    narrationPhrase: 'a cherished part of our family',
     defaultThemeBias: ['quiet_home', 'beloved_places'],
     defaultStyleBias: ['cinematic_realism', 'watercolor'],
     narrationTone: 'shared_love',
@@ -918,6 +921,7 @@ export const relationships: readonly Relationship[] = [
   {
     id: 'companion_through_grief',
     label: 'The pet who got me through a hard time',
+    narrationPhrase: 'my companion through the hardest days',
     defaultThemeBias: ['quiet_home', 'gentle_rain', 'moonlight_vigil'],
     defaultStyleBias: ['watercolor'],
     narrationTone: 'gratitude_deep',
@@ -926,6 +930,7 @@ export const relationships: readonly Relationship[] = [
   {
     id: 'family_first',
     label: "My family's first pet — for my kids",
+    narrationPhrase: 'a cherished part of the family',
     defaultThemeBias: ['forever_playful', 'golden_meadow', 'beloved_places'],
     defaultStyleBias: ['storybook_illustration'],
     narrationTone: 'warm_familial',
@@ -934,6 +939,7 @@ export const relationships: readonly Relationship[] = [
   {
     id: 'rescue_last_chapter',
     label: 'The senior rescue I gave a last chapter to',
+    narrationPhrase: 'my rescue',
     defaultThemeBias: ['quiet_home', 'nap_champion', 'sunrise_reunion'],
     defaultStyleBias: ['watercolor', 'cinematic_realism'],
     narrationTone: 'gratitude_for_given_time',
@@ -942,6 +948,7 @@ export const relationships: readonly Relationship[] = [
   {
     id: 'always_mine',
     label: 'Always mine. From day one.',
+    narrationPhrase: 'my best friend',
     defaultThemeBias: ['beloved_places', 'quiet_home'],
     defaultStyleBias: ['cinematic_realism', 'watercolor'],
     narrationTone: 'lifelong_bond',
@@ -950,6 +957,7 @@ export const relationships: readonly Relationship[] = [
   {
     id: 'unspecified',
     label: "Other / I'd rather not say",
+    narrationPhrase: 'a beloved companion',
     defaultThemeBias: [],
     defaultStyleBias: [],
     narrationTone: 'neutral_warm',

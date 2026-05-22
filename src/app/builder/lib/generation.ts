@@ -11,7 +11,7 @@
 //
 // Everything resolves to null on failure so callers fall back to the SVG art.
 
-import { themes, artStyles, formats, captionContainers, narrationQuestions } from '@/lib/peternal-library';
+import { themes, artStyles, formats, captionContainers, narrationQuestions, relationships } from '@/lib/peternal-library';
 import type { ThemeId, ArtStyleId, FormatId, ContainerId } from '@/lib/peternal-library';
 import type { PetProfile, PetPhoto, Beat, AspectId, CinematographyBrief, BuilderState } from '../state';
 
@@ -531,53 +531,78 @@ function resolveFallbackTokens(text: string, petName: string, gender: string): s
     .replace(/\[PRONOUN_SUBJECT\]/g, p.subject);
 }
 
+// Returns "was" or "were" depending on the subject pronoun (they → were).
+function copula(subjectPronoun: string): string {
+  return subjectPronoun === 'they' ? 'were' : 'was';
+}
+
+// Capitalizes the first character of a string.
+function capitalizeFirst(s: string): string {
+  if (!s) return s;
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 // Verbatim body of the previous composeNarration — preserved so behaviour can't regress.
 function composeNarrationFallback(state: BuilderState): string {
-  const name = state.petName || 'them';
+  const name = state.petName || 'Them';
   const gender = state.gender ?? 'neutral';
   const relationship = state.relationship ?? 'unspecified';
-  const relLabel = relationship === 'unspecified' ? 'a beloved companion' : relationship.replace(/_/g, ' ');
+  const relEntry = relationships.find((r) => r.id === relationship);
+  const relLabel = relEntry?.narrationPhrase ?? (relationship === 'unspecified' ? 'a beloved companion' : relationship.replace(/_/g, ' '));
   const closingLine =
     state.cardText.closing ||
     resolveFallbackTokens('Forever loved. [PET_NAME] will always be with us.', name, gender);
 
+  const pronouns: Record<string, { subject: string }> = {
+    male:    { subject: 'he'   },
+    female:  { subject: 'she'  },
+    neutral: { subject: 'they' },
+  };
+  const subjectPronoun = (pronouns[gender] ?? pronouns['neutral']).subject;
+
   const parts: string[] = [];
 
   parts.push(
-    resolveFallbackTokens(
-      `This is a tribute to [PET_NAME] — [PRONOUN_SUBJECT] was ${relLabel}.`,
-      name,
-      gender,
+    capitalizeFirst(
+      resolveFallbackTokens(
+        `This is a tribute to [PET_NAME] — [PRONOUN_SUBJECT] ${copula(subjectPronoun)} ${relLabel}.`,
+        name,
+        gender,
+      ),
     ),
   );
 
   if (state.traits.length > 0) {
     parts.push(
-      resolveFallbackTokens(`[PRONOUN_SUBJECT_CAP] was ${state.traits.join(', ')}.`, name, gender),
+      capitalizeFirst(
+        resolveFallbackTokens(`[PRONOUN_SUBJECT_CAP] ${copula(subjectPronoun)} ${state.traits.join(', ')}.`, name, gender),
+      ),
     );
   }
 
   if (state.favorites.length > 0) {
-    parts.push(`${name} loved ${state.favorites.join(', ')}.`);
+    parts.push(capitalizeFirst(`${name} loved ${state.favorites.join(', ')}.`));
   }
 
   if (state.memoryPromptAnswer) {
     parts.push(
-      resolveFallbackTokens(
-        `[PRONOUN_SUBJECT_CAP] was the kind of ${relLabel} who ${state.memoryPromptAnswer}.`,
-        name,
-        gender,
+      capitalizeFirst(
+        resolveFallbackTokens(
+          `[PRONOUN_SUBJECT_CAP] ${copula(subjectPronoun)} the kind of ${relLabel} who ${state.memoryPromptAnswer}.`,
+          name,
+          gender,
+        ),
       ),
     );
   }
 
   for (const line of state.words.narrationLetter) {
     if (line && line.trim()) {
-      parts.push(line.trim());
+      parts.push(capitalizeFirst(line.trim()));
     }
   }
 
-  parts.push(resolveFallbackTokens(closingLine, name, gender));
+  parts.push(capitalizeFirst(resolveFallbackTokens(closingLine, name, gender)));
 
   return parts.join(' ');
 }
@@ -590,8 +615,9 @@ export async function composeNarrationScript(state: BuilderState): Promise<strin
   const pronounsLabel =
     gender === 'male' ? 'he/him' : gender === 'female' ? 'she/her' : 'they/them';
   const relationship = state.relationship ?? 'unspecified';
+  const relEntryForScript = relationships.find((r) => r.id === relationship);
   const relLabel =
-    relationship === 'unspecified' ? '' : relationship.replace(/_/g, ' ');
+    relationship === 'unspecified' ? '' : (relEntryForScript?.narrationPhrase ?? relationship.replace(/_/g, ' '));
   const years =
     state.yearsIncluded && state.years ? state.years : '';
 

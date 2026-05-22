@@ -5,6 +5,17 @@ Working branch: `Adding-skill-in-webflow`.
 
 ## 2026-05-22
 
+### Dry-run fixes — beat motion + narration grammar
+A no-API-call dry-run (347 assertions) caught four bugs:
+- **Ship-blocker:** the cinematography engine read `beat.sceneHintSource` (a
+  favorite id) instead of `beat.visual` for motion-energy detection, so memory
+  beats fell back to `loop_idle` (still pet) — half-defeating the beat-motion
+  fix. Now reads `beat.visual`; energetic memories get real `loop_action` /
+  `one_shot_action` motion.
+- Narration fallback: fixed "they was" → "they were" (neutral-gender copula),
+  raw relationship ids leaking into prose (new `narrationPhrase` field per
+  relationship), and a lowercase sentence start on an empty pet name.
+
 ### Burned narration subtitles (opt-out)
 The spoken narration can now appear as on-screen subtitles, synced to the
 voice. ElevenLabs returns word-level timestamps on the same TTS call (a free
