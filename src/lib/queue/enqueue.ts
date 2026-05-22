@@ -40,17 +40,30 @@ export type EnqueueInput<K extends JobKind = JobKind> = {
  * Insert one job row. Returns its id. Caller decides whether to enqueue more
  * (e.g. a batch). The job is born `queued`; the worker flips it to `running`
  * via the claim step.
+ *
+ * B2 (pre-Phase-15 audit): `notify_ready` is the one kind where two concurrent
+ * workers can race the check+insert in `maybeEnqueueNotifyReady` and both
+ * decide to enqueue, sending the user duplicate "your tribute is ready"
+ * emails + push notifications. The partial unique index on
+ * `render_jobs(session_id) WHERE kind='notify_ready'` (migration 0009) is
+ * the row-level safety net; here we use `ON CONFLICT DO NOTHING` so the
+ * losing INSERT becomes a silent no-op rather than throwing.
  */
 export async function enqueueJob<K extends JobKind>(input: EnqueueInput<K>): Promise<string> {
   const id = uuidv7();
   const db = getDb();
-  await db.insert(renderJobs).values({
+  const insert = db.insert(renderJobs).values({
     id,
     sessionId: input.sessionId,
     kind: input.kind,
     payload: input.payload as object,
     status: 'queued',
   });
+  if (input.kind === 'notify_ready') {
+    await insert.onConflictDoNothing();
+  } else {
+    await insert;
+  }
   return id;
 }
 
