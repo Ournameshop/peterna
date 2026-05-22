@@ -11,7 +11,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "worker": "tsx scripts/worker.ts",
+    "worker": "tsx --env-file=.env.local scripts/worker.ts",
     "vapid:generate": "tsx scripts/generate-vapid-keys.ts"
   },
   "dependencies": {
@@ -19,6 +19,7 @@
     "@fal-ai/client": "^1.10.1",
     "@google/genai": "^2.5.0",
     "@react-pdf/renderer": "^4.5.1",
+    "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
     "ffmpeg-static": "^5.3.0",
     "fluent-ffmpeg": "^2.1.3",

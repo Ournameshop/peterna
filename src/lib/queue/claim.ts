@@ -20,10 +20,11 @@ import type { RenderJob } from '@/lib/db/schema';
  */
 export async function claimNextJob(workerId: string): Promise<RenderJob | null> {
   const sql = getSql();
-  const now = new Date();
 
   // postgres-js: tagged template with `${...}` interpolates safely as params.
-  // We use a CTE so the UPDATE returns the freshly-claimed row in one round-trip.
+  // We use SQL NOW() for the timestamp assignments (the driver can't bind
+  // a JS Date object directly into a parameter slot), and a CTE so the UPDATE
+  // returns the freshly-claimed row in one round-trip.
   const rows = await sql<RenderJob[]>`
     WITH next_job AS (
       SELECT id
@@ -36,11 +37,11 @@ export async function claimNextJob(workerId: string): Promise<RenderJob | null> 
     UPDATE render_jobs r
     SET
       status = 'running',
-      locked_at = ${now},
+      locked_at = NOW(),
       locked_by = ${workerId},
-      started_at = COALESCE(r.started_at, ${now}),
+      started_at = COALESCE(r.started_at, NOW()),
       attempts = r.attempts + 1,
-      updated_at = ${now}
+      updated_at = NOW()
     FROM next_job
     WHERE r.id = next_job.id
     RETURNING
@@ -74,7 +75,7 @@ export async function claimNextJob(workerId: string): Promise<RenderJob | null> 
  */
 export async function reapStaleJobs(staleAfterMs: number): Promise<number> {
   const sql = getSql();
-  const cutoff = new Date(Date.now() - staleAfterMs);
+  const cutoffIso = new Date(Date.now() - staleAfterMs).toISOString();
   const rows = await sql<{ id: string }[]>`
     UPDATE render_jobs
     SET
@@ -84,7 +85,7 @@ export async function reapStaleJobs(staleAfterMs: number): Promise<number> {
       updated_at = NOW()
     WHERE status = 'running'
       AND locked_at IS NOT NULL
-      AND locked_at < ${cutoff}
+      AND locked_at < ${cutoffIso}::timestamptz
     RETURNING id
   `;
   return rows.length;
