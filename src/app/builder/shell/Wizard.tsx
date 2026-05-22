@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, createContext, useContext, useCallback } from 'react';
+import React, { useState, useEffect, createContext, useContext, useCallback } from 'react';
 import { useBuilder } from '../state';
 import { STEPS } from '../steps';
 import type { StepId } from '../steps';
@@ -94,6 +94,12 @@ export default function Wizard() {
   const { stepIndex, next, back, goToStep } = useWizard();
   const props: StageProps = { onNext: next, onBack: back, goToStep };
   const currentId = STEPS[stepIndex].id;
+
+  // On every step change, jump the page back to the top — otherwise the user
+  // lands mid-scroll on the next step and has to scroll up manually.
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [stepIndex]);
 
   return (
     <main style={{ maxWidth: 980, margin: '0 auto', padding: '32px 24px 96px' }}>

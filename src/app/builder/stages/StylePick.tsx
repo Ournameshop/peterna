@@ -45,12 +45,23 @@ function StyleCard({ styleId, active, onClick }: { styleId: ArtStyleId; active: 
       onMouseEnter={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.borderColor = PALETTE.brass; }}
       onMouseLeave={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.borderColor = PALETTE.parchmentLight; }}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={`/style-thumbnails/peterna-style-${styleId}.png`}
-        alt={`${style.name} art style preview`}
-        style={{ width: '100%', aspectRatio: '4 / 3', objectFit: 'cover', display: 'block' }}
-      />
+      {/* The handover composed the pets at ~65% of the frame with breathing
+          room; zoom-crop so they fill the card with no empty background. */}
+      <div style={{ width: '100%', aspectRatio: '4 / 3', overflow: 'hidden' }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={`/style-thumbnails/peterna-style-${styleId}.png`}
+          alt={`${style.name} art style preview`}
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            display: 'block',
+            transform: 'scale(1.38)',
+            transformOrigin: 'center 56%',
+          }}
+        />
+      </div>
       <div style={{ padding: '10px 12px 14px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
           <span style={{ fontSize: 15 }}>{style.emoji}</span>

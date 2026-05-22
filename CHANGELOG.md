@@ -5,6 +5,13 @@ Working branch: `Adding-skill-in-webflow`.
 
 ## 2026-05-22
 
+### Builder UX — fill style thumbnails + scroll-to-top on step change
+- `StylePick`: CSS zoom-crop (`scale(1.38)`) on the art-style thumbnails so
+  the dog+cat pair fills the card — the fal handover composed them at ~65%
+  of the frame with breathing room, which left empty background in the card.
+- `Wizard`: scroll the page to the top on every step change. Previously,
+  advancing from a long step left the user mid-scroll on the next one.
+
 ### Theme picker — Healing & Peace previews
 Generated the 2 "Healing & Peace" theme previews (`rainbow_bridge`,
 `sunrise_reunion`) via `openai/gpt-image-2` from the verbatim `imagePrompt`s
