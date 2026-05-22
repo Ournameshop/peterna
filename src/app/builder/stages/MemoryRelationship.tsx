@@ -7,6 +7,7 @@ import { useBuilder } from '../state';
 import { memoryPrompts, relationships } from '@/lib/peternal-library';
 import type { StageProps } from './types';
 import type { RelationshipId } from '../state';
+import { defaultOpeningArchetypeFor } from '@/lib/peternal-resolvers';
 
 export default function MemoryRelationship({ onNext, onBack }: StageProps) {
   const { state, update } = useBuilder();
@@ -14,6 +15,8 @@ export default function MemoryRelationship({ onNext, onBack }: StageProps) {
   const [promptAnswer, setPromptAnswer] = useState(state.memoryPromptAnswer);
   const [skippedPrompt, setSkippedPrompt] = useState(state.memoryPromptType === null && state.memoryPromptAnswer === '' ? false : state.memoryPromptType === null);
   const [rel, setRel] = useState<RelationshipId | null>(state.relationship);
+  // Capture the opening value at mount to detect whether user has already deviated from default.
+  const [initialOpening] = useState(state.words.opening);
 
   const name = state.petName || 'your pet';
 
@@ -40,7 +43,13 @@ export default function MemoryRelationship({ onNext, onBack }: StageProps) {
 
   function handleRelChange(id: RelationshipId) {
     setRel(id);
-    update({ relationship: id });
+    // Seed opening archetype from relationship only if user hasn't manually chosen
+    // (i.e. still on the initial default 'simple').
+    const patch: Parameters<typeof update>[0] = { relationship: id };
+    if (state.words.opening === 'simple' || state.words.opening === initialOpening) {
+      patch.words = { ...state.words, opening: defaultOpeningArchetypeFor(id) };
+    }
+    update(patch);
   }
 
   const activePrompt = memoryPrompts.find(p => p.id === promptId);

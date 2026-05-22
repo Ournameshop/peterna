@@ -74,6 +74,7 @@ export default function CardPreview({ onNext, onBack, goToStep }: StageProps) {
       breedGuess: state.petProfile?.breedGuess,
       coatDescription: state.petProfile?.coatDescription,
       ageRange: state.petProfile?.ageRange,
+      bodyType: state.petProfile?.bodyType,
     };
     const sampleCaptionHint = (memoryBeatIndex >= 0 ? state.beatSheet[memoryBeatIndex] : state.beatSheet[1])?.visual;
 
@@ -85,6 +86,7 @@ export default function CardPreview({ onNext, onBack, goToStep }: StageProps) {
         containerId,
         themeId: state.theme,
         styleId: state.style,
+        formatId: state.format,
         aspect: state.aspectRatio,
         userNote,
         pet,
@@ -97,6 +99,7 @@ export default function CardPreview({ onNext, onBack, goToStep }: StageProps) {
         containerId,
         themeId: state.theme,
         styleId: state.style,
+        formatId: state.format,
         aspect: state.aspectRatio,
         userNote,
         pet,
@@ -109,6 +112,7 @@ export default function CardPreview({ onNext, onBack, goToStep }: StageProps) {
         containerId,
         themeId: state.theme,
         styleId: state.style,
+        formatId: state.format,
         aspect: state.aspectRatio,
         userNote,
         pet,
@@ -124,6 +128,7 @@ export default function CardPreview({ onNext, onBack, goToStep }: StageProps) {
           containerId,
           themeId: state.theme,
           styleId: state.style,
+          formatId: state.format,
           aspect: state.aspectRatio,
           userNote,
           pet,

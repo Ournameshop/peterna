@@ -149,8 +149,17 @@ function normalizeBody(v: unknown): PetProfile['bodyType'] {
   return 'medium';
 }
 
-export async function analyzePetPhoto(photo: PetPhoto): Promise<PetProfile | null> {
+export async function analyzePetPhoto(photos: PetPhoto[]): Promise<PetProfile | null> {
   try {
+    // Use the first photo that has usable data as the primary image for the Gemini call.
+    // If multiple photos are available, pick the first with a file, then first with a url.
+    const photo =
+      photos.find(p => p.file) ??
+      photos.find(p => p.url) ??
+      photos[0];
+
+    if (!photo) return { ...fallbackProfile(), visionFailed: true };
+
     const payload: {
       mode: 'vision';
       prompt: string;
@@ -166,7 +175,7 @@ export async function analyzePetPhoto(photo: PetPhoto): Promise<PetProfile | nul
     } else if (photo.url) {
       payload.imageUrl = normalizeImageUrl(photo.url);
     } else {
-      return null;
+      return { ...fallbackProfile(), visionFailed: true };
     }
 
     const res = await fetch('/api/gemini', {
@@ -174,9 +183,9 @@ export async function analyzePetPhoto(photo: PetPhoto): Promise<PetProfile | nul
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    if (!res.ok) return null;
+    if (!res.ok) return { ...fallbackProfile(), visionFailed: true };
     const { text } = (await res.json()) as { text?: string };
-    if (!text) return null;
+    if (!text) return { ...fallbackProfile(), visionFailed: true };
 
     const parsed = JSON.parse(stripFences(text)) as Record<string, unknown>;
     return {
@@ -194,8 +203,23 @@ export async function analyzePetPhoto(photo: PetPhoto): Promise<PetProfile | nul
       visionFailed: false,
     };
   } catch {
-    return null;
+    return { ...fallbackProfile(), visionFailed: true };
   }
+}
+
+function fallbackProfile(): PetProfile {
+  return {
+    species: 'Pet',
+    speciesConfidence: 'medium',
+    breedGuess: 'Mixed breed',
+    breedConfidence: 'medium',
+    coatDescription: 'a warm, much-loved coat',
+    coatConfidence: 'medium',
+    ageRange: 'adult',
+    ageConfidence: 'medium',
+    bodyType: 'medium',
+    visionFailed: false,
+  };
 }
 
 // ---- Gemini: text ----------------------------------------------------------
@@ -264,6 +288,14 @@ It must be the same individual ${petName} in all four views, perfectly consisten
 // ---- Storyboard frame (skill Stage 5.1) ------------------------------------
 // One frame per beat, conditioned on the character sheet so it's the SAME pet.
 
+export interface PetIdentity {
+  species?: string;
+  breedGuess?: string;
+  coatDescription?: string;
+  ageRange?: string;
+  bodyType?: string;
+}
+
 export async function generateStoryboardFrame(
   beat: Beat,
   characterSheet: string | null,
@@ -275,6 +307,7 @@ export async function generateStoryboardFrame(
   containerId: ContainerId | null,
   userNote?: string,
   priorFrameUrl?: string, // the existing frame — a note-driven re-render EDITS this
+  petIdentity?: PetIdentity,
 ): Promise<string | null> {
   if (!characterSheet) return null; // no reference => no likeness => fall back to SVG
 
@@ -301,13 +334,30 @@ export async function generateStoryboardFrame(
 
 Edit the FIRST reference image. Keep its composition, framing, scene and mood as they are — change ONLY what the family requested: ${note}
 
-Keep ${petName}'s exact likeness (use the second reference). No humans in frame. No imagery of illness, injury, or death. No text or watermarks.`;
+Keep ${petName}'s exact likeness (use the second reference). No humans in frame. No imagery of illness, injury, or death. No gravestones, headstones, urns, or taxidermy. No text or watermarks.`;
   } else {
     // Skill Stage 5.1 prompt: use the theme's short DESCRIPTION (not its
     // standalone imagePrompt — that is a fixed pet-less preview scene and makes
     // every frame identical). The per-beat Visual is what drives variety.
+    const petIdentityParts = [
+      petIdentity?.breedGuess,
+      petIdentity?.coatDescription,
+      petIdentity?.bodyType ? `${petIdentity.bodyType} build` : undefined,
+    ].filter(Boolean);
+    const petIdentityLine = petIdentityParts.length > 0
+      ? `${petName} is a ${petIdentity?.species ?? 'pet'} with ${petIdentityParts.join(', ')}.`
+      : '';
+    const captionNameSpellCheck = beat.caption && beat.caption.includes(petName)
+      ? ` — spell the name exactly as "${petName}", verify every letter`
+      : '';
+    const captionBlockFinal = captionBlock
+      ? captionBlock.replace(
+          `"${beat.caption}"`,
+          `"${beat.caption}"${captionNameSpellCheck}`,
+        )
+      : captionBlock;
     prompt = `${likenessSentence(petName)}
-
+${petIdentityLine ? `\n${petIdentityLine}` : ''}
 ${petName} is the clear subject of this frame and must be visibly present within the scene, matching the reference exactly.
 
 Beat #${beat.index + 1}: ${beat.name}.
@@ -316,8 +366,8 @@ ${theme ? `Theme & mood: ${theme.name} — ${theme.desc}` : ''}
 ${format ? `Format context: ${format.name} — ${format.desc}` : ''}
 
 Composition: choose framing for this specific beat — wide for establishing beats, medium for relational beats, medium-wide for active beats. Vary the framing, camera angle, and the pet's pose from one beat to the next so no two frames look alike. Avoid extreme close-ups unless the beat is intimate.
-Lighting: soft, warm, gentle. No humans in frame. No imagery of illness, injury, or death.
-${style ? `Art style: ${style.directive}` : ''}${captionBlock}${note ? `
+Lighting: soft, warm, gentle. No humans in frame. No imagery of illness, injury, or death. No gravestones, headstones, urns, or taxidermy. Do not render any page numbers, numbered corners, or counters of any kind.
+${style ? `Art style: ${style.directive}` : ''}${captionBlockFinal}${note ? `
 
 IMPORTANT — the family reviewed this frame and asked for this specific change. Apply it while keeping ${petName}'s exact likeness from the reference: ${note}` : ''}`;
   }
@@ -384,6 +434,7 @@ export interface CardPet {
   breedGuess?: string;
   coatDescription?: string;
   ageRange?: string;
+  bodyType?: string;
 }
 
 // Deterministic SVG fallback — POSTs to /api/card/render (resvg-based).
@@ -436,11 +487,14 @@ async function renderCardImageAI(opts: {
   containerId: ContainerId | null;
   themeId: ThemeId | null;
   styleId: ArtStyleId | null;
+  formatId: FormatId | null;
   aspect: AspectId;
   pet: CardPet;
   sceneHint?: string;
 }): Promise<string | null> {
   const container = captionContainers.find((c) => c.id === opts.containerId);
+  const themeObj = themes.find((t) => t.id === opts.themeId);
+  const formatObj = formats.find((f) => f.id === opts.formatId);
   const prompt = buildTributeCardPrompt({
     cardType: opts.kind,
     resolvedCaption: opts.text,
@@ -452,7 +506,9 @@ async function renderCardImageAI(opts: {
     breedGuess: opts.pet.breedGuess,
     coatDescription: opts.pet.coatDescription,
     ageRange: opts.pet.ageRange,
-    theme: opts.themeId ?? undefined,
+    bodyType: opts.pet.bodyType,
+    theme: themeObj ? `${themeObj.name} — ${themeObj.desc}` : undefined,
+    format: formatObj ? `${formatObj.name} — ${formatObj.desc}` : undefined,
     sceneHint: opts.sceneHint,
   });
   const ctrl = new AbortController();
@@ -487,6 +543,7 @@ export async function generateCardImage(opts: {
   containerId: ContainerId | null;
   themeId: ThemeId | null;
   styleId: ArtStyleId | null;
+  formatId?: FormatId | null;
   aspect: AspectId;
   userNote?: string;
   backgroundImageUrl?: string;
@@ -502,6 +559,7 @@ export async function generateCardImage(opts: {
       containerId: opts.containerId,
       themeId: opts.themeId,
       styleId: opts.styleId,
+      formatId: opts.formatId ?? null,
       aspect: opts.aspect,
       pet: opts.pet,
       sceneHint: opts.sceneHint,

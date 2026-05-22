@@ -77,7 +77,7 @@ export function buildBeatPrompt(input: BuildBeatPromptInput): string {
 
   // 1. Likeness sentence — VERBATIM, skill hard rule.
   lines.push(
-    `Replicate the exact likeness, markings, proportions, and distinguishing features of ${petName} from the reference images. Do not invent any other animal.`
+    `Replicate the exact likeness, markings, proportions, and distinguishing features of ${petName} from the reference image. Do not invent any other animal.`
   );
 
   // 2. Motion mandate.
@@ -151,7 +151,7 @@ export function buildBeatPrompt(input: BuildBeatPromptInput): string {
 
   // 13. Safety constraints — ends with motion mandate.
   lines.push(
-    "No humans in frame. No imagery of illness, injury, or death. No text overlays, no watermarks. The clip must move — avoid a frozen or near-still result."
+    "No humans in frame. No imagery of illness, injury, or death. No gravestones, headstones, urns, or taxidermy. No text overlays, no watermarks. The clip must move — avoid a frozen or near-still result."
   );
 
   return lines.filter(Boolean).join("\n");
@@ -187,14 +187,16 @@ export interface TributeCardPromptInput {
   breedGuess?: string;
   coatDescription?: string;
   ageRange?: string;
-  theme?: string;
+  bodyType?: string;
+  theme?: string;              // theme description text (not raw id)
+  format?: string;             // format name/desc for scene context
   sceneHint?: string;          // interior beat cards only
 }
 
 export function buildTributeCardPrompt(input: TributeCardPromptInput): string {
   const {
     cardType, resolvedCaption, artStyle, containerName, containerSpec,
-    petName, species, breedGuess, coatDescription, ageRange, theme, sceneHint,
+    petName, species, breedGuess, coatDescription, ageRange, bodyType, theme, format, sceneHint,
   } = input;
 
   const medium = ART_STYLE_MEDIUM[artStyle] ?? ART_STYLE_MEDIUM.watercolor;
@@ -202,7 +204,8 @@ export function buildTributeCardPrompt(input: TributeCardPromptInput): string {
 
   // Step 1 — subject identity. The character sheet is passed as a reference
   // image; this text reinforces the likeness.
-  const petDesc = [breedGuess, coatDescription, ageRange].filter(Boolean).join(', ');
+  const bodyTypeStr = bodyType ? `${bodyType} build` : "";
+  const petDesc = [breedGuess, coatDescription, ageRange, bodyTypeStr].filter(Boolean).join(", ");
   lines.push(
     `Render ${petName}, the same ${species} from the reference image${petDesc ? ` (${petDesc})` : ''} — keep the exact likeness, markings and proportions. Do not invent a different animal.`
   );
@@ -217,17 +220,21 @@ export function buildTributeCardPrompt(input: TributeCardPromptInput): string {
     const kind = cardType === 'opening' ? 'opening title' : cardType === 'closing' ? 'closing' : 'memory';
     lines.push(`A tender memorial ${kind} portrait of ${petName}, calm and at peace.`);
   }
-  if (theme) lines.push(`Environment and mood: ${theme.replace(/_/g, ' ')}.`);
+  if (theme) lines.push(`Environment and mood: ${theme}.`);
+  if (format) lines.push(`Format context: ${format}.`);
 
   // Step 4 — caption container + the resolved caption text, rendered verbatim.
   lines.push(`In the lower portion of the image, place the caption container — ${containerName}: ${containerSpec}`);
+  const nameSpellCheck = resolvedCaption.includes(petName)
+    ? ` — spell the name exactly as "${petName}", verify every letter`
+    : '';
   lines.push(
-    `On the caption container, render exactly this text, spelled perfectly and completely with no extra or missing words: "${resolvedCaption}". Render it in elegant lettering that suits the container and the art style.`
+    `On the caption container, render exactly this text, spelled perfectly and completely with no extra or missing words: "${resolvedCaption}"${nameSpellCheck}. Render it in elegant lettering that suits the container and the art style.`
   );
 
   // Safety + composition.
   lines.push(
-    'No humans in frame. No imagery of illness, injury or death. No watermarks. Vertical portrait composition — the pet in the upper portion, the caption container below, the pet’s face never covered.'
+    `No humans in frame. No imagery of illness, injury or death. No gravestones, headstones, urns, or taxidermy. Do not render any page numbers, numbered corners, or counters of any kind. No watermarks. Vertical portrait composition — the pet in the upper portion, the caption container below, the pet's face never covered.`
   );
 
   return lines.filter(Boolean).join('\n');

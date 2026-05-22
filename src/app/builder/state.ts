@@ -278,6 +278,15 @@ export function resetDownstream(state: BuilderState, fromStage: StepId): Partial
         cinematographyBriefs: [],
         cinematographyApproved: false,
       };
+    case 'words':
+      return {
+        storyboardImages: {},
+        storyboardApproved: false,
+        cardPreviewImages: { opening: null, closing: null, caption: null },
+        cardPreviewApproved: false,
+        cinematographyBriefs: [],
+        cinematographyApproved: false,
+      };
     default:
       return {};
   }

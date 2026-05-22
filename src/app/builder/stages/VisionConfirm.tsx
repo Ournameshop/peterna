@@ -50,12 +50,8 @@ export default function VisionConfirm({ onNext, onBack }: StageProps) {
       return;
     }
     (async () => {
-      const photo =
-        state.petPhotos.find(p => p.file) ??
-        state.petPhotos.find(p => p.url) ??
-        state.petPhotos[0];
-      // Real Gemini-vision analysis; falls back to an explicit-question profile on any failure.
-      const analysisResult = photo ? await analyzePetPhoto(photo) : null;
+      // Pass all photos to the vision call; analyzePetPhoto selects the best one internally.
+      const analysisResult = state.petPhotos.length > 0 ? await analyzePetPhoto(state.petPhotos) : null;
       const profile: PetProfile = analysisResult ?? {
         ...buildSimulatedProfile(state.petPhotos, state.petName),
         visionFailed: true,

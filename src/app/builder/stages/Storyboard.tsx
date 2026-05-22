@@ -5,8 +5,37 @@ import { PALETTE } from '../lib/palette';
 import { Serif, Sans, GateReview } from '../lib/primitives';
 import { generateStoryboardFrame } from '../lib/generation';
 import { useBuilder, usePreviewMode } from '../state';
+import type { Beat, WordsState, Gender } from '../state';
 import { BeatScene } from '../art';
 import type { StageProps } from './types';
+import { openingArchetypes, closingArchetypes } from '@/lib/peternal-library';
+import { resolveText } from '@/lib/peternal-resolvers';
+
+function finalBeatCaption(beat: Beat, words: WordsState, resolveCtx: { gender: Gender; petName: string }): string {
+  if (beat.archetype === 'open') {
+    if (words.opening === 'custom') {
+      return `${words.openingCustom[0]}\n${words.openingCustom[1]}`.trim();
+    }
+    return resolveText(
+      openingArchetypes.find(a => a.id === words.opening)?.template ?? openingArchetypes[0].template,
+      resolveCtx,
+    );
+  }
+  if (beat.archetype === 'close') {
+    if (words.closing === 'custom') {
+      return words.closingCustom;
+    }
+    return resolveText(
+      closingArchetypes.find(a => a.id === words.closing)?.template
+        ?? closingArchetypes.find(a => a.isDefault)?.template
+        ?? closingArchetypes[0].template,
+      resolveCtx,
+    );
+  }
+  const captionEntry = words.captions.find(c => c.beatIndex === beat.index);
+  if (captionEntry) return captionEntry.text;
+  return beat.caption;
+}
 
 export default function Storyboard({ onNext, onBack }: StageProps) {
   const { state, update } = useBuilder();
@@ -37,10 +66,19 @@ export default function Storyboard({ onNext, onBack }: StageProps) {
     }
     (async () => {
       setGenerating(true);
+      const resolveCtx = { gender: state.gender ?? 'neutral', petName: state.petName || 'your pet' };
+      const petIdentity = state.petProfile ? {
+        species: state.petProfile.species,
+        breedGuess: state.petProfile.breedGuess,
+        coatDescription: state.petProfile.coatDescription,
+        ageRange: state.petProfile.ageRange,
+        bodyType: state.petProfile.bodyType,
+      } : undefined;
       const entries = await Promise.all(
         beats.map(async (beat) => {
+          const resolvedBeat = { ...beat, caption: finalBeatCaption(beat, state.words, resolveCtx) };
           const url = await generateStoryboardFrame(
-            beat,
+            resolvedBeat,
             state.characterSheetUrl,
             state.petName || 'your pet',
             state.theme,
@@ -48,6 +86,9 @@ export default function Storyboard({ onNext, onBack }: StageProps) {
             state.format,
             state.aspectRatio,
             state.captionContainer,
+            undefined,
+            undefined,
+            petIdentity,
           );
           return [beat.index, url] as const;
         }),
@@ -81,8 +122,17 @@ export default function Storyboard({ onNext, onBack }: StageProps) {
     update({ storyboardRerollRequests: [...state.storyboardRerollRequests, beatIdx] });
     const beat = beats.find(b => b.index === beatIdx);
     if (beat) {
+      const resolveCtx = { gender: state.gender ?? 'neutral', petName: state.petName || 'your pet' };
+      const resolvedBeat = { ...beat, caption: finalBeatCaption(beat, state.words, resolveCtx) };
+      const petIdentity = state.petProfile ? {
+        species: state.petProfile.species,
+        breedGuess: state.petProfile.breedGuess,
+        coatDescription: state.petProfile.coatDescription,
+        ageRange: state.petProfile.ageRange,
+        bodyType: state.petProfile.bodyType,
+      } : undefined;
       const url = await generateStoryboardFrame(
-        beat,
+        resolvedBeat,
         state.characterSheetUrl,
         state.petName || 'your pet',
         state.theme,
@@ -92,6 +142,7 @@ export default function Storyboard({ onNext, onBack }: StageProps) {
         state.captionContainer,
         state.gateNotes.storyboard, // user's notes from the corrections box → into the re-render
         state.storyboardImages[beatIdx], // the frame being re-rendered — edited in place when a note is given
+        petIdentity,
       );
       if (url) update({ storyboardImages: { ...state.storyboardImages, [beatIdx]: url } });
     }
@@ -99,7 +150,7 @@ export default function Storyboard({ onNext, onBack }: StageProps) {
   }
 
   const approvalOptions = [
-    { id: 'approve', label: 'All good — move to The Words', tone: 'primary' as const },
+    { id: 'approve', label: 'All good — move to Card Preview', tone: 'primary' as const },
     { id: 'rerender_single', label: 'Re-render a frame' },
     { id: 'rerender_multi', label: 'Re-render multiple' },
   ];

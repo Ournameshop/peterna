@@ -301,6 +301,22 @@ export default function Generate({ onNext }: StageProps) {
     return () => window.removeEventListener('keydown', handler);
   }, [zoomedIndex]);
 
+  const beats = state.beatSheet;
+
+  if (!state.cinematographyApproved || state.cinematographyBriefs.length < beats.length) {
+    return (
+      <section style={{ paddingTop: 48 }}>
+        <Eyebrow>Stage 6 · Rendering</Eyebrow>
+        <Serif as="h2" italic style={{ fontSize: 'clamp(28px, 4vw, 44px)', lineHeight: 1.1, marginTop: 14, marginBottom: 16, color: PALETTE.espresso }}>
+          One more step first.
+        </Serif>
+        <Serif style={{ fontSize: 18, color: PALETTE.mute, lineHeight: 1.6, maxWidth: 520 }}>
+          The cinematography brief isn&apos;t complete yet. Please return to the Cinematography stage and approve the briefs for all {beats.length} beats before generating.
+        </Serif>
+      </section>
+    );
+  }
+
   return (
     <section style={{ paddingTop: 32 }}>
       <Eyebrow>Stage 6 · Rendering</Eyebrow>

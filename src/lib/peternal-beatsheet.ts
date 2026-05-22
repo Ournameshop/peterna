@@ -19,6 +19,29 @@ type GenerateInput = {
   traits: string[];
 };
 
+// Format-to-caption-key bias: steer template selection toward keys whose voice
+// matches the format's intended perspective. Does NOT alter the open/close beats
+// and does NOT break enforceCaption or the pet-name-once guard.
+function captionKeyBiasFor(format: FormatId, defaultKey: string): string {
+  switch (format) {
+    case 'letter':
+      // First-person from owner to pet — prefer keys with possessive/owner voice
+      return ['familiar_gaze', 'quiet_pause'].includes(defaultKey) ? defaultKey : 'familiar_gaze';
+    case 'postcards':
+      // First-person from pet — prefer joyful/release keys
+      return ['joyful_release', 'threshold', 'glance_back'].includes(defaultKey) ? defaultKey : 'joyful_release';
+    case 'biopic':
+    case 'day_in_the_life':
+      // Storybook narrator, gentle past tense — prefer sunbeam/quiet_pause
+      return ['sunbeam', 'quiet_pause', 'car_ride'].includes(defaultKey) ? defaultKey : 'sunbeam';
+    case 'forever_young':
+      // Present tense — prefer joyful/active keys
+      return ['favorite_toy', 'joyful_release', 'familiar_gaze'].includes(defaultKey) ? defaultKey : 'favorite_toy';
+    default:
+      return defaultKey;
+  }
+}
+
 // Per-archetype visual description generators — deterministic, no randomness.
 function visualForMemory(sceneHint: string): string {
   return sceneHint;
@@ -219,7 +242,8 @@ export function generateBeatSheet(input: GenerateInput): Beat[] {
           sceneHintSource = undefined;
         }
         visual = visualForMemory(hint);
-        const cKey = captionKeyForSceneHint(hint);
+        const rawKey = captionKeyForSceneHint(hint);
+        const cKey = captionKeyBiasFor(format, rawKey);
         caption = enforceCaption(
           resolveText(
             captionTemplates[cKey]?.[memoryIndex % (captionTemplates[cKey]?.length || 1)] ?? '',

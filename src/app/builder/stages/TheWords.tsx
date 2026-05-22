@@ -78,11 +78,13 @@ export default function TheWords({ onNext, onBack }: StageProps) {
         opening: id,
         openingCustom: [customLine1, customLine2],
       },
+      storyboardImages: {},
+      storyboardApproved: false,
     });
   }
 
   function setClosing(id: string) {
-    update({ words: { ...state.words, closing: id, closingCustom: customClosing } });
+    update({ words: { ...state.words, closing: id, closingCustom: customClosing }, storyboardImages: {}, storyboardApproved: false });
   }
 
   function toggleCaption(beatIndex: number, text: string) {
@@ -91,7 +93,7 @@ export default function TheWords({ onNext, onBack }: StageProps) {
     if (!existing) {
       if (next.length < 3) next = [...next, { beatIndex, text }];
     }
-    update({ words: { ...state.words, captions: next } });
+    update({ words: { ...state.words, captions: next }, storyboardImages: {}, storyboardApproved: false });
   }
 
   function setMusic(id: string) {
@@ -385,7 +387,7 @@ export default function TheWords({ onNext, onBack }: StageProps) {
                       const next = state.words.captions.map((c) =>
                         c.beatIndex === cap.beatIndex ? { ...c, text: e.target.value } : c,
                       );
-                      update({ words: { ...state.words, captions: next } });
+                      update({ words: { ...state.words, captions: next }, storyboardImages: {}, storyboardApproved: false });
                     }}
                     style={{
                       flex: 1,

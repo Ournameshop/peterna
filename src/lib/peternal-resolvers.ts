@@ -140,6 +140,29 @@ export function captionVoiceFor(format: FormatId): { label: string; tenseHint: s
   return CAPTION_VOICE_MAP[format];
 }
 
+// Relationship-to-opening-archetype mapping (FIX 6 — D2).
+// Returns the opening archetype id to use as default when the user hasn't manually chosen one.
+// Mapping: childhood→identity, rescue_last_chapter→love, companion_through_grief→love,
+//          family_first→joy, partnership→love, always_mine→love, unspecified→simple.
+const RELATIONSHIP_OPENING_MAP: Record<string, string> = {
+  childhood:               'identity_good',
+  rescue_last_chapter:     'love_beyond_measure',
+  companion_through_grief: 'love_beyond_measure',
+  family_first:            'joy_filled_days',
+  partnership:             'love_thank_you',
+  always_mine:             'love_forever_in_hearts',
+  unspecified:             'simple',
+};
+
+import { openingArchetypes } from '@/lib/peternal-library';
+
+export function defaultOpeningArchetypeFor(relationship: string): string {
+  const targetId = RELATIONSHIP_OPENING_MAP[relationship] ?? 'simple';
+  // Verify the archetype exists; fall back to simple if not.
+  const exists = openingArchetypes.some(a => a.id === targetId);
+  return exists ? targetId : 'simple';
+}
+
 // Music filtering for Stage 5.5.4 — tracks whose pairsWith includes the theme's category
 // AND styleMatch includes the chosen style; always return >= 4 (pad with mood-nearest).
 export function musicTracksFor(theme: ThemeId, style: ArtStyleId): MusicTrack[] {
