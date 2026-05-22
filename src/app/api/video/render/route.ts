@@ -35,9 +35,14 @@ export const dynamic = 'force-dynamic';
  *   4. Return the queued clip snapshot — no vendor work happens in this
  *      request lifecycle anymore.
  *
- * Idempotency: `enqueueVideoBatch` skips beats that already have a
- * queued/running job for this session, so a double-click on the render
- * button won't fan out duplicate fal calls. Reroll (a separate route)
+ * Idempotency (B1 in pre-Phase-15 audit): the client sends a stable
+ * `Idempotency-Key` derived from the render intent. The server reads it for
+ * traceability (logged below) and `enqueueVideoBatch` makes the
+ * SELECT-then-INSERT atomic via a Postgres advisory lock keyed by
+ * sessionId — see `src/lib/queue/enqueue.ts` for the race-fix details.
+ * Two near-simultaneous render kickoffs for the same session now serialize
+ * inside that lock, so the second one sees the first one's freshly-
+ * inserted clip rows and dedupes against them. Reroll (a separate route)
  * handles re-rendering a specific failed beat.
  */
 export async function POST(req: Request): Promise<Response> {
@@ -51,6 +56,13 @@ export async function POST(req: Request): Promise<Response> {
   if (typeof sessionId !== 'string' || !sessionId) {
     return errJson('invalid-input', { status: 400, details: { field: 'session_id' } });
   }
+
+  // Surface the client's Idempotency-Key in logs so duplicate-kickoff
+  // forensics are possible after the fact (the advisory lock prevents the
+  // duplicate fan-out, but knowing two requests carried the same key helps
+  // distinguish "client double-fired" from "two different intents arrived
+  // back-to-back").
+  const idempotencyKey = req.headers.get('Idempotency-Key')?.trim() || null;
 
   const auth = await authBySession(sessionId);
   if (!auth.ok) return errJson(auth.error, { status: auth.status });
@@ -129,6 +141,10 @@ export async function POST(req: Request): Promise<Response> {
       updatedAt: new Date(),
     })
     .where(eq(sessions.id, sessionId));
+
+  if (idempotencyKey) {
+    console.log('[video.render] kickoff', { sessionId, beats: sortedBeats.length, idempotencyKey });
+  }
 
   await enqueueVideoBatch({
     sessionId,
