@@ -17,13 +17,15 @@ type RouteParams = { params: Promise<{ token: string }> };
  * POST /api/session/resume/[token]
  *
  * Exchange a resume token for a fresh cookie. The resume token is the auth — no cookie
- * required. We rotate the `cookie_token` on success so a stale cookie left over from a prior
- * device stops working (the resume link is the only canonical pointer back to a session).
+ * required. We rotate BOTH the `cookie_token` AND the `resume_token` on success:
+ *   - cookie_token rotation kicks any stale cookie from a prior device.
+ *   - resume_token rotation closes the long-lived shareable-bearer hole (B6 in
+ *     the pre-Phase-15 bug audit): once a resume link is used, the URL in
+ *     someone's browser history / screenshot / forwarded email no longer
+ *     grants access. The new resume token rides back in the response so the
+ *     redeemer can re-bookmark.
  *
- * Wire shape (B4): returns `{ ok: true, session_id, stage, resume_token }` so the resume
- * page can redirect straight to `/builder?session=...&step=...`. Previously this returned a
- * nested `{ session: <row> }` which the page never read; every resume link silently created
- * a new session.
+ * Wire shape (B4): returns `{ ok: true, session_id, stage, resume_token }`.
  */
 export async function POST(_req: Request, ctx: RouteParams): Promise<Response> {
   const { token } = await ctx.params;
@@ -34,11 +36,15 @@ export async function POST(_req: Request, ctx: RouteParams): Promise<Response> {
   const row = rows[0];
   if (!row) return errJson('session-not-found', { status: 404 });
 
-  // Rotate the cookie token so any prior device's cookie is now invalid.
+  // Rotate both tokens — the old cookie and the just-used resume link both
+  // stop working after this point. The resume link is a 256-bit bearer with
+  // no expiry on the DB side; rotating-on-use is the cheap fix to bound its
+  // lifetime to a single redemption.
   const cookieToken = generateToken();
+  const resumeToken = generateToken();
   const updated = await db
     .update(sessions)
-    .set({ cookieToken, updatedAt: new Date() })
+    .set({ cookieToken, resumeToken, updatedAt: new Date() })
     .where(eq(sessions.id, row.id))
     .returning();
   const updatedRow = updated[0] ?? row;
