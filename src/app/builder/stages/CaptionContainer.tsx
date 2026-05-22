@@ -115,7 +115,7 @@ export default function CaptionContainer({ onNext, onBack }: StageProps) {
           </Sans>
           <div style={{ flex: 1, height: 1, background: PALETTE.parchmentLight }}/>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 16 }}>
           {stylePaired.map(c => renderCard(c))}
         </div>
       </div>
@@ -126,7 +126,7 @@ export default function CaptionContainer({ onNext, onBack }: StageProps) {
         </Sans>
         <div style={{ flex: 1, height: 1, background: PALETTE.parchmentLight }}/>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 16 }}>
         {memorial.map(c => renderCard(c))}
       </div>
     </StageShell>
