@@ -1,23 +1,27 @@
 import 'server-only';
 
+import nodemailer, { type Transporter } from 'nodemailer';
+
 /**
- * Brevo transactional-email wrapper. Used by:
+ * Brevo transactional-email wrapper (SMTP transport). Used by:
  *   - `/api/delivery/email` to send the "your tribute is ready" message.
  *   - `/api/auth/magic-link/request` (Phase 10) to send the sign-in link.
  *
- * Wraps Brevo's transactional REST endpoint (`POST /v3/smtp/email`) — no SMTP
- * client needed, no new npm dependency.
+ * Uses Brevo's SMTP relay (smtp-relay.brevo.com:587 via STARTTLS) so a single
+ * SMTP credential set works for everything — and the user can paste their
+ * existing Brevo SMTP details from the dashboard rather than provisioning a
+ * separate v3 REST API key.
  *
  * Env:
- *   - BREVO_API_KEY: required to actually send. Missing key → returns
- *     `{ ok: false, error: 'mailer-not-configured' }` so a dev who hasn't
- *     wired Brevo locally doesn't see an opaque 500.
- *   - DELIVERY_EMAIL_FROM: required when BREVO_API_KEY is set. Should be a
- *     verified sender on the Brevo account (e.g. `tributes@peterna.com`).
+ *   - SMTP_HOST (default: smtp-relay.brevo.com)
+ *   - SMTP_PORT (default: 587)
+ *   - SMTP_USER (Brevo SMTP login, e.g. 75c23f001@smtp-brevo.com)
+ *   - SMTP_PASS (Brevo SMTP key, starts with `xsmtpsib-`)
+ *   Missing SMTP_USER / SMTP_PASS → returns `{ ok: false, error: 'mailer-not-configured' }`.
+ *
+ *   - DELIVERY_EMAIL_FROM: required. Verified sender on the Brevo account.
  *   - DELIVERY_EMAIL_FROM_NAME: optional friendly name (defaults to "Peterna").
  */
-
-const BREVO_ENDPOINT = 'https://api.brevo.com/v3/smtp/email';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -42,69 +46,71 @@ export type SendMailResult =
  * Brevo. Returns a discriminated union so the route handler can map to the
  * right envelope error without parsing Brevo's response shape twice.
  */
+let cachedTransport: Transporter | null = null;
+function getTransport(): Transporter | null {
+  if (cachedTransport) return cachedTransport;
+  const host = process.env.SMTP_HOST?.trim() || 'smtp-relay.brevo.com';
+  const port = Number(process.env.SMTP_PORT?.trim() || 587);
+  const user = process.env.SMTP_USER?.trim();
+  const pass = process.env.SMTP_PASS?.trim();
+  if (!user || !pass) return null;
+  cachedTransport = nodemailer.createTransport({
+    host,
+    port,
+    secure: port === 465, // 587 uses STARTTLS
+    auth: { user, pass },
+  });
+  return cachedTransport;
+}
+
 export async function sendBrevoEmail(input: SendMailInput): Promise<SendMailResult> {
-  const apiKey = process.env.BREVO_API_KEY?.trim();
-  if (!apiKey) {
+  const transport = getTransport();
+  if (!transport) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.error(
+        '[MAIL-FAIL] SMTP not configured — set SMTP_USER + SMTP_PASS in .env.local',
+      );
+    }
     return { ok: false, error: 'mailer-not-configured' };
   }
   const fromEmail = process.env.DELIVERY_EMAIL_FROM?.trim();
   if (!fromEmail) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('[MAIL-FAIL] DELIVERY_EMAIL_FROM not set');
+    }
     return { ok: false, error: 'mailer-not-configured' };
   }
   const fromName = process.env.DELIVERY_EMAIL_FROM_NAME?.trim() || 'Peterna';
 
-  let resp: Response;
   try {
-    resp = await fetch(BREVO_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'api-key': apiKey,
-        accept: 'application/json',
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        sender: { email: fromEmail, name: fromName },
-        to: [{ email: input.to }],
-        subject: input.subject,
-        textContent: input.textBody,
-        htmlContent: input.htmlBody,
-      }),
+    const info = await transport.sendMail({
+      from: `${fromName} <${fromEmail}>`,
+      to: input.to,
+      subject: input.subject,
+      text: input.textBody,
+      html: input.htmlBody,
     });
-  } catch (err) {
-    return {
-      ok: false,
-      error: 'send-failed',
-      details: { message: err instanceof Error ? err.message : String(err) },
-    };
-  }
-
-  if (!resp.ok) {
-    let detail: unknown = null;
-    try {
-      detail = await resp.json();
-    } catch {
-      try {
-        detail = await resp.text();
-      } catch {
-        /* ignore */
-      }
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[MAIL-OK]', {
+        to: input.to,
+        subject: input.subject,
+        messageId: info.messageId ?? null,
+        response: info.response,
+      });
     }
-    return {
-      ok: false,
-      error: 'send-failed',
-      details: { status: resp.status, body: detail },
+    return { ok: true, messageId: info.messageId ?? null };
+  } catch (err) {
+    const details = {
+      message: err instanceof Error ? err.message : String(err),
+      code: (err as { code?: string } | null)?.code,
+      response: (err as { response?: string } | null)?.response,
+      responseCode: (err as { responseCode?: number } | null)?.responseCode,
     };
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('[MAIL-FAIL] SMTP send failed:', details);
+    }
+    return { ok: false, error: 'send-failed', details };
   }
-
-  let messageId: string | null = null;
-  try {
-    const json = (await resp.json()) as { messageId?: string };
-    messageId = json.messageId ?? null;
-  } catch {
-    // Brevo always returns JSON on 2xx; if parse fails we still consider
-    // it a success — the email went out.
-  }
-  return { ok: true, messageId };
 }
 
 export type SendDeliveryEmailInput = {
