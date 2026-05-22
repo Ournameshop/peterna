@@ -165,11 +165,13 @@ export function defaultOpeningArchetypeFor(relationship: string): string {
 
 // Music filtering for Stage 5.5.4 — tracks whose pairsWith includes the theme's category
 // AND styleMatch includes the chosen style; always return >= 4 (pad with mood-nearest).
+// 'silence' is excluded here — it is surfaced as its own Ambient only pill, not a preset card.
 export function musicTracksFor(theme: ThemeId, style: ArtStyleId): MusicTrack[] {
   const themeObj = themes.find((t) => t.id === theme);
   const category = themeObj ? themeObj.category : null;
 
   const primary = musicTracks.filter((track) => {
+    if (track.id === 'silence') return false; // silence lives on the Ambient only pill
     const categoryMatch =
       category &&
       Array.isArray(track.pairsWith) &&
@@ -182,8 +184,10 @@ export function musicTracksFor(theme: ThemeId, style: ArtStyleId): MusicTrack[] 
 
   if (primary.length >= 4) return primary;
 
-  // Pad with mood-nearest: tracks matching category OR style, not already included
+  // Pad with mood-nearest: tracks matching category OR style, not already included.
+  // Also excludes silence.
   const secondary = musicTracks.filter((track) => {
+    if (track.id === 'silence') return false; // silence lives on the Ambient only pill
     if (primary.includes(track)) return false;
     const categoryMatch =
       category &&

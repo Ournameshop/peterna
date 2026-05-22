@@ -62,10 +62,8 @@ function buildSegments(
 export default function TributePlayer() {
   const { state } = useBuilder();
 
-  // Continuous audio bed in the preview. When narration is on, the voiceover
-  // IS the tribute's audio (it's what the final composed video plays), so the
-  // preview plays the narration; otherwise it plays the music bed. Either is
-  // generated on the FinishedTribute screen's mount.
+  // Continuous audio bed in the preview. Approved music is generated in The Words;
+  // when narration is on, the voiceover is previewed as the foreground audio.
   const activeBedUrl =
     state.words.narration !== 'off'
       ? (state.narrationUrl ?? null)
@@ -259,7 +257,6 @@ export default function TributePlayer() {
     >
       {/* Hidden continuous audio bed — plays across all segments, independent of segIdx */}
       {activeBedUrl && (
-        // eslint-disable-next-line jsx-a11y/media-has-caption
         <audio
           ref={audioRef}
           src={activeBedUrl}

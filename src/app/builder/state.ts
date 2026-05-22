@@ -71,6 +71,16 @@ export interface CinematographyBrief {
   audioIntensity: 'bed_only' | 'present' | 'forward';
 }
 
+export type MusicMode = 'preset' | 'custom_instrumental' | 'custom_lyrics' | 'upload' | 'ambient_only';
+export type MusicGenerationStatus = 'idle' | 'generating' | 'ready' | 'failed';
+export type MusicProvider = 'suno' | 'fal' | 'upload' | null;
+
+export interface MusicVariant {
+  url: string;
+  durationMs: number;
+  title?: string;
+}
+
 export interface WordsState {
   opening: string;
   openingCustom: [string, string];
@@ -78,6 +88,16 @@ export interface WordsState {
   closingCustom: string;
   captions: { beatIndex: number; text: string }[];
   music: string;
+  musicMode: MusicMode;
+  musicPrompt: string;
+  musicStyle: string;
+  musicTitle: string;
+  musicLyrics: string;
+  musicProvider: MusicProvider;
+  musicApproved: boolean;
+  musicGenerationStatus: MusicGenerationStatus;
+  musicGenerationError: string;
+  musicVariants: MusicVariant[];
   narration: 'off' | string;
   narrationLetter: string[];
   subtitles: boolean;
@@ -195,6 +215,16 @@ export const initialState: BuilderState = {
     closingCustom: '',
     captions: [],
     music: 'silence',
+    musicMode: 'ambient_only',
+    musicPrompt: '',
+    musicStyle: '',
+    musicTitle: '',
+    musicLyrics: '',
+    musicProvider: null,
+    musicApproved: true,
+    musicGenerationStatus: 'idle',
+    musicGenerationError: '',
+    musicVariants: [],
     narration: 'off',
     narrationLetter: [],
     subtitles: true,
@@ -286,6 +316,13 @@ export function resetDownstream(state: BuilderState, fromStage: StepId): Partial
         cardPreviewApproved: false,
         cinematographyBriefs: [],
         cinematographyApproved: false,
+        musicBedUrl: null,
+        musicBedDurationMs: null,
+        words: {
+          ...state.words,
+          musicVariants: [],
+          musicApproved: false,
+        },
       };
     default:
       return {};

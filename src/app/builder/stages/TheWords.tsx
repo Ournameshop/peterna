@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState } from 'react';
-import { Check, Play } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Check, Loader2, Play, RefreshCw, Upload } from 'lucide-react';
 import { PALETTE } from '../lib/palette';
 import {
   StageShell,
@@ -13,7 +13,8 @@ import {
   SummaryItem,
 } from '../lib/primitives';
 import { Waveform } from '../art';
-import { useBuilder } from '../state';
+import { useBuilder, usePreviewMode } from '../state';
+import type { BuilderState, MusicMode, MusicProvider, MusicVariant } from '../state';
 import type { StageProps } from './types';
 import {
   openingArchetypes,
@@ -21,10 +22,27 @@ import {
   captionTemplates,
   narrationVoices,
   narrationQuestions,
+  personalityTraits,
+  favoriteThings,
+  relationships,
+  themes,
+  formats,
+  artStyles,
 } from '@/lib/peternal-library';
 import { resolveArchetype, resolveText, musicTracksFor, captionVoiceFor } from '@/lib/peternal-resolvers';
+import { buildInstrumentalPrompt } from '@/lib/music-prompts';
 
 const NARRATION_QUESTIONS = narrationQuestions;
+const PREVIEW_AUDIO_URL =
+  'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA=';
+const WORDS_HASH_TO_SUB: Record<string, number> = {
+  '#words-opening': 0,
+  '#words-closing': 1,
+  '#words-captions': 2,
+  '#words-music': 3,
+  '#words-narration': 4,
+  '#words-review': 5,
+};
 
 const SUB_STEPS = ['Opening', 'Closing', 'Captions', 'Music', 'Narration', 'Review'];
 
@@ -37,17 +55,250 @@ function groupBy<T>(arr: readonly T[], key: (item: T) => string): Record<string,
   }, {});
 }
 
+function cleanSongText(value: string): string {
+  return value.replace(/\s+/g, ' ').trim();
+}
+
+function listText(items: string[]): string {
+  if (items.length === 0) return '';
+  if (items.length === 1) return items[0];
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(', ')}, and ${items[items.length - 1]}`;
+}
+
+function labelFromIds(ids: string[], source: readonly { id: string; label?: string; name?: string }[]): string[] {
+  return ids.map((id) => {
+    const found = source.find((item) => item.id === id);
+    return found?.label ?? found?.name ?? id.replace(/_/g, ' ');
+  });
+}
+
+function safeTitle(name: string): string {
+  return `For ${name || 'You'}`.slice(0, 80);
+}
+
+function defaultMusicStyle(state: BuilderState): string {
+  const themeObj = themes.find((t) => t.id === state.theme);
+  const styleObj = artStyles.find((s) => s.id === state.style);
+  const styleName = styleObj?.name ?? (state.style ? state.style.replace(/_/g, ' ') : 'cinematic realism');
+  const themeName = themeObj?.name ?? 'gentle memorial';
+  return `gentle memorial ballad, ${themeName.toLowerCase()}, ${styleName}, warm piano, soft strings, intimate vocal`;
+}
+
+
+function songDurationLabel(state: BuilderState): string {
+  return `${state.targetMinutes}:00`;
+}
+
+function lyricLengthInstruction(state: BuilderState): string {
+  const beatCount = state.beatSheet.length || state.beatCount;
+  switch (state.targetMinutes) {
+    case 1:
+      return `Target length: about 1:00. Uses ${beatCount} beat-card lines, one short chorus, and no extended outro.`;
+    case 2:
+      return `Target length: about 2:00. Uses ${beatCount} beat-card lines, two compact choruses, and a short bridge.`;
+    case 3:
+      return `Target length: about 3:00. Uses ${beatCount} beat-card lines, verse/chorus/verse/bridge/final chorus structure.`;
+    case 4:
+      return `Target length: about 4:00. Uses ${beatCount} beat-card lines, expanded verses, bridge, and a clean final refrain.`;
+  }
+}
+
+function lyricTargetWords(state: BuilderState): { min: number; max: number } {
+  switch (state.targetMinutes) {
+    case 1: return { min: 70, max: 105 };
+    case 2: return { min: 120, max: 170 };
+    case 3: return { min: 190, max: 260 };
+    case 4: return { min: 260, max: 360 };
+  }
+}
+
+function lyricCleanLine(value: string, maxWords = 12): string {
+  const clean = cleanSongText(value)
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/[.!?]+$/g, '');
+  const words = clean.split(' ').filter(Boolean);
+  if (words.length <= maxWords) return clean;
+  return words.slice(0, maxWords).join(' ');
+}
+
+function uniqueLines(lines: string[]): string[] {
+  const seen = new Set<string>();
+  return lines
+    .map((line) => lyricCleanLine(line))
+    .filter((line) => {
+      if (!line) return false;
+      const key = line.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
+function beatLyricLines(state: BuilderState): string[] {
+  const beats = state.beatSheet.length
+    ? state.beatSheet
+    : Array.from({ length: state.beatCount }, (_, index) => ({
+        index,
+        caption: '',
+        spokenOrTitle: '',
+        name: `Beat ${index + 1}`,
+        visual: '',
+      }));
+
+  return uniqueLines(beats.map((beat) => {
+    const userCaption = state.words.captions.find((c) => c.beatIndex === beat.index)?.text;
+    return userCaption || beat.spokenOrTitle || beat.caption || beat.name || beat.visual;
+  }));
+}
+
+function beatSceneLines(state: BuilderState): string[] {
+  return uniqueLines(
+    state.beatSheet
+      .map((beat) => beat.visual || beat.name || beat.caption)
+      .filter(Boolean),
+  ).slice(0, Math.max(2, Math.min(6, state.targetMinutes + 2)));
+}
+
+function splitForSong<T>(items: T[], parts: number): T[][] {
+  const result: T[][] = Array.from({ length: parts }, () => []);
+  items.forEach((item, idx) => {
+    result[Math.min(parts - 1, Math.floor((idx / Math.max(1, items.length)) * parts))].push(item);
+  });
+  return result;
+}
+
+function section(title: string, lines: string[]): string {
+  return [`[${title}]`, ...lines.filter(Boolean)].join('\n');
+}
+
+function buildSongBrief(state: BuilderState): string {
+  const petName = state.petName || 'this beloved pet';
+  const themeObj = themes.find((t) => t.id === state.theme);
+  const formatObj = formats.find((f) => f.id === state.format);
+  const styleObj = artStyles.find((s) => s.id === state.style);
+  const relEntry = relationships.find((r) => r.id === state.relationship);
+  const wordTarget = lyricTargetWords(state);
+  const beatLines = beatLyricLines(state);
+
+  return [
+    `Tribute song for ${petName}.`,
+    `Video length: ${songDurationLabel(state)} (${state.beatCount} planned beats).`,
+    `Lyric target: ${wordTarget.min}-${wordTarget.max} sung words.`,
+    formatObj ? `Format: ${formatObj.name} - ${formatObj.desc}` : null,
+    themeObj ? `Theme: ${themeObj.name} - ${themeObj.desc}` : null,
+    styleObj ? `Visual style: ${styleObj.name}.` : null,
+    relEntry ? `Relationship: ${relEntry.narrationPhrase}; tone ${relEntry.narrationTone.replace(/_/g, ' ')}.` : null,
+    `Beat-card source lines: ${beatLines.join(' / ')}.`,
+    `Do not add extra verses beyond the provided lyrics. End cleanly within ${songDurationLabel(state)}.`,
+  ].filter(Boolean).join(' ');
+}
+
+function buildLyricDraft(state: BuilderState, openingText: string, closingText: string): string {
+  const petName = state.petName || 'you';
+  const traitLabels = labelFromIds(state.traits, personalityTraits);
+  const favoriteLabels = labelFromIds(state.favorites, favoriteThings);
+  const relEntry = relationships.find((r) => r.id === state.relationship);
+  const relPhrase = relEntry?.narrationPhrase ?? 'my beloved friend';
+  const beatLines = beatLyricLines(state);
+  const sceneLines = beatSceneLines(state);
+  const [firstBeats, middleBeats, finalBeats] = splitForSong(beatLines, 3);
+  const favoriteLine = favoriteLabels.length ? `You loved ${listText(favoriteLabels)}` : '';
+  const traitLine = traitLabels.length ? `You were ${listText(traitLabels)}` : '';
+  const memoryLine = state.memoryPromptAnswer
+    ? cleanSongText(state.memoryPromptAnswer)
+    : `the little look that always brought me home`;
+  const close = closingText && closingText !== '—'
+    ? lyricCleanLine(closingText, 14)
+    : `Forever loved, ${petName}`;
+  const open = openingText && openingText !== '—'
+    ? lyricCleanLine(openingText, 14)
+    : petName;
+
+  const chorus = [
+    `${petName}, you are still here with me`,
+    'In every room, in every memory',
+    state.targetMinutes >= 2 ? 'Every little moment still knows your name' : null,
+    state.targetMinutes >= 3 ? 'Love does not leave when the light has changed' : null,
+  ].filter(Boolean) as string[];
+
+  const verseOne = uniqueLines([
+    open,
+    `You were ${relPhrase}, walking softly through my life`,
+    traitLine,
+    ...firstBeats,
+  ]);
+  const verseTwo = uniqueLines([
+    favoriteLine,
+    `I still remember ${lyricCleanLine(memoryLine, 12)}`,
+    ...middleBeats,
+    ...(state.targetMinutes >= 3 ? sceneLines.slice(0, 2) : []),
+  ]);
+  const bridge = uniqueLines([
+    ...finalBeats,
+    ...(state.targetMinutes >= 3 ? sceneLines.slice(2, 5) : []),
+    'No last day can take away',
+    'The life you gave, the love that stays',
+  ]);
+  const outro = uniqueLines([
+    ...(state.targetMinutes >= 2 ? chorus.slice(0, state.targetMinutes >= 3 ? 4 : 3) : []),
+    'I will carry what you gave',
+    close,
+  ]);
+
+  const sections = state.targetMinutes === 1
+    ? [
+        section('Verse', uniqueLines([...verseOne, ...verseTwo.slice(0, 2)])),
+        section('Chorus', chorus.slice(0, 2)),
+        section('Outro', uniqueLines([...bridge.slice(0, 2), close])),
+      ]
+    : [
+        section('Verse 1', verseOne),
+        section('Chorus', chorus.slice(0, state.targetMinutes >= 3 ? 4 : 3)),
+        section('Verse 2', verseTwo),
+        section(state.targetMinutes >= 3 ? 'Bridge' : 'Short Bridge', bridge),
+        section('Final Chorus', outro),
+      ];
+
+  return sections.join('\n\n');
+}
+
+function modeLabel(mode: MusicMode): string {
+  switch (mode) {
+    case 'preset': return 'Recommended score';
+    case 'custom_instrumental': return 'Custom instrumental';
+    case 'custom_lyrics': return 'Song with lyrics';
+    case 'upload': return 'Uploaded audio';
+    case 'ambient_only': return 'Ambient only';
+  }
+}
+
 export default function TheWords({ onNext, onBack }: StageProps) {
   const { state, update } = useBuilder();
+  const previewMode = usePreviewMode();
   const [sub, setSub] = useState(0);
   const [customLine1, setCustomLine1] = useState(state.words.openingCustom[0]);
   const [customLine2, setCustomLine2] = useState(state.words.openingCustom[1]);
   const [customClosing, setCustomClosing] = useState(state.words.closingCustom);
+  const [musicNote, setMusicNote] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [narrationAnswers, setNarrationAnswers] = useState<string[]>(
     state.words.narrationLetter.length === narrationQuestions.length
       ? state.words.narrationLetter
       : Array(narrationQuestions.length).fill(''),
   );
+
+  useEffect(() => {
+    function syncSubFromHash() {
+      const next = WORDS_HASH_TO_SUB[window.location.hash];
+      if (next !== undefined) setSub(next);
+    }
+
+    syncSubFromHash();
+    window.addEventListener('hashchange', syncSubFromHash);
+    return () => window.removeEventListener('hashchange', syncSubFromHash);
+  }, []);
 
   const gender = state.gender ?? 'neutral';
   const petName = state.petName || 'them';
@@ -55,10 +306,49 @@ export default function TheWords({ onNext, onBack }: StageProps) {
 
   const openingGroups = groupBy(openingArchetypes, (a) => a.group);
   const closingGroups = groupBy(closingArchetypes, (a) => a.group);
+  const musicOpeningA = openingArchetypes.find((a) => a.id === state.words.opening);
+  const musicClosingA = closingArchetypes.find((a) => a.id === state.words.closing);
+  const musicOpeningLabel = musicOpeningA
+    ? state.words.opening === 'custom'
+      ? state.words.openingCustom.filter(Boolean).join('\n') || 'Custom'
+      : resolveArchetype(musicOpeningA, ctx)
+    : '—';
+  const musicClosingLabel = musicClosingA
+    ? state.words.closing === 'custom'
+      ? state.words.closingCustom || 'Custom'
+      : resolveArchetype(musicClosingA, ctx)
+    : '—';
 
   const theme = state.theme ?? 'rainbow_bridge';
   const artStyle = state.style ?? 'cinematic_realism';
   const musicOptions = musicTracksFor(theme, artStyle);
+  const selectedMusicTrack = musicOptions.find((m) => m.id === state.words.music);
+
+  // Auto-select the first recommended track when the user first enters the
+  // music sub-step and has not made an explicit choice yet.
+  useEffect(() => {
+    if (sub !== 3) return;
+    if (state.words.musicMode !== 'ambient_only') return;
+    if (state.words.music !== 'silence') return;
+    if (musicOptions.length === 0) return;
+    const first = musicOptions[0];
+    update({
+      words: {
+        ...state.words,
+        musicMode: 'preset',
+        music: first.id,
+        musicPrompt: buildInstrumentalPrompt(state, first.name, first.mood),
+        musicStyle: first.description ?? defaultMusicStyle(state),
+        musicTitle: safeTitle(petName),
+        musicLyrics: '',
+        musicApproved: false,
+        musicGenerationStatus: 'idle',
+        musicGenerationError: '',
+        musicVariants: [],
+      },
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sub]);
 
   const captionKeys = Object.keys(captionTemplates).filter((k) => k !== 'custom');
   const captionSuggestions = captionKeys.flatMap((key) =>
@@ -77,14 +367,30 @@ export default function TheWords({ onNext, onBack }: StageProps) {
         ...state.words,
         opening: id,
         openingCustom: [customLine1, customLine2],
+        musicVariants: [],
+        musicApproved: false,
       },
       storyboardImages: {},
       storyboardApproved: false,
+      musicBedUrl: null,
+      musicBedDurationMs: null,
     });
   }
 
   function setClosing(id: string) {
-    update({ words: { ...state.words, closing: id, closingCustom: customClosing }, storyboardImages: {}, storyboardApproved: false });
+    update({
+      words: {
+        ...state.words,
+        closing: id,
+        closingCustom: customClosing,
+        musicVariants: [],
+        musicApproved: false,
+      },
+      storyboardImages: {},
+      storyboardApproved: false,
+      musicBedUrl: null,
+      musicBedDurationMs: null,
+    });
   }
 
   function toggleCaption(beatIndex: number, text: string) {
@@ -93,14 +399,351 @@ export default function TheWords({ onNext, onBack }: StageProps) {
     if (!existing) {
       if (next.length < 3) next = [...next, { beatIndex, text }];
     }
-    update({ words: { ...state.words, captions: next }, storyboardImages: {}, storyboardApproved: false });
+    update({
+      words: {
+        ...state.words,
+        captions: next,
+        musicVariants: [],
+        musicApproved: false,
+      },
+      storyboardImages: {},
+      storyboardApproved: false,
+      musicBedUrl: null,
+      musicBedDurationMs: null,
+    });
   }
 
   function setMusic(id: string) {
-    update({ words: { ...state.words, music: id } });
+    if (id === state.words.music && state.words.musicMode === 'preset') return;
+    const track = musicOptions.find((m) => m.id === id);
+    if (id === 'silence') {
+      update({
+        words: {
+          ...state.words,
+          music: id,
+          musicMode: 'ambient_only',
+          musicApproved: true,
+          musicGenerationStatus: 'idle',
+          musicGenerationError: '',
+          musicVariants: [],
+        },
+        musicBedUrl: null,
+        musicBedDurationMs: null,
+        assembledVideoUrl: null,
+      });
+      return;
+    }
+    update({
+      words: {
+        ...state.words,
+        music: id,
+        musicMode: 'preset',
+        musicPrompt: buildInstrumentalPrompt(state, track?.name, track?.mood),
+        musicStyle: track?.description ?? defaultMusicStyle(state),
+        musicTitle: safeTitle(petName),
+        musicLyrics: '',
+        musicProvider: null,
+        musicApproved: false,
+        musicGenerationStatus: 'idle',
+        musicGenerationError: '',
+        musicVariants: [],
+      },
+      musicBedUrl: null,
+      musicBedDurationMs: null,
+      assembledVideoUrl: null,
+    });
+  }
+
+  function setMusicMode(mode: MusicMode) {
+    if (mode === 'ambient_only') {
+      update({
+        words: {
+          ...state.words,
+          music: 'silence',
+          musicMode: mode,
+          musicApproved: true,
+          musicGenerationStatus: 'idle',
+          musicGenerationError: '',
+          musicVariants: [],
+        },
+        musicBedUrl: null,
+        musicBedDurationMs: null,
+        assembledVideoUrl: null,
+      });
+      return;
+    }
+
+    const presetId = musicOptions.some((m) => m.id === state.words.music)
+      ? state.words.music
+      : musicOptions.find((m) => m.id !== 'silence')?.id ?? musicOptions[0]?.id ?? 'soft_piano_01';
+    const presetTrack = musicOptions.find((m) => m.id === presetId);
+    const nextLyrics = mode === 'custom_lyrics'
+      ? state.words.musicLyrics || buildLyricDraft(state, musicOpeningLabel, musicClosingLabel)
+      : '';
+    update({
+      words: {
+        ...state.words,
+        musicMode: mode,
+        music: mode === 'preset' ? presetId : mode === 'upload' ? state.words.music : mode,
+        musicPrompt: mode === 'custom_instrumental'
+          ? state.words.musicPrompt || buildInstrumentalPrompt(state)
+          : mode === 'preset'
+          ? buildInstrumentalPrompt(state, presetTrack?.name, presetTrack?.mood)
+          : state.words.musicPrompt,
+        musicStyle: mode === 'preset'
+          ? presetTrack?.description ?? defaultMusicStyle(state)
+          : state.words.musicStyle || defaultMusicStyle(state),
+        musicTitle: state.words.musicTitle || safeTitle(petName),
+        musicLyrics: nextLyrics,
+        musicApproved: false,
+        musicGenerationStatus: 'idle',
+        musicGenerationError: '',
+        musicVariants: [],
+        narration: mode === 'custom_lyrics' ? 'off' : state.words.narration,
+      },
+      musicBedUrl: null,
+      musicBedDurationMs: null,
+      narrationUrl: mode === 'custom_lyrics' ? null : state.narrationUrl,
+      narrationDurationMs: mode === 'custom_lyrics' ? null : state.narrationDurationMs,
+      narrationScript: mode === 'custom_lyrics' ? null : state.narrationScript,
+      narrationTimestamps: mode === 'custom_lyrics' ? null : state.narrationTimestamps,
+      assembledVideoUrl: null,
+    });
+  }
+
+  function updateMusicField(field: 'musicPrompt' | 'musicStyle' | 'musicTitle' | 'musicLyrics', value: string) {
+    update({
+      words: {
+        ...state.words,
+        [field]: value,
+        musicApproved: false,
+        musicGenerationStatus: state.words.musicGenerationStatus === 'ready' ? 'idle' : state.words.musicGenerationStatus,
+        musicGenerationError: '',
+      },
+      musicBedUrl: null,
+      musicBedDurationMs: null,
+      assembledVideoUrl: null,
+    });
+  }
+
+  async function generateMusicTrack() {
+    const mode = state.words.musicMode;
+    if (mode === 'ambient_only' || mode === 'upload') return;
+    const isLyrics = mode === 'custom_lyrics';
+    const track = selectedMusicTrack;
+    const promptBase = isLyrics
+      ? buildSongBrief(state)
+      : state.words.musicPrompt || buildInstrumentalPrompt(state, track?.name, track?.mood);
+    const prompt = !isLyrics && musicNote.trim()
+      ? `${promptBase} Adjustment: ${musicNote.trim()}`
+      : promptBase;
+    const title = state.words.musicTitle || safeTitle(petName);
+    const style = state.words.musicStyle || (isLyrics ? defaultMusicStyle(state) : track?.description ?? defaultMusicStyle(state));
+    const generationStyle = isLyrics
+      ? `${style}${musicNote.trim() ? `. ${musicNote.trim()}` : ''}. ${lyricLengthInstruction(state)} End cleanly before ${songDurationLabel(state)}; no extended instrumental outro.`
+      : style;
+    const lyrics = state.words.musicLyrics || buildLyricDraft(state, musicOpeningLabel, musicClosingLabel);
+    const durationSeconds = Math.ceil(state.targetMinutes * 60);
+
+    update({
+      words: {
+        ...state.words,
+        musicPrompt: prompt,
+        musicStyle: style,
+        musicTitle: title,
+        musicLyrics: isLyrics ? lyrics : '',
+        musicProvider: null,
+        musicApproved: false,
+        musicGenerationStatus: 'generating',
+        musicGenerationError: '',
+      },
+      musicBedUrl: null,
+      musicBedDurationMs: null,
+      assembledVideoUrl: null,
+    });
+
+    if (previewMode) {
+      const variant: MusicVariant = {
+        url: PREVIEW_AUDIO_URL,
+        durationMs: durationSeconds * 1000,
+        title,
+      };
+      update({
+        words: {
+          ...state.words,
+          musicPrompt: prompt,
+          musicStyle: style,
+          musicTitle: title,
+          musicLyrics: isLyrics ? lyrics : '',
+          musicProvider: 'suno',
+          musicApproved: false,
+          musicGenerationStatus: 'ready',
+          musicGenerationError: '',
+          musicVariants: [variant, ...state.words.musicVariants].slice(0, 3),
+        },
+        musicBedUrl: PREVIEW_AUDIO_URL,
+        musicBedDurationMs: variant.durationMs,
+        assembledVideoUrl: null,
+      });
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/video/music', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: isLyrics ? 'lyrics' : 'instrumental',
+          prompt,
+          lyrics: isLyrics ? lyrics : undefined,
+          style: generationStyle,
+          title,
+          durationSeconds,
+        }),
+      });
+      const json = (await res.json()) as {
+        url?: string;
+        durationMs?: number;
+        title?: string;
+        provider?: MusicProvider;
+        error?: string;
+      };
+      if (!res.ok || !json.url) throw new Error(json.error ?? 'Music generation failed');
+      const variant: MusicVariant = {
+        url: json.url,
+        durationMs: json.durationMs ?? 0,
+        title: json.title ?? title,
+      };
+      update({
+        words: {
+          ...state.words,
+          musicPrompt: prompt,
+          musicStyle: style,
+          musicTitle: title,
+          musicLyrics: isLyrics ? lyrics : '',
+          musicProvider: json.provider ?? 'suno',
+          musicApproved: false,
+          musicGenerationStatus: 'ready',
+          musicGenerationError: '',
+          musicVariants: [variant, ...state.words.musicVariants].slice(0, 3),
+        },
+        musicBedUrl: json.url,
+        musicBedDurationMs: json.durationMs ?? null,
+        assembledVideoUrl: null,
+      });
+    } catch (err) {
+      update({
+        words: {
+          ...state.words,
+          musicPrompt: prompt,
+          musicStyle: style,
+          musicTitle: title,
+          musicLyrics: isLyrics ? lyrics : '',
+          musicApproved: false,
+          musicGenerationStatus: 'failed',
+          musicGenerationError: err instanceof Error ? err.message : 'Music generation failed',
+        },
+        musicBedUrl: null,
+        musicBedDurationMs: null,
+        assembledVideoUrl: null,
+      });
+    }
+  }
+
+  function approveMusic() {
+    update({
+      words: {
+        ...state.words,
+        musicApproved: true,
+        musicGenerationStatus: state.musicBedUrl ? 'ready' : state.words.musicGenerationStatus,
+        narration: state.words.musicMode === 'custom_lyrics' ? 'off' : state.words.narration,
+      },
+      narrationUrl: state.words.musicMode === 'custom_lyrics' ? null : state.narrationUrl,
+      narrationDurationMs: state.words.musicMode === 'custom_lyrics' ? null : state.narrationDurationMs,
+      narrationScript: state.words.musicMode === 'custom_lyrics' ? null : state.narrationScript,
+      narrationTimestamps: state.words.musicMode === 'custom_lyrics' ? null : state.narrationTimestamps,
+      assembledVideoUrl: null,
+    });
+  }
+
+  async function handleMusicUpload(file: File | undefined) {
+    if (!file) return;
+    update({
+      words: {
+        ...state.words,
+        musicMode: 'upload',
+        musicTitle: file.name,
+        musicProvider: null,
+        musicApproved: false,
+        musicGenerationStatus: 'generating',
+        musicGenerationError: '',
+      },
+      musicBedUrl: null,
+      musicBedDurationMs: null,
+      assembledVideoUrl: null,
+    });
+
+    if (previewMode) {
+      const previewUrl = typeof URL !== 'undefined' ? URL.createObjectURL(file) : PREVIEW_AUDIO_URL;
+      update({
+        words: {
+          ...state.words,
+          musicMode: 'upload',
+          musicTitle: file.name,
+          musicProvider: 'upload',
+          musicApproved: true,
+          musicGenerationStatus: 'ready',
+          musicGenerationError: '',
+          musicVariants: [{ url: previewUrl, durationMs: 0, title: file.name }],
+        },
+        musicBedUrl: previewUrl,
+        musicBedDurationMs: null,
+        assembledVideoUrl: null,
+      });
+      return;
+    }
+
+    const form = new FormData();
+    form.append('file', file);
+    try {
+      const res = await fetch('/api/audio/upload', { method: 'POST', body: form });
+      const json = (await res.json()) as { url?: string; durationMs?: number; title?: string; error?: string };
+      if (!res.ok || !json.url) throw new Error(json.error ?? 'Audio upload failed');
+      update({
+        words: {
+          ...state.words,
+          musicMode: 'upload',
+          musicTitle: json.title ?? file.name,
+          musicProvider: 'upload',
+          musicApproved: true,
+          musicGenerationStatus: 'ready',
+          musicGenerationError: '',
+          musicVariants: [{ url: json.url, durationMs: json.durationMs ?? 0, title: json.title ?? file.name }],
+        },
+        musicBedUrl: json.url,
+        musicBedDurationMs: json.durationMs ?? null,
+        assembledVideoUrl: null,
+      });
+    } catch (err) {
+      update({
+        words: {
+          ...state.words,
+          musicMode: 'upload',
+          musicTitle: file.name,
+          musicProvider: null,
+          musicApproved: false,
+          musicGenerationStatus: 'failed',
+          musicGenerationError: err instanceof Error ? err.message : 'Audio upload failed',
+        },
+        musicBedUrl: null,
+        musicBedDurationMs: null,
+        assembledVideoUrl: null,
+      });
+    }
   }
 
   function setNarration(id: string) {
+    if (state.words.musicMode === 'custom_lyrics' && id !== 'off') return;
     if (id === state.words.narration) return;
     update({
       words: { ...state.words, narration: id },
@@ -387,7 +1030,13 @@ export default function TheWords({ onNext, onBack }: StageProps) {
                       const next = state.words.captions.map((c) =>
                         c.beatIndex === cap.beatIndex ? { ...c, text: e.target.value } : c,
                       );
-                      update({ words: { ...state.words, captions: next }, storyboardImages: {}, storyboardApproved: false });
+                      update({
+                        words: { ...state.words, captions: next, musicVariants: [], musicApproved: false },
+                        storyboardImages: {},
+                        storyboardApproved: false,
+                        musicBedUrl: null,
+                        musicBedDurationMs: null,
+                      });
                     }}
                     style={{
                       flex: 1,
@@ -419,7 +1068,13 @@ export default function TheWords({ onNext, onBack }: StageProps) {
                   );
                   if (firstUnused === undefined || state.words.captions.length >= 3) return;
                   const next = [...state.words.captions, { beatIndex: firstUnused, text: s.text }];
-                  update({ words: { ...state.words, captions: next }, storyboardImages: {}, storyboardApproved: false });
+                  update({
+                    words: { ...state.words, captions: next, musicVariants: [], musicApproved: false },
+                    storyboardImages: {},
+                    storyboardApproved: false,
+                    musicBedUrl: null,
+                    musicBedDurationMs: null,
+                  });
                 }}
                 style={{
                   padding: '8px 14px',
@@ -445,91 +1100,374 @@ export default function TheWords({ onNext, onBack }: StageProps) {
 
   // 5.5.4 — Music
   if (sub === 3) {
+    const mode = state.words.musicMode;
+    const isGenerating = state.words.musicGenerationStatus === 'generating';
+    const canContinue = mode === 'ambient_only' || (state.words.musicApproved && !!state.musicBedUrl);
+
     return (
       <StageShell
         eyebrow="The Words"
-        title={<>What should it <em>sound</em> like?</>}
-        lede="Four tracks chosen to fit your theme and style. No music works beautifully too."
+        title={<>What should <em>{petName}</em> sound like?</>}
+        lede="Choose a gentle score, create original music, or let the scene ambience carry the tribute."
         onNext={advance}
         onBack={retreat}
-        canNext={true}
+        canNext={canContinue}
         nextLabel="Next: Narration"
       >
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
-            gap: 10,
-          }}
-        >
-          {musicOptions.map((m) => {
-            const active = state.words.music === m.id;
-            const wavePattern = m.mood.includes('ambient') || m.mood === 'ethereal'
-              ? 'pads'
-              : m.mood.includes('string')
-              ? 'strings'
-              : m.id === 'silence'
-              ? 'silence'
-              : 'piano';
-            return (
-              <button
-                key={m.id}
-                onClick={() => setMusic(m.id)}
-                style={{
-                  textAlign: 'left',
-                  padding: '14px 16px',
-                  border: `1px solid ${active ? PALETTE.espresso : PALETTE.parchmentLight}`,
-                  background: active ? PALETTE.boneSoft : 'white',
-                  cursor: 'pointer',
-                  borderRadius: 4,
-                  transition: 'all 180ms ease',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 8,
-                }}
-                onMouseEnter={(e) => {
-                  if (!active)
-                    (e.currentTarget as HTMLButtonElement).style.borderColor = PALETTE.brass;
-                }}
-                onMouseLeave={(e) => {
-                  if (!active)
-                    (e.currentTarget as HTMLButtonElement).style.borderColor =
-                      PALETTE.parchmentLight;
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 28 }}>
+          {([
+            ['preset', 'Recommended score'],
+            ['custom_instrumental', 'Create instrumental'],
+            ['custom_lyrics', 'Create song with lyrics'],
+            ['upload', 'Upload audio'],
+            ['ambient_only', 'Ambient only'],
+          ] as const).map(([id, label]) => (
+            <button
+              key={id}
+              onClick={() => setMusicMode(id)}
+              style={{
+                padding: '9px 15px',
+                border: `1px solid ${mode === id ? PALETTE.espresso : PALETTE.parchmentLight}`,
+                background: mode === id ? PALETTE.espresso : 'white',
+                color: mode === id ? PALETTE.bone : PALETTE.espresso,
+                borderRadius: 999,
+                cursor: 'pointer',
+                fontFamily: 'Inter, sans-serif',
+                fontSize: 13,
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {mode === 'preset' && (
+          <FieldGroup label="Recommended scores" hint="choose one, then generate a preview">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 10 }}>
+              {musicOptions.map((m, idx) => {
+                const active = state.words.music === m.id;
+                const isRecommended = idx === 0;
+                const wavePattern = m.mood.includes('ambient') || m.mood === 'ethereal'
+                  ? 'pads'
+                  : m.mood.includes('string')
+                  ? 'strings'
+                  : m.id === 'silence'
+                  ? 'silence'
+                  : 'piano';
+                return (
+                  <button
+                    key={m.id}
+                    onClick={() => setMusic(m.id)}
                     style={{
-                      width: 28,
-                      height: 28,
-                      borderRadius: '50%',
-                      background: PALETTE.espresso,
-                      color: PALETTE.bone,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
+                      textAlign: 'left',
+                      padding: '14px 16px',
+                      border: `1px solid ${active ? PALETTE.espresso : PALETTE.parchmentLight}`,
+                      background: active ? PALETTE.boneSoft : 'white',
                       cursor: 'pointer',
-                      flexShrink: 0,
+                      borderRadius: 4,
+                      transition: 'all 180ms ease',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 8,
                     }}
                   >
-                    <Play size={11} style={{ marginLeft: 1 }} />
-                  </span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <Serif style={{ fontSize: 16, lineHeight: 1.1 }}>{m.name}</Serif>
-                    <Sans style={{ fontSize: 11, color: PALETTE.mute, marginTop: 2 }}>
-                      {m.description}
-                    </Sans>
-                  </div>
-                  {active && <Check size={13} color={PALETTE.espresso} />}
-                </div>
-                <Waveform pattern={wavePattern} playing={active} />
+                    {isRecommended && (
+                      <span style={{
+                        alignSelf: 'flex-start',
+                        fontSize: 10,
+                        letterSpacing: '0.08em',
+                        textTransform: 'uppercase',
+                        fontFamily: 'Inter, sans-serif',
+                        color: PALETTE.brassDeep,
+                        background: PALETTE.boneSoft,
+                        border: `1px solid ${PALETTE.parchmentLight}`,
+                        borderRadius: 2,
+                        padding: '2px 6px',
+                      }}>Recommended</span>
+                    )}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span
+                        style={{
+                          width: 28,
+                          height: 28,
+                          borderRadius: '50%',
+                          background: PALETTE.espresso,
+                          color: PALETTE.bone,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                        }}
+                      >
+                        <Play size={11} style={{ marginLeft: 1 }} />
+                      </span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <Serif style={{ fontSize: 16, lineHeight: 1.1 }}>{m.name}</Serif>
+                        <Sans style={{ fontSize: 11, color: PALETTE.mute, marginTop: 2 }}>
+                          {m.description}
+                        </Sans>
+                      </div>
+                      {active && <Check size={13} color={PALETTE.espresso} />}
+                    </div>
+                    <Waveform pattern={wavePattern} playing={active} />
+                  </button>
+                );
+              })}
+            </div>
+          </FieldGroup>
+        )}
+
+        {mode === 'custom_instrumental' && (
+          <>
+            <FieldGroup label="Describe the score" hint="no vocals">
+              <textarea
+                value={state.words.musicPrompt || buildInstrumentalPrompt(state)}
+                onChange={(e) => updateMusicField('musicPrompt', e.target.value)}
+                rows={4}
+                style={{
+                  width: '100%',
+                  fontFamily: 'Inter, sans-serif',
+                  fontSize: 14,
+                  padding: '12px 14px',
+                  border: `1px solid ${PALETTE.parchmentLight}`,
+                  borderRadius: 4,
+                  background: PALETTE.boneSoft,
+                  color: PALETTE.espresso,
+                  resize: 'vertical',
+                  boxSizing: 'border-box',
+                }}
+              />
+            </FieldGroup>
+            <FieldGroup label="Style direction">
+              <input
+                value={state.words.musicStyle || 'soft piano, warm strings, gentle cinematic memorial score'}
+                onChange={(e) => updateMusicField('musicStyle', e.target.value)}
+                style={{
+                  width: '100%',
+                  fontFamily: 'Inter, sans-serif',
+                  fontSize: 14,
+                  padding: '11px 14px',
+                  border: `1px solid ${PALETTE.parchmentLight}`,
+                  borderRadius: 4,
+                  background: PALETTE.boneSoft,
+                  color: PALETTE.espresso,
+                  boxSizing: 'border-box',
+                }}
+              />
+            </FieldGroup>
+          </>
+        )}
+
+        {mode === 'custom_lyrics' && (
+          <>
+            <div style={{ marginBottom: 18, padding: '12px 14px', background: PALETTE.boneSoft, border: `1px solid ${PALETTE.parchmentLight}`, borderRadius: 4 }}>
+              <Sans style={{ fontSize: 13, color: PALETTE.espresso, lineHeight: 1.5 }}>
+                A lyric song becomes the foreground audio. Voiceover will stay off so {petName}&apos;s song has room to breathe.
+                {' '}The draft below uses all {state.beatSheet.length || state.beatCount} beat-card lines and is paced for a {songDurationLabel(state)} tribute.
+              </Sans>
+            </div>
+            <FieldGroup label="Song title">
+              <input
+                value={state.words.musicTitle || safeTitle(petName)}
+                onChange={(e) => updateMusicField('musicTitle', e.target.value)}
+                style={{
+                  width: '100%',
+                  fontFamily: 'Inter, sans-serif',
+                  fontSize: 14,
+                  padding: '11px 14px',
+                  border: `1px solid ${PALETTE.parchmentLight}`,
+                  borderRadius: 4,
+                  background: PALETTE.boneSoft,
+                  color: PALETTE.espresso,
+                  boxSizing: 'border-box',
+                }}
+              />
+            </FieldGroup>
+            <FieldGroup label="Music style">
+              <input
+                value={state.words.musicStyle || defaultMusicStyle(state)}
+                onChange={(e) => updateMusicField('musicStyle', e.target.value)}
+                style={{
+                  width: '100%',
+                  fontFamily: 'Inter, sans-serif',
+                  fontSize: 14,
+                  padding: '11px 14px',
+                  border: `1px solid ${PALETTE.parchmentLight}`,
+                  borderRadius: 4,
+                  background: PALETTE.boneSoft,
+                  color: PALETTE.espresso,
+                  boxSizing: 'border-box',
+                }}
+              />
+            </FieldGroup>
+            <FieldGroup
+              label="Lyrics"
+              hint={
+                <button
+                  onClick={() => updateMusicField('musicLyrics', buildLyricDraft(state, musicOpeningLabel, musicClosingLabel))}
+                  style={{ border: 'none', background: 'transparent', color: PALETTE.brassDeep, cursor: 'pointer', fontFamily: 'Inter, sans-serif', fontSize: 12 }}
+                >
+                  Rebuild from beat cards and {petName}&apos;s details
+                </button>
+              }
+            >
+              <textarea
+                value={state.words.musicLyrics || buildLyricDraft(state, musicOpeningLabel, musicClosingLabel)}
+                onChange={(e) => updateMusicField('musicLyrics', e.target.value)}
+                rows={14}
+                style={{
+                  width: '100%',
+                  fontFamily: 'Inter, sans-serif',
+                  fontSize: 13,
+                  lineHeight: 1.45,
+                  padding: '12px 14px',
+                  border: `1px solid ${PALETTE.parchmentLight}`,
+                  borderRadius: 4,
+                  background: PALETTE.boneSoft,
+                  color: PALETTE.espresso,
+                  resize: 'vertical',
+                  boxSizing: 'border-box',
+                }}
+              />
+            </FieldGroup>
+          </>
+        )}
+
+        {mode === 'upload' && (
+          <FieldGroup label="Upload audio" hint="audio files only">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="audio/*"
+              onChange={(e) => handleMusicUpload(e.target.files?.[0])}
+              style={{ display: 'none' }}
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '12px 18px',
+                border: `1px solid ${PALETTE.espresso}`,
+                background: 'white',
+                color: PALETTE.espresso,
+                borderRadius: 3,
+                cursor: 'pointer',
+                fontFamily: 'Inter, sans-serif',
+                fontSize: 13,
+              }}
+            >
+              <Upload size={14} /> Choose audio file
+            </button>
+            {state.words.musicGenerationStatus === 'generating' && (
+              <Sans style={{ marginTop: 12, fontSize: 13, color: PALETTE.mute }}>
+                Uploading audio...
+              </Sans>
+            )}
+            {state.words.musicGenerationError && (
+              <Sans style={{ marginTop: 12, fontSize: 13, color: '#B91C1C', lineHeight: 1.5 }}>
+                {state.words.musicGenerationError}
+              </Sans>
+            )}
+            {state.musicBedUrl && (
+              <div style={{ marginTop: 16 }}>
+                <audio src={state.musicBedUrl} controls style={{ width: '100%' }} />
+              </div>
+            )}
+          </FieldGroup>
+        )}
+
+        {mode !== 'ambient_only' && mode !== 'upload' && (
+          <div style={{ borderTop: `1px solid ${PALETTE.parchmentLight}`, paddingTop: 24 }}>
+            <FieldGroup label="Specific adjustment" hint="optional">
+              <input
+                value={musicNote}
+                onChange={(e) => setMusicNote(e.target.value)}
+                placeholder="e.g. softer piano, less dramatic, more hopeful"
+                style={{
+                  width: '100%',
+                  fontFamily: 'Inter, sans-serif',
+                  fontSize: 14,
+                  padding: '11px 14px',
+                  border: `1px solid ${PALETTE.parchmentLight}`,
+                  borderRadius: 4,
+                  background: 'white',
+                  color: PALETTE.espresso,
+                  boxSizing: 'border-box',
+                }}
+              />
+            </FieldGroup>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+              <button
+                onClick={() => void generateMusicTrack()}
+                disabled={isGenerating}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '12px 18px',
+                  border: 'none',
+                  background: isGenerating ? PALETTE.parchmentLight : PALETTE.espresso,
+                  color: isGenerating ? PALETTE.mute : PALETTE.bone,
+                  borderRadius: 3,
+                  cursor: isGenerating ? 'not-allowed' : 'pointer',
+                  fontFamily: 'Inter, sans-serif',
+                  fontSize: 13,
+                }}
+              >
+                {isGenerating ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <RefreshCw size={14} />}
+                {state.musicBedUrl ? 'Generate another version' : 'Generate music'}
               </button>
-            );
-          })}
-        </div>
+              {state.musicBedUrl && !state.words.musicApproved && (
+                <button
+                  onClick={approveMusic}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    padding: '12px 18px',
+                    border: `1px solid ${PALETTE.espresso}`,
+                    background: PALETTE.boneSoft,
+                    color: PALETTE.espresso,
+                    borderRadius: 3,
+                    cursor: 'pointer',
+                    fontFamily: 'Inter, sans-serif',
+                    fontSize: 13,
+                  }}
+                >
+                  <Check size={14} /> Use this music
+                </button>
+              )}
+              {state.words.musicApproved && state.musicBedUrl && (
+                <Sans style={{ fontSize: 13, color: PALETTE.brassDeep }}>Music approved.</Sans>
+              )}
+            </div>
+            {state.words.musicGenerationError && (
+              <Sans style={{ marginTop: 12, fontSize: 13, color: '#B91C1C', lineHeight: 1.5 }}>
+                {state.words.musicGenerationError}
+              </Sans>
+            )}
+            {state.musicBedUrl && (
+              <div style={{ marginTop: 18 }}>
+                <audio src={state.musicBedUrl} controls style={{ width: '100%' }} />
+              </div>
+            )}
+            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+          </div>
+        )}
+
+        {mode === 'ambient_only' && (
+          <div style={{ padding: '18px 20px', background: PALETTE.boneSoft, border: `1px solid ${PALETTE.parchmentLight}`, borderRadius: 4 }}>
+            <Serif italic style={{ fontSize: 18, color: PALETTE.espressoSoft }}>
+              No music selected. The scene ambience will carry the tribute.
+            </Serif>
+          </div>
+        )}
       </StageShell>
     );
   }
+
 
   // 5.5.5 — Narration
   if (sub === 4) {
@@ -544,6 +1482,13 @@ export default function TheWords({ onNext, onBack }: StageProps) {
         canNext={true}
         nextLabel="Next: Review"
       >
+        {state.words.musicMode === 'custom_lyrics' && (
+          <div style={{ marginBottom: 20, padding: '12px 14px', background: PALETTE.boneSoft, border: `1px solid ${PALETTE.parchmentLight}`, borderRadius: 4 }}>
+            <Sans style={{ fontSize: 13, color: PALETTE.espresso, lineHeight: 1.5 }}>
+              Voiceover is off because you chose a song with lyrics. The song will carry the spoken layer of the tribute.
+            </Sans>
+          </div>
+        )}
         <FieldGroup label="Narration">
           <div
             style={{
@@ -570,7 +1515,7 @@ export default function TheWords({ onNext, onBack }: StageProps) {
               </Sans>
             </button>
             {narrationVoices
-              .filter((v) => v.id !== 'user_recorded')
+              .filter((v) => v.id !== 'user_recorded' && state.words.musicMode !== 'custom_lyrics')
               .map((v) => {
                 const active = state.words.narration === v.id;
                 return (
@@ -731,7 +1676,14 @@ export default function TheWords({ onNext, onBack }: StageProps) {
               : `${state.words.captions.length} beat${state.words.captions.length > 1 ? 's' : ''}`
           }
         />
-        <SummaryItem label="Music" value={musicTrack?.name ?? 'Silence'} />
+        <SummaryItem
+          label="Music"
+          value={
+            state.words.musicMode === 'ambient_only'
+              ? 'Ambient only'
+              : state.words.musicTitle || musicTrack?.name || modeLabel(state.words.musicMode)
+          }
+        />
         <SummaryItem
           label="Narration"
           value={

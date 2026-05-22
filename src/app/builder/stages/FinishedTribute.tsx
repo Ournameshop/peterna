@@ -10,7 +10,8 @@ import type { StageProps } from './types';
 import type { BuilderState } from '../state';
 import { resolveText } from '@/lib/peternal-resolvers';
 import { downloadEulogyPdf } from '@/lib/peternal-eulogy-pdf';
-import { musicTracks, themes, narrationVoices } from '@/lib/peternal-library';
+import { musicTracks, narrationVoices } from '@/lib/peternal-library';
+import { buildInstrumentalPrompt } from '@/lib/music-prompts';
 import { composeNarrationScript } from '../lib/generation';
 import TributePlayer from './TributePlayer';
 import type { NarrationWord } from '@/lib/peternal-subtitles';
@@ -74,19 +75,15 @@ export default function FinishedTribute(_props: StageProps) {
     if (previewMode) return;
     if (state.words.music === 'silence') return;
     if (state.musicBedUrl) return;
+    if (state.words.musicMode !== 'preset') return;
+    if (!state.words.musicApproved) return;
     if (musicStartedRef.current) return;
     musicStartedRef.current = true;
 
-    const themeObj = themes.find((t) => t.id === state.theme);
-    const themeMood = themeObj ? themeObj.desc : 'gentle, peaceful, memorial';
     const selectedTrack = musicTracks.find((t) => t.id === state.words.music);
-    const trackMood = selectedTrack ? `${selectedTrack.mood} — ${selectedTrack.description}` : 'warm and contemplative';
-    const artStyleDesc = state.style ? state.style.replace(/_/g, ' ') : 'cinematic';
-
-    const prompt =
-      `Gentle, instrumental, emotional memorial music bed for a pet tribute video. ` +
-      `Mood: ${themeMood}. Music character: ${trackMood}. Visual style: ${artStyleDesc}. ` +
-      `No vocals. Soft, continuous, ambient — suitable as a background underscore for a 2-4 minute tribute.`;
+    const prompt = buildInstrumentalPrompt(state, selectedTrack?.name, selectedTrack?.mood);
+    const style = state.words.musicStyle || (selectedTrack?.description ?? 'gentle memorial, soft piano, warm strings');
+    const title = state.words.musicTitle || `For ${state.petName || 'You'}`.slice(0, 80);
 
     // Duration: total tribute length in seconds.
     const captionCardCount = Object.keys(state.captionCardImages).length;
@@ -98,7 +95,7 @@ export default function FinishedTribute(_props: StageProps) {
         const res = await fetch('/api/video/music', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt, durationSeconds: totalSeconds }),
+          body: JSON.stringify({ mode: 'instrumental', prompt, style, title, durationSeconds: totalSeconds }),
         });
         if (res.ok) {
           const json = (await res.json()) as { url?: string; durationMs?: number };

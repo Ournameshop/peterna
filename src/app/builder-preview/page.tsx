@@ -11,6 +11,14 @@ import { STEPS, STEP_GROUPS } from '../builder/steps';
 import type { StepId } from '../builder/steps';
 
 const BANNER_H = 34;
+const WORDS_PREVIEW_SUBSTEPS = [
+  { label: 'Opening', hash: '#words-opening' },
+  { label: 'Closing', hash: '#words-closing' },
+  { label: 'Captions', hash: '#words-captions' },
+  { label: 'Music / Audio', hash: '#words-music' },
+  { label: 'Narration', hash: '#words-narration' },
+  { label: 'Review', hash: '#words-review' },
+] as const;
 
 function StepNavigator() {
   const { stepIndex, goToStep } = useWizard();
@@ -50,30 +58,62 @@ function StepNavigator() {
               const idx = STEPS.indexOf(step);
               const isActive = idx === stepIndex;
               return (
-                <button
-                  key={step.id}
-                  onClick={() => goToStep(step.id as StepId)}
-                  style={{
-                    display: 'block',
-                    width: '100%',
-                    textAlign: 'left',
-                    padding: '5px 14px',
-                    border: 'none',
-                    cursor: 'pointer',
-                    fontFamily: 'Inter, system-ui, sans-serif',
-                    fontSize: 11,
-                    letterSpacing: '0.01em',
-                    background: isActive ? PALETTE.parchment : 'transparent',
-                    color: isActive ? PALETTE.espresso : PALETTE.espressoSoft,
-                    fontWeight: isActive ? 600 : 400,
-                    borderLeft: isActive ? `3px solid ${PALETTE.brass}` : '3px solid transparent',
-                  }}
-                >
-                  <span style={{ color: PALETTE.mute, marginRight: 6, fontSize: 10 }}>
-                    {step.skillStage}
-                  </span>
-                  {step.id.replace(/_/g, ' ')}
-                </button>
+                <React.Fragment key={step.id}>
+                  <button
+                    onClick={() => goToStep(step.id as StepId)}
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      textAlign: 'left',
+                      padding: '5px 14px',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontFamily: 'Inter, system-ui, sans-serif',
+                      fontSize: 11,
+                      letterSpacing: '0.01em',
+                      background: isActive ? PALETTE.parchment : 'transparent',
+                      color: isActive ? PALETTE.espresso : PALETTE.espressoSoft,
+                      fontWeight: isActive ? 600 : 400,
+                      borderLeft: isActive ? `3px solid ${PALETTE.brass}` : '3px solid transparent',
+                    }}
+                  >
+                    <span style={{ color: PALETTE.mute, marginRight: 6, fontSize: 10 }}>
+                      {step.skillStage}
+                    </span>
+                    {step.id.replace(/_/g, ' ')}
+                  </button>
+                  {step.id === 'words' && (
+                    <div style={{ padding: '2px 0 5px 24px', background: isActive ? PALETTE.bone : 'transparent' }}>
+                      {WORDS_PREVIEW_SUBSTEPS.map((substep) => {
+                        const activeSub = isActive && typeof window !== 'undefined' && window.location.hash === substep.hash;
+                        return (
+                          <a
+                            key={substep.hash}
+                            href={substep.hash}
+                            onClick={() => goToStep('words')}
+                            style={{
+                              display: 'block',
+                              width: '100%',
+                              textAlign: 'left',
+                              padding: '4px 14px',
+                              border: 'none',
+                              borderLeft: `2px solid ${activeSub ? PALETTE.brass : 'transparent'}`,
+                              background: activeSub ? PALETTE.boneSoft : 'transparent',
+                              color: activeSub ? PALETTE.espresso : PALETTE.mute,
+                              cursor: 'pointer',
+                              fontFamily: 'Inter, system-ui, sans-serif',
+                              fontSize: 10,
+                              textDecoration: 'none',
+                              boxSizing: 'border-box',
+                            }}
+                          >
+                            {substep.label}
+                          </a>
+                        );
+                      })}
+                    </div>
+                  )}
+                </React.Fragment>
               );
             })}
           </div>

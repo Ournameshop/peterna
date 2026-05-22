@@ -15,6 +15,7 @@ interface SunoGenerateResponse {
 interface SunoTrack {
   audioUrl: string;
   duration: number; // seconds
+  title?: string;
 }
 
 interface SunoRecordResponse {
@@ -26,12 +27,64 @@ interface SunoRecordResponse {
   };
 }
 
+export interface SunoGenerateTrackOptions {
+  prompt: string;
+  instrumental: boolean;
+  customMode?: boolean;
+  style?: string;
+  title?: string;
+  model?: "V4" | "V4_5" | "V4_5ALL" | "V5" | "V5_5";
+}
+
+export interface SunoGeneratedTrack {
+  url: string;
+  durationMs: number;
+  title?: string;
+}
+
 export async function sunoGenerateInstrumental(
   prompt: string,
   _durationSeconds: number
-): Promise<{ url: string; durationMs: number }> {
+): Promise<SunoGeneratedTrack> {
+  void _durationSeconds;
+  return sunoGenerateTrack({
+    prompt,
+    instrumental: true,
+    customMode: false,
+    model: (process.env.SUNO_MODEL ?? "V4_5") as "V4" | "V4_5" | "V4_5ALL" | "V5" | "V5_5",
+  });
+}
+
+export async function sunoGenerateTrack(
+  opts: SunoGenerateTrackOptions
+): Promise<SunoGeneratedTrack> {
   const key = process.env.SUNO_API_KEY;
   if (!key) throw new Error("SUNO_API_KEY not configured");
+
+  const prompt = opts.prompt.trim();
+  if (!prompt) throw new Error("Suno prompt is required");
+
+  const customMode = opts.customMode ?? false;
+  const payload: Record<string, unknown> = {
+    prompt,
+    instrumental: opts.instrumental,
+    customMode,
+    model: opts.model ?? process.env.SUNO_MODEL ?? "V4_5",
+    // callBackUrl is required by the API but we poll record-info instead of using webhooks.
+    callBackUrl: "https://placeholder.invalid/noop",
+  };
+
+  if (customMode) {
+    const style = opts.style?.trim();
+    const title = opts.title?.trim();
+    if (!style) throw new Error("Suno custom mode requires style");
+    if (!title) throw new Error("Suno custom mode requires title");
+    payload.style = style;
+    payload.title = title;
+  } else {
+    if (opts.style?.trim()) payload.style = opts.style.trim();
+    if (opts.title?.trim()) payload.title = opts.title.trim();
+  }
 
   // Submit generation job
   const genRes = await fetch(`${SUNO_BASE}/api/v1/generate`, {
@@ -40,14 +93,7 @@ export async function sunoGenerateInstrumental(
       Authorization: `Bearer ${key}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      prompt,
-      instrumental: true,
-      customMode: false,
-      model: "V4",
-      // callBackUrl is required by the API but we poll record-info instead of using webhooks
-      callBackUrl: "https://placeholder.invalid/noop",
-    }),
+    body: JSON.stringify(payload),
   });
 
   if (!genRes.ok) {
@@ -120,6 +166,7 @@ export async function sunoGenerateInstrumental(
         url: track.audioUrl,
         durationMs:
           Number.isFinite(durSec) && durSec > 0 ? Math.round(durSec * 1000) : 0,
+        title: track.title,
       };
     }
     // PENDING / TEXT_SUCCESS / FIRST_SUCCESS — keep polling.
