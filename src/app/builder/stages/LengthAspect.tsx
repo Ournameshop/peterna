@@ -14,8 +14,10 @@ export default function LengthAspect({ onNext, onBack }: StageProps) {
   const { state, update, resetDownstream } = useBuilder();
   const [step, setStep] = useState<InternalStep>('length');
 
-  function selectLength(beatCount: 8 | 12 | 16, targetMinutes: 2 | 3 | 4) {
-    if (state.beatCount !== beatCount) {
+  function selectLength(beatCount: 8 | 12 | 16, targetMinutes: 1 | 2 | 3 | 4) {
+    // 1- and 2-minute both use 8 beats, so the choice can change without
+    // beatCount changing — check targetMinutes too.
+    if (state.beatCount !== beatCount || state.targetMinutes !== targetMinutes) {
       update({ beatCount, targetMinutes });
       resetDownstream('length_aspect');
     }
@@ -39,7 +41,7 @@ export default function LengthAspect({ onNext, onBack }: StageProps) {
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {lengths.map(len => {
-            const active = state.beatCount === len.beatCount;
+            const active = state.targetMinutes === len.targetMinutes;
             const recommended = len.beatCount === 12;
             return (
               <button
@@ -75,7 +77,13 @@ export default function LengthAspect({ onNext, onBack }: StageProps) {
                   </Sans>
                 )}
                 <Serif style={{ fontSize: 22, color: PALETTE.espresso }}>
-                  {len.beatCount === 8 ? 'A short keepsake' : len.beatCount === 12 ? 'A full tribute' : 'An extended remembrance'}
+                  {len.targetMinutes === 1
+                    ? 'A brief tribute'
+                    : len.targetMinutes === 2
+                      ? 'A short keepsake'
+                      : len.targetMinutes === 3
+                        ? 'A full tribute'
+                        : 'An extended remembrance'}
                 </Serif>
                 <Sans style={{ fontSize: 13, color: PALETTE.mute }}>
                   {len.targetMinutes} minutes · {len.beatCount} beats

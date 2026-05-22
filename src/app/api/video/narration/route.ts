@@ -17,11 +17,15 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
-// ElevenLabs voice quality tuning constants
-const ELEVENLABS_STABILITY        = 0.55;
+// ElevenLabs voice quality tuning — tuned for a calm, gentle memorial read,
+// NOT a performed/announcer delivery.
+//   stability 0.82 — steady and even; minimal emotional swing or drama
+//   style 0.0       — no expressiveness exaggeration; plain, quiet delivery
+//   speed 0.82      — unhurried, measured, reverent
+const ELEVENLABS_STABILITY        = 0.82;
 const ELEVENLABS_SIMILARITY_BOOST = 0.80;
-const ELEVENLABS_STYLE            = 0.12;
-const ELEVENLABS_SPEED            = 0.88;
+const ELEVENLABS_STYLE            = 0.0;
+const ELEVENLABS_SPEED            = 0.82;
 
 interface ReqBody {
   text?: string;

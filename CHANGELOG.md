@@ -5,6 +5,21 @@ Working branch: `Adding-skill-in-webflow`.
 
 ## 2026-05-22
 
+### 1-minute tribute length option
+Added a **1-minute** option (8 beats, ~7s each) alongside 2/3/4 minutes — a
+shorter tribute means fewer Seedance video-seconds, so a test run costs
+roughly $16–22 instead of $25–30. The length picker now keys its "active"
+state and change-detection on `targetMinutes` (1- and 2-minute both use 8
+beats, so `beatCount` alone can't tell them apart).
+
+### Narration voice — calmer and quieter (less "performed")
+The ElevenLabs voice was too loud and too theatrical for a memorial. Lowered
+the narration volume (1.0 → 0.7), eased the low-mid EQ, raised `stability`
+(0.55 → 0.82), removed `style` exaggeration (0.12 → 0), and slowed `speed`
+(0.88 → 0.82) for an unhurried, gentle read. (Note: full emotional realism —
+sighs, breathiness — needs ElevenLabs v3; this is the `multilingual-v2`
+ceiling.)
+
 ### Critical — narration ffmpeg filter mangled by the build minifier
 Every compose with narration failed: `ffmpeg exited 234 ... Invalid argument`.
 `NARR_POST` (the narration audio filter chain) was built as a

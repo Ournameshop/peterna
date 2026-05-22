@@ -277,11 +277,11 @@ export interface NarrationVoice {
 }
 
 export interface LengthOption {
-  id: 2 | 3 | 4;
+  id: 1 | 2 | 3 | 4;
   name: string;
   subtitle: string;
   beatCount: 8 | 12 | 16;
-  targetMinutes: 2 | 3 | 4;
+  targetMinutes: 1 | 2 | 3 | 4;
 }
 
 export interface AspectOption {
@@ -1506,6 +1506,7 @@ export const pronounsAndVocatives: Record<Gender, PronounSet> = {
 // ============================================================================
 
 export const lengths: readonly LengthOption[] = [
+  { id: 1, name: '1 minute', subtitle: '8 beats · quick tribute', beatCount: 8, targetMinutes: 1 },
   { id: 2, name: '2 minutes', subtitle: '8 beats · short & sweet', beatCount: 8, targetMinutes: 2 },
   { id: 3, name: '3 minutes', subtitle: '12 beats · recommended', beatCount: 12, targetMinutes: 3 },
   { id: 4, name: '4 minutes', subtitle: '16 beats · full chapter', beatCount: 16, targetMinutes: 4 },

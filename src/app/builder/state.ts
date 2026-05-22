@@ -103,7 +103,7 @@ export interface BuilderState {
   characterSheetRefinements: string[];
   characterSheetUrl: string | null;           // the locked 2x2 likeness reference (skill Stage 2) — data URL
   beatCount: 8 | 12 | 16;
-  targetMinutes: 2 | 3 | 4;
+  targetMinutes: 1 | 2 | 3 | 4;
   aspectRatio: AspectId;
   pickType: 'curated' | 'custom' | null;
   curatorsPick: CuratorPickId | null;

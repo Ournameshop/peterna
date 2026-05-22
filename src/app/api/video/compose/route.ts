@@ -49,19 +49,19 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 // ---- Narration audio post-processing chain -----------------------------------
-// Applied ONLY to the narration track, never to music. Each comma-separated
-// filter, in order:
-//   volume=1.0                       unity gain
+// Applied ONLY to the narration track, never to music. Tuned soft and gentle
+// for a memorial — NOT loud. Each comma-separated filter, in order:
+//   volume=0.7                       quieted — the voice should be soft, not loud
 //   highpass=f=80                    remove sub-bass rumble
-//   equalizer +2dB @ 200Hz           low-mid chest warmth
+//   equalizer +1dB @ 200Hz           a touch of low-mid warmth
 //   equalizer -2.5dB @ 3200Hz        tame the synthetic upper-mid harshness
 //   aecho=0.85:0.18:55:0.18          a faint room (in:out:delay-ms:decay)
-//   alimiter=limit=0.95              catch peaks before the AAC encode
+//   alimiter=limit=0.9               catch peaks before the AAC encode
 // MUST stay a SINGLE flat string literal — the production build minifier
 // (SWC) mangles `...,` + `...` template-literal concatenation and drops the
 // boundary commas, which produces an unparseable ffmpeg filtergraph.
 const NARR_POST =
-  "volume=1.0,highpass=f=80,equalizer=f=200:t=q:w=1.0:g=2,equalizer=f=3200:t=q:w=2.0:g=-2.5,aecho=0.85:0.18:55:0.18,alimiter=limit=0.95";
+  "volume=0.7,highpass=f=80,equalizer=f=200:t=q:w=1.0:g=1,equalizer=f=3200:t=q:w=2.0:g=-2.5,aecho=0.85:0.18:55:0.18,alimiter=limit=0.9";
 
 // Music duck level — -18 dB ≈ 0.126 linear
 const MUSIC_DUCK_VOLUME = 0.126;
