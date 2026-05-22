@@ -333,7 +333,7 @@ export default function Nav() {
           </div>
 
           <span className="peterna-cta-desktop" style={{ display: "none" }}>
-            <GoldBtn href="/get-started">Join the waitlist</GoldBtn>
+            <GoldBtn href="/signin">Sign up</GoldBtn>
           </span>
           <button
             onClick={() => setOpen(!open)}
@@ -482,7 +482,7 @@ export default function Nav() {
                 )}
               </div>
               <Link
-                href="/get-started"
+                href="/signin"
                 onClick={() => setOpen(false)}
                 style={{
                   textAlign: "left",
@@ -497,7 +497,7 @@ export default function Nav() {
                   textDecoration: "none",
                 }}
               >
-                Join the waitlist →
+                Sign up →
               </Link>
             </div>
           </motion.div>

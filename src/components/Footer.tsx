@@ -113,7 +113,7 @@ export default function Footer() {
               { label: "Pricing", route: "/pricing" },
               { label: "Family Channel", route: "/family-channel" },
               { label: "Examples", route: "/gallery" },
-              { label: "Join the waitlist", route: "/get-started" },
+              { label: "Sign up", route: "/signin" },
             ]}
           />
           <Col
@@ -147,7 +147,7 @@ export default function Footer() {
           }}
         >
           <div>© 2026 Peterna · A product of Eterna Inc. Built with care.</div>
-          <div>Coming soon · Join the waitlist</div>
+          <div>Now in beta · <Link href="/signin" style={{ color: C.gold, textDecoration: "none" }}>Sign up</Link></div>
         </div>
       </div>
     </footer>

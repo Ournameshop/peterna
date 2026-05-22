@@ -125,11 +125,9 @@ function HomeHero() {
             >
               {/* Primary CTA — the actual product. Direct path into the
                   tribute builder, no signup required. Sign-in is opt-in
-                  later (Phase 10). */}
+                  for users who want a dashboard / multi-tribute management. */}
               <GoldBtn href="/builder">Build a tribute</GoldBtn>
-              {/* Secondary — the lead-form / waitlist path for visitors who
-                  aren't ready to build yet. */}
-              <GhostBtn href="/get-started" light>Join the waitlist</GhostBtn>
+              <GhostBtn href="/signin" light>Sign up</GhostBtn>
             </motion.div>
             <motion.div
               variants={item}
@@ -499,8 +497,8 @@ function HomeSampleTribute() {
           transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
         >
           <Link
-            href="/get-started"
-            aria-label="Join the waitlist"
+            href="/signin"
+            aria-label="Sign up"
             style={{
               display: "block",
               position: "relative",
@@ -1381,10 +1379,10 @@ function HomeClosing() {
             justifyContent: "center",
           }}
         >
-          {/* Primary path — into the builder. Secondary path keeps the
-              waitlist available for visitors who'd rather wait. */}
+          {/* Primary path — into the builder. Secondary path is sign-up so
+              the user can find their tribute again later from a dashboard. */}
           <GoldBtn href="/builder">Build a tribute</GoldBtn>
-          <GhostBtn href="/get-started">Join the waitlist</GhostBtn>
+          <GhostBtn href="/signin">Sign up</GhostBtn>
         </div>
         <p
           style={{

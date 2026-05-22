@@ -47,10 +47,16 @@ export function FeaturedPetRotationProvider({
   const prefersReducedMotion = useReducedMotion();
   const total = FEATURED_PETS.length;
 
-  // Random start so different visitors meet different pets first.
-  const [index, setIndex] = useState(() =>
-    total > 0 ? Math.floor(Math.random() * total) : 0,
-  );
+  // Deterministic SSR (index 0) — randomize on the client after mount so
+  // different visitors meet different pets first WITHOUT causing a
+  // hydration mismatch between server-rendered HTML and the first client
+  // pass. See `useEffect` below.
+  const [index, setIndex] = useState(0);
+  useEffect(() => {
+    if (total > 1) setIndex(Math.floor(Math.random() * total));
+    // Run once on mount; subsequent rotations happen in the timer effect below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const goTo = useCallback(
     (next: number) => {
