@@ -1,4 +1,4 @@
-import { and, count, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 
 import { errJson, okJson } from '@/lib/api/respond';
 import type {
@@ -8,6 +8,7 @@ import type {
 } from '@/lib/builder/wire-types';
 import { getDb } from '@/lib/db/client';
 import { assets } from '@/lib/db/schema';
+import { isPhotoRole, type PhotoRole } from '@/lib/library/copy';
 import { authBySession } from '@/lib/session/auth';
 import { ingestUrlToS3 } from '@/lib/storage/ingest-url';
 
@@ -15,7 +16,11 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const MAX_URLS = 10;
-const MAX_PHOTOS_PER_SESSION = 10;
+// Phase 15a — per-role cap. Matches the per-role budget enforced by the upload
+// route; together the two routes let a session accumulate up to 10 photos per
+// role across uploads + URL ingests.
+const MAX_PHOTOS_PER_ROLE = 10;
+const DEFAULT_PHOTO_ROLE: PhotoRole = 'character_reference';
 
 /**
  * POST /api/ingest-url
@@ -32,9 +37,13 @@ const MAX_PHOTOS_PER_SESSION = 10;
  * runaway across multiple ingest calls is bounded.
  */
 export async function POST(req: Request): Promise<Response> {
-  let body: { session_id?: unknown; urls?: unknown };
+  let body: { session_id?: unknown; urls?: unknown; role?: unknown };
   try {
-    body = (await req.json()) as { session_id?: unknown; urls?: unknown };
+    body = (await req.json()) as {
+      session_id?: unknown;
+      urls?: unknown;
+      role?: unknown;
+    };
   } catch {
     return errJson('invalid-input', { status: 400 });
   }
@@ -51,18 +60,38 @@ export async function POST(req: Request): Promise<Response> {
     return errJson('payload-too-large', { status: 413, details: { count: urls.length, limit: MAX_URLS } });
   }
 
+  // Phase 15a — role is optional; defaults to character_reference.
+  let role: PhotoRole;
+  if (body.role == null || body.role === '') {
+    role = DEFAULT_PHOTO_ROLE;
+  } else if (typeof body.role === 'string' && isPhotoRole(body.role)) {
+    role = body.role;
+  } else {
+    return errJson('invalid-input', { status: 400, details: { field: 'role' } });
+  }
+
   const auth = await authBySession(sessionId);
   if (!auth.ok) return errJson(auth.error, { status: auth.status });
 
   const db = getDb();
 
-  // B6: per-session photo cap. Treat the cap as a running counter so each successful insert
-  // costs one slot of the remaining budget. URLs over the budget land in `failed[]`.
+  // Phase 15a — per-role photo cap as a running counter. Each successful insert
+  // costs one slot of the role's remaining budget; URLs over the budget land
+  // in `failed[]`. Legacy rows without an explicit photo_role count as
+  // character_reference (matches the default-role convention).
   const existing = await db
-    .select({ n: count() })
+    .select({ n: sql<number>`count(*)` })
     .from(assets)
-    .where(and(eq(assets.sessionId, sessionId), eq(assets.kind, 'pet_photo')));
-  let remainingBudget = MAX_PHOTOS_PER_SESSION - Number(existing[0]?.n ?? 0);
+    .where(
+      and(
+        eq(assets.sessionId, sessionId),
+        eq(assets.kind, 'pet_photo'),
+        role === DEFAULT_PHOTO_ROLE
+          ? sql`(${assets.metadata}->>'photo_role' = ${role} OR ${assets.metadata}->>'photo_role' IS NULL)`
+          : sql`${assets.metadata}->>'photo_role' = ${role}`,
+      ),
+    );
+  let remainingBudget = MAX_PHOTOS_PER_ROLE - Number(existing[0]?.n ?? 0);
 
   const successes: IngestUrlAsset[] = [];
   const failed: IngestUrlFailure[] = [];
@@ -88,6 +117,9 @@ export async function POST(req: Request): Promise<Response> {
       publicUrl: result.asset.publicUrl,
       mimeType: result.asset.mimeType,
       bytes: result.asset.bytes,
+      // Phase 15a — stamp the typed role on every ingested pet_photo. Same as
+      // the multipart /api/upload route.
+      metadata: { photo_role: role },
     });
     successes.push({ asset_id: result.asset.assetUuid, public_url: result.asset.publicUrl });
     remainingBudget -= 1;

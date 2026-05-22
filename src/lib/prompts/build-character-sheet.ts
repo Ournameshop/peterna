@@ -53,7 +53,14 @@ export const HARD_EXCLUSIONS = [
 export type BuildCharacterSheetInput = {
   /** Session row (snake_case wire shape). Reads `pet_name`, `inferred_profile`, `pet_gender`. */
   session: Pick<SessionWire, 'pet_name' | 'pet_gender' | 'inferred_profile'>;
-  /** Public S3 URLs of every uploaded pet photo. Spec mandates ALL photos as references for likeness. */
+  /**
+   * Public S3 URLs of the session's `character_reference` photos. The caller
+   * (`/api/character-sheet/render`) is the canonical filter site — it queries
+   * for `metadata.photo_role = 'character_reference'` (legacy rows with NULL
+   * role count as character_reference per the Phase 15a fallback convention).
+   * The builder itself accepts the URLs as a pre-filtered list — see the
+   * `with_human` / `environment` carve-out in the architect's plan §1.
+   */
   photoUrls: string[];
   /** Stage 2.3 user corrections, appended to the prompt as a bullet list. */
   refinements?: string[];

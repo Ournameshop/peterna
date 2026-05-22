@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
 
 import { generateImage } from '@/lib/ai/generate-image';
@@ -84,11 +84,25 @@ export async function POST(req: Request): Promise<Response> {
   try {
     const db = getDb();
 
-    // Load ALL pet_photo assets (multi-photo reference is mandated by the spec).
+    // Phase 15a — load only `character_reference` photos. The with_human +
+    // environment roles are anti-trauma-gated out of the likeness reference
+    // pass (per architect's plan §1: with_human photos never enter the
+    // character sheet because GPT-Image-2 would re-synthesize the human face).
+    //
+    // Legacy rows (no explicit photo_role) are treated as character_reference
+    // — matches the default in /api/upload + /api/ingest-url. This SELECT is
+    // the canonical "lookup site" for the fallback convention referenced in
+    // the schema docs.
     const photos = await db
       .select({ url: assets.publicUrl })
       .from(assets)
-      .where(and(eq(assets.sessionId, sessionId), eq(assets.kind, 'pet_photo')));
+      .where(
+        and(
+          eq(assets.sessionId, sessionId),
+          eq(assets.kind, 'pet_photo'),
+          sql`(${assets.metadata}->>'photo_role' = 'character_reference' OR ${assets.metadata}->>'photo_role' IS NULL)`,
+        ),
+      );
 
     if (photos.length === 0) {
       slot.slot.releaseAndDontCount();
