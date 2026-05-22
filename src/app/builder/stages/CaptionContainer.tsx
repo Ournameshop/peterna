@@ -61,22 +61,19 @@ export default function CaptionContainer({ onNext, onBack }: StageProps) {
         onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLButtonElement).style.borderColor = PALETTE.brass; }}
         onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLButtonElement).style.borderColor = PALETTE.parchmentLight; }}
       >
-        {/* The container art sits at ~70% of the source frame — zoom-crop the
-            off-white margin so the caption stays readable at a compact size. */}
-        <div style={{ width: 150, height: 90, borderRadius: 4, overflow: 'hidden', flexShrink: 0 }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={`/container-thumbnails/peternal-container-${c.id}.png`}
-            alt={`${c.name} caption container preview`}
-            style={{
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-              display: 'block',
-              transform: 'scale(1.45)',
-            }}
-          />
-        </div>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={`/container-thumbnails/peternal-container-${c.id}.png`}
+          alt={`${c.name} caption container preview`}
+          style={{
+            width: 100,
+            height: 100,
+            objectFit: 'contain',
+            borderRadius: 4,
+            display: 'block',
+            flexShrink: 0,
+          }}
+        />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
             <Serif style={{ fontSize: 16, color: PALETTE.espresso }}>{c.name}</Serif>
@@ -87,7 +84,7 @@ export default function CaptionContainer({ onNext, onBack }: StageProps) {
               </Sans>
             )}
             {isSelected && (
-              <svg width={16} height={16} viewBox="0 0 14 14" style={{ marginLeft: 'auto', flexShrink: 0 }}>
+              <svg width={16} height={16} viewBox="0 0 14 14" style={{ flexShrink: 0 }}>
                 <circle cx="7" cy="7" r="7" fill={PALETTE.espresso}/>
                 <path d="M4 7l2 2 4-4" stroke="white" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
