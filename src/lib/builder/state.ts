@@ -34,7 +34,16 @@ export type StageTag =
   // Stage 1 — Intake
   | 'intake_welcome'
   | 'intake_returning_user_check'
+  // Phase 15a — three typed photo sub-stages replace the old single
+  // `intake_photos` screen. The original tag is kept as a backwards-compat
+  // alias so deep-links and resumes don't break: a session that PATCHes to
+  // `intake_photos` lands on `intake_photos_character_reference`. The reducer
+  // treats the alias case identically to the first sub-stage; the rail mapping
+  // in BuilderProgressRail keeps both pointing at segment 0 (Intake).
   | 'intake_photos'
+  | 'intake_photos_character_reference'
+  | 'intake_photos_with_human'
+  | 'intake_photos_environment'
   | 'intake_name'
   | 'intake_name_pronunciation' // conditional: heuristic-flagged name
   | 'intake_vision_review' // = "Here's what I see" — skipped on vision_failure
@@ -358,8 +367,18 @@ export function createInitialState(sessionId: string | null = null): WizardState
 export type WizardEvent =
   | { type: 'start_intake' }
   | { type: 'returning_user_answered'; isReturning: boolean }
+  // Phase 15a — three typed photo events. `photos_character_reference_submitted`
+  // requires >=1 photo (no skip), and advances to `intake_photos_with_human`.
+  // `photos_with_human_submitted` carries either an array (uploaded photos) OR
+  // an empty array (user skipped — same event, photos.length === 0 means "I
+  // don't have any"). `photos_environment_submitted` is the last sub-stage and
+  // advances into `intake_name`. The legacy `photos_uploaded`/`photos_skipped`
+  // events stay live so the `intake_photos` alias keeps working.
   | { type: 'photos_uploaded'; photos: PhotoAsset[] }
   | { type: 'photos_skipped' }
+  | { type: 'photos_character_reference_submitted'; photos: PhotoAsset[] }
+  | { type: 'photos_with_human_submitted'; photos: PhotoAsset[] }
+  | { type: 'photos_environment_submitted'; photos: PhotoAsset[] }
   | { type: 'name_submitted'; petName: string; pronunciationNeeded: boolean }
   | { type: 'pronunciation_submitted'; pronunciation: string | null }
   | { type: 'vision_pass_complete'; profile: InferredProfile }
@@ -585,23 +604,76 @@ export function reduceState(state: WizardState, event: WizardEvent): WizardState
 
     case 'intake_returning_user_check': {
       if (event.type === 'returning_user_answered') {
+        // Phase 15a — first photo sub-stage replaces the old `intake_photos`
+        // landing. Existing sessions that PATCHed to `intake_photos` will
+        // land on `intake_photos_character_reference` via the alias in the
+        // photos reducer case above.
         return {
-          stage: 'intake_photos',
+          stage: 'intake_photos_character_reference',
           data: { ...state.data, is_returning_user: event.isReturning },
         };
       }
       return state;
     }
 
-    case 'intake_photos': {
-      if (event.type === 'photos_uploaded') {
+    // Phase 15a — `intake_photos` is now a backwards-compat alias for the
+    // first sub-stage (`intake_photos_character_reference`). The legacy events
+    // `photos_uploaded`/`photos_skipped` keep working from this stage but now
+    // funnel into the typed sub-flow: an upload here advances to the optional
+    // with-human sub-stage; the old "skip" path is preserved for the small
+    // population of in-flight sessions but doesn't bypass the character_reference
+    // gate going forward — new sessions can't legally hit this branch because
+    // the BuilderClient renders the typed sub-stages directly.
+    case 'intake_photos':
+    case 'intake_photos_character_reference': {
+      if (
+        event.type === 'photos_character_reference_submitted' ||
+        event.type === 'photos_uploaded'
+      ) {
         return {
-          stage: 'intake_name',
+          stage: 'intake_photos_with_human',
           data: { ...state.data, pet_photos: event.photos },
         };
       }
-      if (event.type === 'photos_skipped') {
+      // Legacy escape hatch — only honored from the deprecated `intake_photos`
+      // tag so a resumed pre-Phase-15a session can still skip. New sub-stages
+      // never accept `photos_skipped` from the required character-reference
+      // step.
+      if (state.stage === 'intake_photos' && event.type === 'photos_skipped') {
         return { ...state, stage: 'intake_name' };
+      }
+      return state;
+    }
+
+    case 'intake_photos_with_human': {
+      // Optional sub-stage. Both submit-with-photos and skip resolve to the
+      // same event — `photos.length === 0` means "I don't have any with people."
+      if (event.type === 'photos_with_human_submitted') {
+        // Append the with-human photos to pet_photos so the BuilderClient's
+        // existing variant logic still sees all uploaded photos; the per-asset
+        // `photo_role` lives on the DB row, not in the local state.
+        return {
+          stage: 'intake_photos_environment',
+          data: {
+            ...state.data,
+            pet_photos: [...state.data.pet_photos, ...event.photos],
+          },
+        };
+      }
+      return state;
+    }
+
+    case 'intake_photos_environment': {
+      // Final sub-stage. Same submit-or-skip pattern as with_human. After
+      // either branch, advance into `intake_name`.
+      if (event.type === 'photos_environment_submitted') {
+        return {
+          stage: 'intake_name',
+          data: {
+            ...state.data,
+            pet_photos: [...state.data.pet_photos, ...event.photos],
+          },
+        };
       }
       return state;
     }
@@ -1497,7 +1569,13 @@ export const ALL_STAGE_TAGS = [
   // Stage 1 — Intake
   'intake_welcome',
   'intake_returning_user_check',
+  // Phase 15a — keep the deprecated `intake_photos` tag in the runtime list
+  // so legacy sessions (PATCHed to that stage) still pass `isStageTag` checks.
+  // The three typed sub-stages are the canonical Phase-15a tags.
   'intake_photos',
+  'intake_photos_character_reference',
+  'intake_photos_with_human',
+  'intake_photos_environment',
   'intake_name',
   'intake_name_pronunciation',
   'intake_vision_review',
@@ -1589,6 +1667,9 @@ const PROBE_EVENTS: WizardEvent[] = [
   { type: 'returning_user_answered', isReturning: true },
   { type: 'photos_uploaded', photos: [] },
   { type: 'photos_skipped' },
+  { type: 'photos_character_reference_submitted', photos: [] },
+  { type: 'photos_with_human_submitted', photos: [] },
+  { type: 'photos_environment_submitted', photos: [] },
   { type: 'name_submitted', petName: 'probe', pronunciationNeeded: false },
   { type: 'name_submitted', petName: 'probe', pronunciationNeeded: true },
   { type: 'pronunciation_submitted', pronunciation: null },

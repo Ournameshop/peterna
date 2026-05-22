@@ -47,7 +47,13 @@ export const STAGE_TO_RAIL_SEGMENT: Record<StageTag, number> = {
   // Intake — Stages 1.0 through 1.13
   intake_welcome: 0,
   intake_returning_user_check: 0,
+  // Phase 15a — typed photo sub-stages all live in the Intake segment along
+  // with the deprecated `intake_photos` alias. Keeping all four mapped to 0
+  // means the rail never jumps as the user walks the three photo screens.
   intake_photos: 0,
+  intake_photos_character_reference: 0,
+  intake_photos_with_human: 0,
+  intake_photos_environment: 0,
   intake_name: 0,
   intake_name_pronunciation: 0,
   intake_vision_review: 0,
