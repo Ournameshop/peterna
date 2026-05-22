@@ -9,6 +9,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
 
@@ -171,6 +172,13 @@ export const renderJobs = pgTable(
   (table) => [
     index('render_jobs_session_id_idx').on(table.sessionId),
     index('render_jobs_status_idx').on(table.status, table.createdAt),
+    // B2 (pre-Phase-15 audit): at most one notify_ready row per session.
+    // The worker's `maybeEnqueueNotifyReady` check+insert is non-atomic;
+    // this partial unique index is the safety net + lets the producer use
+    // ON CONFLICT DO NOTHING. Distinct from existing indexes by name.
+    uniqueIndex('render_jobs_notify_ready_unique')
+      .on(table.sessionId)
+      .where(sql`kind = 'notify_ready'`),
   ],
 );
 

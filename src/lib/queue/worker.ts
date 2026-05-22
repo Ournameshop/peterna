@@ -45,7 +45,9 @@ import {
  *      recovery after a crash with the same HOSTNAME).
  *   2. Every 2s: claim one queued job. If none, sleep + continue.
  *   3. Every 60s (separately): reap rows whose `locked_at` is older than
- *      `STALE_AFTER_MS` (10 min) — these are dead workers' orphans.
+ *      the per-kind threshold (`STALE_THRESHOLDS`) — these are dead workers'
+ *      orphans. Video clips get a longer ceiling than the default (B3) so a
+ *      slow-but-healthy Seedance call doesn't get re-fired and double-billed.
  *   4. Per kind:
  *        - `video_clip`  → call `generateVideo`, persist asset, update
  *          session's `video_clip_asset_ids` + status array.
@@ -62,7 +64,19 @@ import {
 
 const POLL_INTERVAL_MS = 2_000;
 const REAP_INTERVAL_MS = 60_000;
-const STALE_AFTER_MS = 10 * 60_000;
+
+// Per-kind staleness thresholds for the reaper (B3 in pre-Phase-15 audit).
+// Seedance 2.0 image-to-video legitimately takes 60–120s but can exceed 10 min
+// under fal queue pressure; a 10-min reap re-fires the vendor call and burns
+// $0.50/clip. Bump video_clip well past the worst-case observed; bump assembly
+// to cover ffmpeg under contention; keep others on the default short ceiling.
+const STALE_THRESHOLDS = {
+  defaultStaleAfterMs: 10 * 60_000,
+  byKind: {
+    video_clip: 25 * 60_000,
+    assembly: 15 * 60_000,
+  },
+};
 
 export type WorkerHandle = {
   stop: () => Promise<void>;
@@ -103,7 +117,7 @@ export function startWorker(): WorkerHandle {
 
   const reap = async (): Promise<void> => {
     try {
-      const n = await reapStaleJobs(STALE_AFTER_MS);
+      const n = await reapStaleJobs(STALE_THRESHOLDS);
       if (n > 0) console.log(`[worker ${id}] reaped ${n} stale job(s)`);
     } catch (err) {
       logError('reaper failed', err);

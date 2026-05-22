@@ -66,27 +66,82 @@ export async function claimNextJob(workerId: string): Promise<RenderJob | null> 
 
 /**
  * Reaper — reclaim jobs whose worker died mid-run. If `locked_at` is older
- * than the staleness threshold, flip the job back to `queued` so the next
- * worker poll picks it up. The retry budget (max `attempts`) is enforced
- * inside `markJobFailed` in `./finish.ts`.
+ * than the kind-specific staleness threshold, flip the job back to `queued`
+ * so the next worker poll picks it up. The retry budget (max `attempts`) is
+ * enforced inside `markJobFailed` in `./finish.ts`.
+ *
+ * Per-kind thresholds (B3): video_clip can legitimately take 20+ minutes
+ * under fal queue pressure on Seedance 2.0. A blanket 10-minute reap would
+ * re-queue a still-in-flight vendor call and waste $0.50/clip. Each kind gets
+ * its own ceiling; unknown kinds fall back to `defaultStaleAfterMs`. We run
+ * a small UPDATE per kind so the SQL stays simple and the cutoffs are
+ * explicit (no JSON aggregation gymnastics).
  *
  * Caller (worker loop) should run this on a slower cadence than the main
- * poll — once a minute is fine, since the staleness window is 10 minutes.
+ * poll — once a minute is fine.
  */
-export async function reapStaleJobs(staleAfterMs: number): Promise<number> {
+export type StaleThresholds = {
+  /** Default for kinds not listed in `byKind`. */
+  defaultStaleAfterMs: number;
+  /** Per-kind override; key matches `render_jobs.kind`. */
+  byKind: Record<string, number>;
+};
+
+export async function reapStaleJobs(thresholds: StaleThresholds): Promise<number> {
   const sql = getSql();
-  const cutoffIso = new Date(Date.now() - staleAfterMs).toISOString();
-  const rows = await sql<{ id: string }[]>`
-    UPDATE render_jobs
-    SET
-      status = 'queued',
-      locked_at = NULL,
-      locked_by = NULL,
-      updated_at = NOW()
-    WHERE status = 'running'
-      AND locked_at IS NOT NULL
-      AND locked_at < ${cutoffIso}::timestamptz
-    RETURNING id
-  `;
-  return rows.length;
+  let total = 0;
+
+  // Per-kind sweeps — one UPDATE per configured kind. This is N=2–3 queries
+  // today (video_clip, assembly, etc.); cheap, predictable, and easy to read.
+  for (const [kind, staleAfterMs] of Object.entries(thresholds.byKind)) {
+    const cutoffIso = new Date(Date.now() - staleAfterMs).toISOString();
+    const rows = await sql<{ id: string }[]>`
+      UPDATE render_jobs
+      SET
+        status = 'queued',
+        locked_at = NULL,
+        locked_by = NULL,
+        updated_at = NOW()
+      WHERE status = 'running'
+        AND locked_at IS NOT NULL
+        AND locked_at < ${cutoffIso}::timestamptz
+        AND kind = ${kind}
+      RETURNING id
+    `;
+    total += rows.length;
+  }
+
+  // Catch-all sweep for any kind not covered above. NOT IN (...) keeps the
+  // configured kinds from being double-reaped under a tighter default.
+  const knownKinds = Object.keys(thresholds.byKind);
+  const defaultCutoffIso = new Date(Date.now() - thresholds.defaultStaleAfterMs).toISOString();
+  const defaultRows = knownKinds.length > 0
+    ? await sql<{ id: string }[]>`
+        UPDATE render_jobs
+        SET
+          status = 'queued',
+          locked_at = NULL,
+          locked_by = NULL,
+          updated_at = NOW()
+        WHERE status = 'running'
+          AND locked_at IS NOT NULL
+          AND locked_at < ${defaultCutoffIso}::timestamptz
+          AND kind NOT IN ${sql(knownKinds)}
+        RETURNING id
+      `
+    : await sql<{ id: string }[]>`
+        UPDATE render_jobs
+        SET
+          status = 'queued',
+          locked_at = NULL,
+          locked_by = NULL,
+          updated_at = NOW()
+        WHERE status = 'running'
+          AND locked_at IS NOT NULL
+          AND locked_at < ${defaultCutoffIso}::timestamptz
+        RETURNING id
+      `;
+  total += defaultRows.length;
+
+  return total;
 }

@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "render_jobs_notify_ready_unique" ON "render_jobs" USING btree ("session_id") WHERE kind = 'notify_ready';
