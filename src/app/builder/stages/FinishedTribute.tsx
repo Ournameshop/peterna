@@ -13,6 +13,7 @@ import { downloadEulogyPdf } from '@/lib/peternal-eulogy-pdf';
 import { musicTracks, themes, narrationVoices } from '@/lib/peternal-library';
 import { composeNarrationScript } from '../lib/generation';
 import TributePlayer from './TributePlayer';
+import type { NarrationWord } from '@/lib/peternal-subtitles';
 
 // ---------------------------------------------------------------------------
 // composeEulogy — builds a printable one-page eulogy from state
@@ -129,8 +130,13 @@ export default function FinishedTribute(_props: StageProps) {
           body: JSON.stringify({ text: script, voice: elevenVoice }),
         });
         if (res.ok) {
-          const json = (await res.json()) as { url?: string; durationMs?: number };
-          if (json.url) update({ narrationUrl: json.url, narrationDurationMs: json.durationMs ?? null });
+          const json = (await res.json()) as { url?: string; durationMs?: number; timestamps?: NarrationWord[] | null };
+          if (json.url) update({
+            narrationUrl: json.url,
+            narrationDurationMs: json.durationMs ?? null,
+            narrationScript: script,
+            narrationTimestamps: json.timestamps ?? null,
+          });
         }
       } catch {
         // Preview narration failure is non-blocking — compose retries at download.
@@ -163,11 +169,14 @@ export default function FinishedTribute(_props: StageProps) {
     // mount effect hasn't finished (or failed).
     let narrationUrl: string | null = state.narrationUrl ?? null;
     let narrationDurationMs: number | null = state.narrationDurationMs ?? null;
+    let narrationScript: string | null = state.narrationScript ?? null;
+    let narrationTimestamps: NarrationWord[] | null = state.narrationTimestamps ?? null;
     if (state.words.narration !== 'off' && !narrationUrl) {
       const script = await composeNarrationScript(state);
       if (!script) {
         throw new Error('Could not compose a narration script — please fill in at least a pet name.');
       }
+      narrationScript = script;
       const chosenVoice = narrationVoices.find((v) => v.id === state.words.narration);
       const elevenVoice = chosenVoice?.elevenVoice ?? 'Rachel';
       const nRes = await fetch('/api/video/narration', {
@@ -176,10 +185,11 @@ export default function FinishedTribute(_props: StageProps) {
         body: JSON.stringify({ text: script, voice: elevenVoice }),
       });
       if (nRes.ok) {
-        const nJson = (await nRes.json()) as { url?: string; durationMs?: number };
+        const nJson = (await nRes.json()) as { url?: string; durationMs?: number; timestamps?: NarrationWord[] | null };
         narrationUrl = nJson.url ?? null;
         narrationDurationMs = nJson.durationMs ?? null;
-        if (narrationUrl) update({ narrationUrl, narrationDurationMs });
+        narrationTimestamps = nJson.timestamps ?? null;
+        if (narrationUrl) update({ narrationUrl, narrationDurationMs, narrationScript: script, narrationTimestamps });
       } else {
         const nErr = (await nRes.json().catch(() => ({}))) as { error?: string };
         throw new Error(`Narration failed: ${nErr.error ?? nRes.statusText}`);
@@ -237,6 +247,11 @@ export default function FinishedTribute(_props: StageProps) {
     const perBeatMs = perBeatSeconds * 1000;
     const composeBeatVideoMap = burnSucceeded ? burnedVideoMap : state.beatVideos;
 
+    const subtitlesEnabled =
+      state.words.narration !== 'off' &&
+      state.words.subtitles === true &&
+      narrationScript !== null;
+
     const res = await fetch('/api/video/compose', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -253,6 +268,9 @@ export default function FinishedTribute(_props: StageProps) {
         narrationUrl: narrationUrl || null,
         narrationDurationMs: narrationDurationMs ?? undefined,
         musicUrl: musicUrl || null,
+        subtitlesEnabled,
+        narrationScript: subtitlesEnabled ? narrationScript : null,
+        narrationTimestamps: subtitlesEnabled ? narrationTimestamps : null,
       }),
     });
     const json = (await res.json()) as { url?: string; error?: string };

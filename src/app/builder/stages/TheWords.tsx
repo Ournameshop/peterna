@@ -99,7 +99,20 @@ export default function TheWords({ onNext, onBack }: StageProps) {
   }
 
   function setNarration(id: string) {
-    update({ words: { ...state.words, narration: id } });
+    if (id === state.words.narration) return;
+    update({
+      words: { ...state.words, narration: id },
+      narrationUrl: null,
+      narrationDurationMs: null,
+      narrationScript: null,
+      narrationTimestamps: null,
+      assembledVideoUrl: null,
+    });
+  }
+
+  function setSubtitles(on: boolean) {
+    if (on === state.words.subtitles) return;
+    update({ words: { ...state.words, subtitles: on }, assembledVideoUrl: null });
   }
 
   function advance() {
@@ -583,6 +596,39 @@ export default function TheWords({ onNext, onBack }: StageProps) {
         </FieldGroup>
 
         {narrationOn && (
+          <FieldGroup label="Subtitles" hint="On-screen captions of the narration, synced to the voice.">
+            <div style={{ display: 'flex', gap: 8 }}>
+              {[{ id: true, label: 'On' }, { id: false, label: 'Off' }].map(({ id, label }) => {
+                const active = state.words.subtitles === id;
+                return (
+                  <button
+                    key={label}
+                    onClick={() => setSubtitles(id)}
+                    style={{
+                      padding: '10px 18px',
+                      border: `1px solid ${active ? PALETTE.espresso : PALETTE.parchmentLight}`,
+                      background: active ? PALETTE.boneSoft : 'white',
+                      borderRadius: 999,
+                      cursor: 'pointer',
+                      fontFamily: 'Inter, sans-serif',
+                      fontSize: 13,
+                      color: PALETTE.espresso,
+                      transition: 'all 180ms ease',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                    }}
+                  >
+                    {label}
+                    {active && <Check size={11} color={PALETTE.espresso} />}
+                  </button>
+                );
+              })}
+            </div>
+          </FieldGroup>
+        )}
+
+        {narrationOn && (
           <FieldGroup label="A few questions for the voiceover" hint="optional — all skippable">
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               {NARRATION_QUESTIONS.map((q, idx) => (
@@ -692,6 +738,9 @@ export default function TheWords({ onNext, onBack }: StageProps) {
               : narrationVoices.find((v) => v.id === state.words.narration)?.name ?? 'On'
           }
         />
+        {state.words.narration !== 'off' && (
+          <SummaryItem label="Subtitles" value={state.words.subtitles ? 'On' : 'Off'} />
+        )}
       </div>
     </GateReview>
   );

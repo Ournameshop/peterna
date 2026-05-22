@@ -18,6 +18,7 @@ import type {
   DofBehavior,
   AmbientAudio,
 } from '@/lib/peternal-library';
+import type { NarrationWord } from '@/lib/peternal-subtitles';
 import type { StepId } from './steps';
 
 export type { Gender, RelationshipId, AspectId, FormatId, ThemeId, ThemeCategoryId, ArtStyleId, ContainerId, CuratorPickId, DpStyleId, BeatArchetype };
@@ -79,6 +80,7 @@ export interface WordsState {
   music: string;
   narration: 'off' | string;
   narrationLetter: string[];
+  subtitles: boolean;
   reviewed: boolean;
 }
 
@@ -125,6 +127,8 @@ export interface BuilderState {
   musicBedDurationMs: number | null;
   narrationUrl: string | null;        // generated TTS voiceover — previewed + reused at compose
   narrationDurationMs: number | null; // probed duration of narrationUrl — forwarded to compose
+  narrationScript: string | null;     // the text sent to TTS — forwarded to compose for subtitles
+  narrationTimestamps: NarrationWord[] | null; // word-level timing from TTS — forwarded to compose
   words: WordsState;
   cardText: { opening: string; closing: string };
   cardPreviewImages: { opening: string | null; closing: string | null; caption: string | null };
@@ -182,6 +186,8 @@ export const initialState: BuilderState = {
   musicBedDurationMs: null,
   narrationUrl: null,
   narrationDurationMs: null,
+  narrationScript: null,
+  narrationTimestamps: null,
   words: {
     opening: 'simple',
     openingCustom: ['', ''],
@@ -191,6 +197,7 @@ export const initialState: BuilderState = {
     music: 'silence',
     narration: 'off',
     narrationLetter: [],
+    subtitles: true,
     reviewed: false,
   },
   cardText: { opening: '', closing: '' },
@@ -221,6 +228,10 @@ export function resetDownstream(state: BuilderState, fromStage: StepId): Partial
         assembledVideoUrl: null,
         musicBedUrl: null,
         musicBedDurationMs: null,
+        narrationUrl: null,
+        narrationDurationMs: null,
+        narrationScript: null,
+        narrationTimestamps: null,
         cinematographyBriefs: [],
         cinematographyApproved: false,
       };
@@ -241,6 +252,10 @@ export function resetDownstream(state: BuilderState, fromStage: StepId): Partial
         assembledVideoUrl: null,
         musicBedUrl: null,
         musicBedDurationMs: null,
+        narrationUrl: null,
+        narrationDurationMs: null,
+        narrationScript: null,
+        narrationTimestamps: null,
         cinematographyBriefs: [],
         cinematographyApproved: false,
         ...(fromStage === 'style' ? { cardPreviewApproved: false, typographyLocked: null, cardPreviewImages: { opening: null, closing: null, caption: null } } : {}),
@@ -256,6 +271,10 @@ export function resetDownstream(state: BuilderState, fromStage: StepId): Partial
         assembledVideoUrl: null,
         musicBedUrl: null,
         musicBedDurationMs: null,
+        narrationUrl: null,
+        narrationDurationMs: null,
+        narrationScript: null,
+        narrationTimestamps: null,
         cinematographyBriefs: [],
         cinematographyApproved: false,
       };

@@ -5,6 +5,16 @@ Working branch: `Adding-skill-in-webflow`.
 
 ## 2026-05-22
 
+### Burned narration subtitles (opt-out)
+The spoken narration can now appear as on-screen subtitles, synced to the
+voice. ElevenLabs returns word-level timestamps on the same TTS call (a free
+flag — no extra cost), so each line appears exactly as it's spoken; a
+fallback distributes lines evenly if timestamps are missing. Rendered as a
+styled ASS lower-third (soft dark panel, Inter, warm off-white, fades) burned
+in during compose, positioned to never collide with the beat captions. A
+toggle in "The Words" (on by default) lets the user opt out. Inter font
+installed on the server so subtitles render on-brand.
+
 ### Beat videos — fixed the "dog just breathing" stillness
 The Seedance beat prompts handed the model raw internal enum tokens
 (`camera move: slow_push`, `subject motion: breath_only`) — jargon a video

@@ -10,6 +10,8 @@ import path from "path";
 import fs from "fs";
 import { spawn } from "child_process";
 import { fal } from "@/lib/fal";
+import { normalizeTimestamps } from "@/lib/peternal-subtitles";
+import type { NarrationWord } from "@/lib/peternal-subtitles";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,6 +30,7 @@ interface ReqBody {
 
 interface SpeechOutput {
   audio: { url: string };
+  timestamps?: unknown;
 }
 
 function probeAudioDurationMs(filePath: string): Promise<number> {
@@ -75,14 +78,18 @@ export async function POST(req: Request) {
         similarity_boost: ELEVENLABS_SIMILARITY_BOOST,
         style: ELEVENLABS_STYLE,
         speed: ELEVENLABS_SPEED,
+        timestamps: true,
       },
       logs: false,
     });
-    const url = (result?.data as unknown as SpeechOutput)?.audio?.url;
+    const data = result?.data as unknown as SpeechOutput;
+    const url = data?.audio?.url;
     if (!url) {
       console.error("narration: missing audio.url in fal response:", JSON.stringify(result?.data));
       return NextResponse.json({ error: "no audio url in fal response" }, { status: 502 });
     }
+
+    const timestamps: NarrationWord[] | null = normalizeTimestamps(data?.timestamps);
 
     // Probe duration so compose can use it authoritatively instead of re-probing.
     let durationMs = 0;
@@ -99,7 +106,7 @@ export async function POST(req: Request) {
       try { fs.unlinkSync(tmpAudio); } catch { /* best-effort */ }
     }
 
-    return NextResponse.json({ url, durationMs });
+    return NextResponse.json({ url, durationMs, timestamps });
   } catch (err) {
     const message = err instanceof Error ? err.message : "unknown error";
     return NextResponse.json({ error: message }, { status: 502 });

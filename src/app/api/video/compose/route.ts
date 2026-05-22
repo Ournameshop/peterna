@@ -41,6 +41,8 @@ import path from "path";
 import fs from "fs";
 import { spawn } from "child_process";
 import { fal } from "@/lib/fal";
+import { buildSubtitleCues, buildAssFile, escapeFilterPath } from "@/lib/peternal-subtitles";
+import type { NarrationWord } from "@/lib/peternal-subtitles";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -82,6 +84,9 @@ interface ReqBody {
   perBeatMs?: number;
   cardMs?: number;
   captionMs?: number;
+  subtitlesEnabled?: boolean;
+  narrationScript?: string | null;
+  narrationTimestamps?: NarrationWord[] | null;
 }
 
 interface Segment {
@@ -287,6 +292,32 @@ export async function POST(req: Request) {
     const targetLength = Math.max(videoContentLength, narrationLength);
     const videoDeficit = targetLength - videoContentLength;
 
+    // Build subtitle ASS file if requested.
+    let assPath: string | null = null;
+    if (
+      body.subtitlesEnabled === true &&
+      narrationPath !== null &&
+      typeof body.narrationScript === 'string' &&
+      body.narrationScript.trim().length > 0
+    ) {
+      try {
+        const cues = buildSubtitleCues({
+          script: body.narrationScript,
+          timestamps: body.narrationTimestamps ?? null,
+          narrationDurationMs: Math.round(targetLength * 1000),
+        });
+        if (cues.length > 0) {
+          const assContent = buildAssFile(cues, { width: W, height: H });
+          assPath = path.join(os.tmpdir(), `compose_subs_${now}.ass`);
+          fs.writeFileSync(assPath, assContent, 'utf8');
+          tmpFiles.push(assPath);
+        }
+      } catch {
+        // Subtitle generation failure must never block the tribute — skip silently.
+        assPath = null;
+      }
+    }
+
     // Build ffmpeg args array programmatically
     const args: string[] = ["-y"];
 
@@ -325,10 +356,17 @@ export async function POST(req: Request) {
     // Pad video tail only when narration outlasts the visual content.
     if (videoDeficit > 0.05) {
       filterParts.push(
-        `[concatv]tpad=stop_mode=clone:stop_duration=${videoDeficit.toFixed(3)}[outv]`
+        `[concatv]tpad=stop_mode=clone:stop_duration=${videoDeficit.toFixed(3)}[vpad]`
       );
     } else {
-      filterParts.push(`[concatv]copy[outv]`);
+      filterParts.push(`[concatv]copy[vpad]`);
+    }
+
+    // Subtitle filter — sits downstream of pad, upstream of -map.
+    if (assPath !== null) {
+      filterParts.push(`[vpad]ass=${escapeFilterPath(assPath)}[outv]`);
+    } else {
+      filterParts.push(`[vpad]copy[outv]`);
     }
 
     // Audio mix — four cases, all trimmed to targetLength.
