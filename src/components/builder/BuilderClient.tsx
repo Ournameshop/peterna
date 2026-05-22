@@ -1962,15 +1962,10 @@ export default function BuilderClient({
   function renderStage() {
     switch (state.stage) {
       case "intake_welcome":
-        return (
-          <PillPicker
-            pills={[{ id: "begin", label: "Start when you're ready" }]}
-            autoSubmitOnPick
-            onSubmit={() => {
-              void dispatchAndSave({ type: "start_intake" });
-            }}
-          />
-        );
+        // The welcome screen's CTA lives inside WelcomePanel itself (per
+        // audit CC-3). Returning null here keeps WizardShell's body empty
+        // while the welcome surface above carries the only affordance.
+        return null;
 
       case "intake_returning_user_check":
         return (
@@ -3194,7 +3189,14 @@ export default function BuilderClient({
 
   return (
     <>
-      {shouldShowWelcomeAbove ? <WelcomePanel petName={petName} /> : null}
+      {shouldShowWelcomeAbove ? (
+        <WelcomePanel
+          petName={petName}
+          onBegin={() => {
+            void dispatchAndSave({ type: "start_intake" });
+          }}
+        />
+      ) : null}
       <WizardShell
         stage={state.stage}
         petName={petName}

@@ -11,6 +11,11 @@ export const C = {
   // CardPreviewView, CharacterSheetView, CombinationPreviewReview, and
   // DeliveryReadyView. Per audit CC-1 / CC-9.
   creamRaised: "#FFFBF3",
+  // Page-level surface tint — alias for the welcome panel and any other
+  // "held moment" page that needs a distinct envelope against C.cream.
+  // Same hex as creamRaised (intentional); separate name preserves call-site
+  // intent (a "surface" is a page panel; "creamRaised" is a card/dropzone tint).
+  surface: "#FFFBF3",
   blush: "#E9D5C3",
   ink: "#2A211B",
   inkSoft: "#4A3F36",
