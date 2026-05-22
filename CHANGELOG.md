@@ -5,6 +5,15 @@ Working branch: `Adding-skill-in-webflow`.
 
 ## 2026-05-22
 
+### Caption-container picker — real thumbnails
+Generated the 13 caption-container thumbnails (`openai/gpt-image-2`, per the
+fal handover spec) and wired them into the Stage 4.5 picker — each card now
+shows a real preview image of the container instead of being text-only. Images
+in `public/container-thumbnails/`. (3 — polaroid, paperclip, plasticine —
+have minor deviations and are pending a `high`-quality re-fire.) Also fixed
+the `watercolor` art-style `imagePrompt` — removed an artist name that tripped
+OpenAI's content filter.
+
 ### 1-minute dry-run fix — narration scales with tribute length
 A dry-run of the new 1-minute option found the narration script was hardcoded
 at 200–230 words (~90–105s) regardless of length. On a 1-minute (~60s) video

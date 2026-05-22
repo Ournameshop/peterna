@@ -70,6 +70,19 @@ export default function CaptionContainer({ onNext, onBack }: StageProps) {
             Recommended for your style
           </div>
         )}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={`/container-thumbnails/peternal-container-${c.id}.png`}
+          alt={`${c.name} caption container preview`}
+          style={{
+            width: '100%',
+            aspectRatio: '1',
+            objectFit: 'cover',
+            borderRadius: 4,
+            display: 'block',
+            marginBottom: 4,
+          }}
+        />
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <Serif style={{ fontSize: 16, color: PALETTE.espresso }}>{c.name}</Serif>
           {c.leafIcon && <LEAF />}
