@@ -242,14 +242,119 @@ export function renderCardSvg(opts: RenderCardSvgOpts): string {
     return `<tspan x="${panelX + panelW / 2}" dy="${dy}">${escXml(line)}</tspan>`;
   }).join('');
 
+  // Lower-third: per the skill spec, a soft dark gradient bar that fades to
+  // transparent at the top edge — not a flat box. The panel extends upward
+  // into a fade zone; the caption text sits in the solid lower portion.
+  const ltFade = panelH;
+  const tapeW = 86;
+  const tapeH = 34;
+  const midX = panelX + panelW / 2;
+  let panelMarkup: string;
+  if (mode === 'lower_third') {
+    panelMarkup = `<rect x="${panelX}" y="${panelY - ltFade}" width="${panelW}" height="${panelH + ltFade}" rx="16" fill="url(#lt)"/>`;
+  } else if (mode === 'ribbon') {
+    // Watercolor ribbon — rose-ochre edge bleed, organic painted edge, tape corners.
+    panelMarkup = `<rect x="${panelX - 7}" y="${panelY - 7}" width="${panelW + 14}" height="${panelH + 14}" rx="34" fill="#C99A82" filter="url(#wcEdge2)"/>
+  <rect x="${panelX}" y="${panelY}" width="${panelW}" height="${panelH}" rx="28" fill="#F1E7D2" filter="url(#wcEdge)"/>
+  <rect x="${panelX - tapeW / 2}" y="${panelY - tapeH / 2}" width="${tapeW}" height="${tapeH}" rx="3" fill="#EFE6CF" opacity="0.7" transform="rotate(-34 ${panelX} ${panelY})"/>
+  <rect x="${panelX + panelW - tapeW / 2}" y="${panelY - tapeH / 2}" width="${tapeW}" height="${tapeH}" rx="3" fill="#EFE6CF" opacity="0.7" transform="rotate(34 ${panelX + panelW} ${panelY})"/>`;
+  } else if (mode === 'page') {
+    // Storybook page — cream paper, dog-eared corner, wildflower ornament.
+    panelMarkup = `<rect x="${panelX}" y="${panelY}" width="${panelW}" height="${panelH}" rx="6" fill="#F3E9CF" filter="url(#sh)"/>
+  <path d="M ${panelX + panelW - 54} ${panelY + panelH} L ${panelX + panelW} ${panelY + panelH} L ${panelX + panelW} ${panelY + panelH - 54} Z" fill="#E0D2A8"/>
+  <g transform="translate(${panelX + 42} ${panelY + 34})">
+    <circle cx="0" cy="-11" r="7" fill="#D69BA6"/><circle cx="10" cy="-3" r="7" fill="#D69BA6"/><circle cx="6" cy="9" r="7" fill="#D69BA6"/><circle cx="-6" cy="9" r="7" fill="#D69BA6"/><circle cx="-10" cy="-3" r="7" fill="#D69BA6"/><circle cx="0" cy="-1" r="5" fill="#E8BE62"/>
+  </g>`;
+  } else if (mode === 'banner') {
+    // Plasticine banner — clay base, thin black outline, rolled edge, thumbprints.
+    panelMarkup = `<rect x="${panelX}" y="${panelY + 7}" width="${panelW}" height="${panelH}" rx="40" fill="#BF9D72"/>
+  <rect x="${panelX}" y="${panelY}" width="${panelW}" height="${panelH}" rx="40" fill="#D9B98E" stroke="#2A2420" stroke-width="4" filter="url(#sh)"/>
+  <ellipse cx="${panelX + 130}" cy="${panelY + panelH * 0.42}" rx="36" ry="22" fill="#CBA67D" opacity="0.5"/>
+  <ellipse cx="${panelX + panelW - 160}" cy="${panelY + panelH * 0.6}" rx="42" ry="25" fill="#CBA67D" opacity="0.45"/>`;
+  } else if (mode === 'note') {
+    // Paperclip note — cream sheet held by a strip of washi tape.
+    panelMarkup = `<rect x="${panelX}" y="${panelY}" width="${panelW}" height="${panelH}" rx="4" fill="#EFE6D2" filter="url(#sh)"/>
+  <rect x="${midX - 58}" y="${panelY - 16}" width="116" height="34" rx="2" fill="#D7CDB4" opacity="0.8" transform="rotate(-4 ${midX} ${panelY})"/>`;
+  } else if (mode === 'postcard') {
+    // Postcard back — cardstock with a stamp + postmark in the top-right corner.
+    panelMarkup = `<rect x="${panelX}" y="${panelY}" width="${panelW}" height="${panelH}" rx="4" fill="#F0E5C8" filter="url(#sh)"/>
+  <rect x="${panelX + panelW - 96}" y="${panelY + 14}" width="68" height="54" rx="2" fill="#E4D3A8" stroke="#B89E68" stroke-width="2.5" stroke-dasharray="5 3"/>
+  <circle cx="${panelX + panelW - 134}" cy="${panelY + 32}" r="17" fill="none" stroke="#A89466" stroke-width="2.5" opacity="0.6"/>
+  <circle cx="${panelX + panelW - 134}" cy="${panelY + 32}" r="23" fill="none" stroke="#A89466" stroke-width="1.5" opacity="0.4"/>`;
+  } else if (mode === 'bookmark') {
+    // Pressed-flower bookmark — deckled cream cardstock, dried flowers at the ends.
+    panelMarkup = `<rect x="${panelX}" y="${panelY}" width="${panelW}" height="${panelH}" rx="8" fill="#ECDFC5" filter="url(#wcEdge)"/>
+  <g transform="translate(${panelX + 56} ${panelY + panelH / 2})">
+    <line x1="0" y1="24" x2="0" y2="-18" stroke="#7E8A5A" stroke-width="3"/>
+    <circle cx="0" cy="-24" r="9" fill="#C25B52"/><circle cx="-9" cy="-16" r="7" fill="#C25B52"/><circle cx="9" cy="-16" r="7" fill="#C25B52"/><circle cx="0" cy="-13" r="4" fill="#7A3C36"/>
+    <ellipse cx="-14" cy="8" rx="11" ry="5" fill="#8A975E" transform="rotate(-34 -14 8)"/>
+  </g>
+  <g transform="translate(${panelX + panelW - 56} ${panelY + panelH / 2})">
+    <line x1="0" y1="22" x2="0" y2="-20" stroke="#7E8A5A" stroke-width="3"/>
+    <circle cx="0" cy="-22" r="8" fill="#7C93B0"/><circle cx="-8" cy="-15" r="6" fill="#7C93B0"/><circle cx="8" cy="-15" r="6" fill="#7C93B0"/>
+  </g>`;
+  } else if (mode === 'scroll') {
+    // Parchment scroll — central panel with rolled curled ends, thin brown outline.
+    panelMarkup = `<rect x="${panelX + 24}" y="${panelY}" width="${panelW - 48}" height="${panelH}" fill="#E8D9B5" stroke="#9C7A45" stroke-width="2.5" filter="url(#sh)"/>
+  <ellipse cx="${panelX + 24}" cy="${panelY + panelH / 2}" rx="24" ry="${panelH / 2 + 5}" fill="#D8C291" stroke="#9C7A45" stroke-width="2.5"/>
+  <ellipse cx="${panelX + panelW - 24}" cy="${panelY + panelH / 2}" rx="24" ry="${panelH / 2 + 5}" fill="#D8C291" stroke="#9C7A45" stroke-width="2.5"/>
+  <ellipse cx="${panelX + 24}" cy="${panelY + panelH / 2}" rx="10" ry="${panelH / 2 - 8}" fill="none" stroke="#9C7A45" stroke-width="2"/>
+  <ellipse cx="${panelX + panelW - 24}" cy="${panelY + panelH / 2}" rx="10" ry="${panelH / 2 - 8}" fill="none" stroke="#9C7A45" stroke-width="2"/>`;
+  } else if (mode === 'pixel') {
+    // Pixel sign — chunky stepped wood border with pixel chains above.
+    panelMarkup = `<rect x="${panelX + 160}" y="${panelY - 46}" width="16" height="16" fill="#6E6E6E"/><rect x="${panelX + 160}" y="${panelY - 30}" width="16" height="16" fill="#9A9A9A"/>
+  <rect x="${panelX + panelW - 176}" y="${panelY - 46}" width="16" height="16" fill="#6E6E6E"/><rect x="${panelX + panelW - 176}" y="${panelY - 30}" width="16" height="16" fill="#9A9A9A"/>
+  <rect x="${panelX - 14}" y="${panelY - 14}" width="${panelW + 28}" height="${panelH + 28}" fill="#4A2F14"/>
+  <rect x="${panelX - 6}" y="${panelY - 6}" width="${panelW + 12}" height="${panelH + 12}" fill="#A56E3E"/>
+  <rect x="${panelX}" y="${panelY}" width="${panelW}" height="${panelH}" fill="#8A5A33"/>`;
+  } else if (mode === 'voxel') {
+    // Voxel sign — a 3D cube block with shaded top + side faces.
+    const d = 26;
+    panelMarkup = `<polygon points="${panelX},${panelY} ${panelX + d},${panelY - d} ${panelX + panelW + d},${panelY - d} ${panelX + panelW},${panelY}" fill="#B5824A"/>
+  <polygon points="${panelX + panelW},${panelY} ${panelX + panelW + d},${panelY - d} ${panelX + panelW + d},${panelY + panelH - d} ${panelX + panelW},${panelY + panelH}" fill="#74502C"/>
+  <rect x="${panelX}" y="${panelY}" width="${panelW}" height="${panelH}" fill="#9C6B3C" filter="url(#sh)"/>`;
+  } else if (mode === 'stone') {
+    // Engraved stone plaque — carved inset border, moss along the bottom edge.
+    panelMarkup = `<rect x="${panelX}" y="${panelY}" width="${panelW}" height="${panelH}" rx="6" fill="#8B8378" filter="url(#sh)"/>
+  <rect x="${panelX + 13}" y="${panelY + 13}" width="${panelW - 26}" height="${panelH - 26}" rx="3" fill="none" stroke="#6A6360" stroke-width="5"/>
+  <ellipse cx="${panelX + 78}" cy="${panelY + panelH}" rx="66" ry="16" fill="#6E7A4A" opacity="0.85"/>
+  <ellipse cx="${panelX + 168}" cy="${panelY + panelH}" rx="48" ry="12" fill="#808C58" opacity="0.7"/>
+  <ellipse cx="${panelX + panelW - 96}" cy="${panelY + panelH}" rx="74" ry="15" fill="#6E7A4A" opacity="0.8"/>`;
+  } else if (mode === 'embroidery') {
+    // Embroidered sampler — a circular wooden hoop with cream linen.
+    const R = 400;
+    const ecy = panelY + panelH / 2;
+    panelMarkup = `<rect x="${midX - 24}" y="${ecy - R - 22}" width="48" height="34" rx="7" fill="#9A9A9A"/>
+  <circle cx="${midX}" cy="${ecy}" r="${R}" fill="#8B5A2B" filter="url(#sh)"/>
+  <circle cx="${midX}" cy="${ecy}" r="${R - 20}" fill="#F4EAD5"/>
+  <g transform="translate(${midX - R + 96} ${ecy - R + 104})"><circle cx="0" cy="0" r="9" fill="#C84A4A"/><circle cx="13" cy="6" r="6" fill="#C84A4A"/><circle cx="-9" cy="9" r="6" fill="#C84A4A"/></g>
+  <g transform="translate(${midX + R - 96} ${ecy + R - 104})"><circle cx="0" cy="0" r="9" fill="#6B7A4C"/><circle cx="-13" cy="-6" r="6" fill="#6B7A4C"/><circle cx="9" cy="-9" r="6" fill="#6B7A4C"/></g>`;
+  } else {
+    panelMarkup = `<rect x="${panelX}" y="${panelY}" width="${panelW}" height="${panelH}" rx="${rx}" fill="${containerStyle.bg}" filter="url(#sh)"/>`;
+  }
+
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${vbW} ${vbH}" width="${vbW}" height="${vbH}">
   <defs>
     <linearGradient id="sg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0%" stop-color="${c1}"/>
       <stop offset="100%" stop-color="${c2}"/>
     </linearGradient>
+    <linearGradient id="lt" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0E0E12" stop-opacity="0"/>
+      <stop offset="48%" stop-color="#0E0E12" stop-opacity="0.55"/>
+      <stop offset="74%" stop-color="#0E0E12" stop-opacity="0.92"/>
+      <stop offset="100%" stop-color="#0E0E12" stop-opacity="0.92"/>
+    </linearGradient>
     <filter id="sh" x="-20%" y="-20%" width="140%" height="140%">
       <feDropShadow dx="0" dy="3" stdDeviation="10" flood-color="rgba(0,0,0,0.25)"/>
+    </filter>
+    <filter id="wcEdge" x="-25%" y="-25%" width="150%" height="150%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.016" numOctaves="2" seed="11" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="16"/>
+    </filter>
+    <filter id="wcEdge2" x="-25%" y="-25%" width="150%" height="150%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.019" numOctaves="2" seed="4" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="20"/>
     </filter>
   </defs>
   <!-- Scene background — full-bleed pet image, kept clear (no scrim, no bloom,
@@ -259,13 +364,7 @@ export function renderCardSvg(opts: RenderCardSvgOpts): string {
     : `<rect x="0" y="0" width="${vbW}" height="${vbH}" fill="url(#sg)"/>`
   }
   <!-- Container panel -->
-  <rect x="${panelX}" y="${panelY}" width="${panelW}" height="${panelH}"
-    rx="${rx}" fill="${containerStyle.bg}"
-    ${mode === 'lower_third' ? 'opacity="0.88"' : ''}
-    filter="url(#sh)"/>
-  ${scrollCurls(mode, panelX, panelY, panelW, panelH)}
-  ${stoneBorder(mode, panelX, panelY, panelW, panelH, rx)}
-  ${pixelBorder(mode, panelX, panelY, panelW, panelH)}
+  ${panelMarkup}
   <!-- Text -->
   <text
     x="${panelX + panelW / 2}"

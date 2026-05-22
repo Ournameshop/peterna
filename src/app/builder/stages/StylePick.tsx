@@ -1,6 +1,7 @@
 "use client";
 
 import React from 'react';
+import Image from 'next/image';
 import { PALETTE } from '../lib/palette';
 import { StageShell, Serif, Sans } from '../lib/primitives';
 import { useBuilder } from '../state';
@@ -25,25 +26,10 @@ const OPT_IN_NOTE: Partial<Record<ArtStyleId, string>> = {
   voxel_minecraft: 'A deliberate, joyful choice — especially meaningful for families with kids.',
 };
 
-// Per-style zoom-crop. The handover composed the pets at varying sizes with
-// breathing room, so a single crop value can't fill every card — these crop
-// each thumbnail individually so the pets fill it with no empty background.
-const STYLE_CROP: Record<ArtStyleId, { scale: number; originY: number }> = {
-  cinematic_realism: { scale: 1.46, originY: 50 },
-  watercolor: { scale: 1.38, originY: 56 },
-  storybook_illustration: { scale: 1.38, originY: 56 },
-  animated_3d: { scale: 1.66, originY: 62 },
-  claymation: { scale: 1.5, originY: 52 },
-  pencil_sketch: { scale: 1.38, originY: 56 },
-  pixel_art: { scale: 1.64, originY: 62 },
-  voxel_minecraft: { scale: 1.38, originY: 56 },
-};
-
 function StyleCard({ styleId, active, onClick }: { styleId: ArtStyleId; active: boolean; onClick: () => void }) {
   const style = artStyles.find(s => s.id === styleId);
   if (!style) return null;
   const note = OPT_IN_NOTE[styleId];
-  const crop = STYLE_CROP[styleId];
   return (
     <button
       onClick={onClick}
@@ -56,24 +42,21 @@ function StyleCard({ styleId, active, onClick }: { styleId: ArtStyleId; active: 
         borderRadius: 4,
         overflow: 'hidden',
         transition: 'all 180ms ease',
+        display: 'flex',
+        flexDirection: 'column',
       }}
       onMouseEnter={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.borderColor = PALETTE.brass; }}
       onMouseLeave={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.borderColor = PALETTE.parchmentLight; }}
     >
-      {/* Each thumbnail is zoom-cropped per STYLE_CROP so the pets fill the
-          card — the handover composed them at varying sizes. */}
-      <div style={{ width: '100%', aspectRatio: '4 / 3', overflow: 'hidden' }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+      {/* Source thumbnails are 1024x768, matching this 4:3 slot exactly. */}
+      <div style={{ width: '100%', aspectRatio: '4 / 3', overflow: 'hidden', position: 'relative', flexShrink: 0 }}>
+        <Image
           src={`/style-thumbnails/peterna-style-${styleId}.png`}
           alt={`${style.name} art style preview`}
+          fill
+          sizes="(max-width: 700px) calc(100vw - 48px), (max-width: 1100px) 25vw, 224px"
           style={{
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
-            display: 'block',
-            transform: `scale(${crop.scale})`,
-            transformOrigin: `center ${crop.originY}%`,
+            objectFit: 'contain',
           }}
         />
       </div>

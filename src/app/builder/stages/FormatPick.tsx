@@ -1,6 +1,7 @@
 "use client";
 
 import React from 'react';
+import Image from 'next/image';
 import { PALETTE } from '../lib/palette';
 import { StageShell, Serif } from '../lib/primitives';
 import { useBuilder } from '../state';
@@ -71,24 +72,25 @@ export default function FormatPick({ onNext, goToStep }: StageProps) {
                 borderRadius: 4,
                 overflow: 'hidden',
                 transition: 'all 180ms ease',
+                display: 'flex',
+                flexDirection: 'column',
               }}
               onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLButtonElement).style.borderColor = PALETTE.brass; }}
               onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLButtonElement).style.borderColor = PALETTE.parchmentLight; }}
             >
-              {/* The hero stills are 1152×896 — the card image area uses that
-                  exact ratio so every image fits fully, no crop. */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={`/format-thumbnails/peterna-format-${f.id}.png`}
-                alt={`${f.name} format preview`}
-                style={{
-                  width: '100%',
-                  aspectRatio: '1152 / 896',
-                  objectFit: 'cover',
-                  display: 'block',
-                  pointerEvents: 'none',
-                }}
-              />
+              {/* Source thumbnails are 1024x768, matching this 4:3 slot exactly. */}
+              <div style={{ width: '100%', aspectRatio: '4 / 3', overflow: 'hidden', position: 'relative', flexShrink: 0 }}>
+                <Image
+                  src={`/format-thumbnails/peterna-format-${f.id}.png`}
+                  alt={`${f.name} format preview`}
+                  fill
+                  sizes="(max-width: 700px) calc(100vw - 48px), (max-width: 1100px) 25vw, 224px"
+                  style={{
+                    objectFit: 'contain',
+                    pointerEvents: 'none',
+                  }}
+                />
+              </div>
               <div style={{ padding: '12px 14px 14px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 4 }}>
                   <span style={{ display: 'flex', flexShrink: 0, color: PALETTE.brassDeep }}>

@@ -156,3 +156,79 @@ export function buildBeatPrompt(input: BuildBeatPromptInput): string {
 
   return lines.filter(Boolean).join("\n");
 }
+
+// ---- Tribute card prompt assembly ------------------------------------------
+// Single image-generation prompt for a tribute card, assembled per the skill's
+// variable-reference (peterna-tribute-card-variable-reference.md, Steps 1-4):
+// pet identity + scene context (art style / theme) + caption container + the
+// resolved caption text. The caption is passed in ALREADY resolved (pronouns
+// and [PET_NAME] substituted) — the model renders it verbatim, it does NOT
+// assemble the text itself.
+
+const ART_STYLE_MEDIUM: Record<string, string> = {
+  cinematic_realism: 'a warm cinematic photoreal still with soft natural light',
+  watercolor: 'a soft hand-painted watercolor illustration on cream paper',
+  storybook_illustration: "a tender hand-drawn children's storybook illustration",
+  animated_3d: 'a soft 3D-animated film still with gentle volumetric light',
+  claymation: 'a handmade stop-motion claymation still',
+  pencil_sketch: 'a soft graphite pencil-sketch portrait on warm paper',
+  pixel_art: 'chunky 16-bit pixel art',
+  voxel_minecraft: 'a 3D voxel, Minecraft-style scene',
+};
+
+export interface TributeCardPromptInput {
+  cardType: 'opening' | 'closing' | 'caption';
+  resolvedCaption: string;     // already pronoun/name-resolved — rendered verbatim
+  artStyle: string;            // ArtStyleId
+  containerName: string;       // e.g. "Watercolor ribbon"
+  containerSpec: string;       // the caption container's illustrated-object spec
+  petName: string;
+  species: string;
+  breedGuess?: string;
+  coatDescription?: string;
+  ageRange?: string;
+  theme?: string;
+  sceneHint?: string;          // interior beat cards only
+}
+
+export function buildTributeCardPrompt(input: TributeCardPromptInput): string {
+  const {
+    cardType, resolvedCaption, artStyle, containerName, containerSpec,
+    petName, species, breedGuess, coatDescription, ageRange, theme, sceneHint,
+  } = input;
+
+  const medium = ART_STYLE_MEDIUM[artStyle] ?? ART_STYLE_MEDIUM.watercolor;
+  const lines: string[] = [];
+
+  // Step 1 — subject identity. The character sheet is passed as a reference
+  // image; this text reinforces the likeness.
+  const petDesc = [breedGuess, coatDescription, ageRange].filter(Boolean).join(', ');
+  lines.push(
+    `Render ${petName}, the same ${species} from the reference image${petDesc ? ` (${petDesc})` : ''} — keep the exact likeness, markings and proportions. Do not invent a different animal.`
+  );
+
+  // Step 2 — scene context: the art-style medium.
+  lines.push(`Rendering style: ${medium}.`);
+
+  // Step 3 — beat-specific scene (interior cards) or a memorial portrait.
+  if (cardType === 'caption' && sceneHint) {
+    lines.push(`Scene: ${petName} ${sceneHint}.`);
+  } else {
+    const kind = cardType === 'opening' ? 'opening title' : cardType === 'closing' ? 'closing' : 'memory';
+    lines.push(`A tender memorial ${kind} portrait of ${petName}, calm and at peace.`);
+  }
+  if (theme) lines.push(`Environment and mood: ${theme.replace(/_/g, ' ')}.`);
+
+  // Step 4 — caption container + the resolved caption text, rendered verbatim.
+  lines.push(`In the lower portion of the image, place the caption container — ${containerName}: ${containerSpec}`);
+  lines.push(
+    `On the caption container, render exactly this text, spelled perfectly and completely with no extra or missing words: "${resolvedCaption}". Render it in elegant lettering that suits the container and the art style.`
+  );
+
+  // Safety + composition.
+  lines.push(
+    'No humans in frame. No imagery of illness, injury or death. No watermarks. Vertical portrait composition — the pet in the upper portion, the caption container below, the pet’s face never covered.'
+  );
+
+  return lines.filter(Boolean).join('\n');
+}

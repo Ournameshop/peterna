@@ -67,6 +67,16 @@ export default function CardPreview({ onNext, onBack, goToStep }: StageProps) {
         ?? state.characterSheetUrl
         ?? undefined;
 
+    // Pet identity for the AI card prompt (skill variable-reference, Group A).
+    const pet = {
+      name: state.petName,
+      species: state.petProfile?.species ?? 'pet',
+      breedGuess: state.petProfile?.breedGuess,
+      coatDescription: state.petProfile?.coatDescription,
+      ageRange: state.petProfile?.ageRange,
+    };
+    const sampleCaptionHint = (memoryBeatIndex >= 0 ? state.beatSheet[memoryBeatIndex] : state.beatSheet[1])?.visual;
+
     const [opening, closing, caption, ...rest] = await Promise.all([
       generateCardImage({
         kind: 'opening',
@@ -77,6 +87,7 @@ export default function CardPreview({ onNext, onBack, goToStep }: StageProps) {
         styleId: state.style,
         aspect: state.aspectRatio,
         userNote,
+        pet,
         backgroundImageUrl: openingBg,
       }),
       generateCardImage({
@@ -88,6 +99,7 @@ export default function CardPreview({ onNext, onBack, goToStep }: StageProps) {
         styleId: state.style,
         aspect: state.aspectRatio,
         userNote,
+        pet,
         backgroundImageUrl: closingBg,
       }),
       generateCardImage({
@@ -99,6 +111,8 @@ export default function CardPreview({ onNext, onBack, goToStep }: StageProps) {
         styleId: state.style,
         aspect: state.aspectRatio,
         userNote,
+        pet,
+        sceneHint: sampleCaptionHint,
         backgroundImageUrl: sampleCaptionBg,
       }),
       // Per-beat full-frame caption card images
@@ -112,6 +126,8 @@ export default function CardPreview({ onNext, onBack, goToStep }: StageProps) {
           styleId: state.style,
           aspect: state.aspectRatio,
           userNote,
+          pet,
+          sceneHint: state.beatSheet.find((b) => b.index === entry.beatIndex)?.visual,
           backgroundImageUrl: state.storyboardImages[entry.beatIndex] ?? state.combinationPreviewUrl ?? undefined,
         })
       ),

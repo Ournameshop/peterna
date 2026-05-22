@@ -14,6 +14,7 @@
 import { themes, artStyles, formats, captionContainers, narrationQuestions, relationships } from '@/lib/peternal-library';
 import type { ThemeId, ArtStyleId, FormatId, ContainerId } from '@/lib/peternal-library';
 import type { PetProfile, PetPhoto, Beat, AspectId, CinematographyBrief, BuilderState } from '../state';
+import { buildTributeCardPrompt } from '@/lib/prompts';
 
 // ---- helpers ---------------------------------------------------------------
 
@@ -356,11 +357,29 @@ ${style ? `Art style: ${style.directive}` : ''}`;
 }
 
 // ---- Card image (skill Stage 5.6) ------------------------------------------
-// Deterministic typography renderer — POSTs to /api/card/render (resvg-based).
-// Keeps the same exported signature so callers don't churn; characterSheet /
-// themeId are accepted but ignored (the renderer is style-driven, not AI).
+// Tribute card render. PRIMARY path: AI — one prompt (buildTributeCardPrompt,
+// per the skill variable-reference) rendered via openai/gpt-image-2/edit with
+// the character sheet as the pet-likeness reference. FALLBACK: the deterministic
+// SVG renderer (/api/card/render), used when the character sheet or pet identity
+// is missing, or if the AI render fails.
 
-async function renderCardImage(opts: {
+const CARD_EDIT_ASPECT: Record<AspectId, 'portrait_16_9' | 'landscape_16_9' | 'square_hd'> = {
+  '9:16': 'portrait_16_9',
+  '16:9': 'landscape_16_9',
+  '1:1': 'square_hd',
+  'all_three': 'portrait_16_9',
+};
+
+export interface CardPet {
+  name: string;
+  species: string;
+  breedGuess?: string;
+  coatDescription?: string;
+  ageRange?: string;
+}
+
+// Deterministic SVG fallback — POSTs to /api/card/render (resvg-based).
+async function renderCardImageSvg(opts: {
   cardType: 'opening' | 'closing' | 'caption' | 'caption_overlay';
   text: string;
   containerId: ContainerId | null;
@@ -401,6 +420,58 @@ async function renderCardImage(opts: {
   }
 }
 
+// AI path — single-prompt tribute card via openai/gpt-image-2/edit.
+async function renderCardImageAI(opts: {
+  kind: 'opening' | 'closing' | 'caption';
+  text: string;
+  characterSheet: string;
+  containerId: ContainerId | null;
+  themeId: ThemeId | null;
+  styleId: ArtStyleId | null;
+  aspect: AspectId;
+  pet: CardPet;
+  sceneHint?: string;
+}): Promise<string | null> {
+  const container = captionContainers.find((c) => c.id === opts.containerId);
+  const prompt = buildTributeCardPrompt({
+    cardType: opts.kind,
+    resolvedCaption: opts.text,
+    artStyle: opts.styleId ?? 'cinematic_realism',
+    containerName: container?.name ?? 'caption banner',
+    containerSpec: container?.spec ?? 'a soft cream caption banner in the lower third',
+    petName: opts.pet.name,
+    species: opts.pet.species,
+    breedGuess: opts.pet.breedGuess,
+    coatDescription: opts.pet.coatDescription,
+    ageRange: opts.pet.ageRange,
+    theme: opts.themeId ?? undefined,
+    sceneHint: opts.sceneHint,
+  });
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 120_000);
+  try {
+    const res = await fetch('/api/image/edit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt,
+        imageUrls: [opts.characterSheet],
+        aspect: CARD_EDIT_ASPECT[opts.aspect] ?? 'portrait_16_9',
+        quality: 'medium',
+        outputFormat: 'png',
+      }),
+      signal: ctrl.signal,
+    });
+    if (!res.ok) return null;
+    const json = (await res.json()) as { url?: string };
+    return typeof json.url === 'string' ? json.url : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function generateCardImage(opts: {
   kind: 'opening' | 'closing' | 'caption';
   text: string;
@@ -411,8 +482,26 @@ export async function generateCardImage(opts: {
   aspect: AspectId;
   userNote?: string;
   backgroundImageUrl?: string;
+  pet?: CardPet;
+  sceneHint?: string;
 }): Promise<string | null> {
-  return renderCardImage({
+  // Skill path: AI render (pet + art style + container + resolved caption text).
+  if (opts.characterSheet && opts.pet) {
+    const ai = await renderCardImageAI({
+      kind: opts.kind,
+      text: opts.text,
+      characterSheet: opts.characterSheet,
+      containerId: opts.containerId,
+      themeId: opts.themeId,
+      styleId: opts.styleId,
+      aspect: opts.aspect,
+      pet: opts.pet,
+      sceneHint: opts.sceneHint,
+    });
+    if (ai) return ai;
+  }
+  // Fallback: deterministic SVG renderer.
+  return renderCardImageSvg({
     cardType: opts.kind,
     text: opts.text,
     containerId: opts.containerId,
@@ -432,7 +521,7 @@ export async function generateCaptionOverlay(opts: {
   styleId: ArtStyleId | null;
   aspect: AspectId;
 }): Promise<string | null> {
-  return renderCardImage({
+  return renderCardImageSvg({
     cardType: 'caption_overlay',
     text: opts.text,
     containerId: opts.containerId,

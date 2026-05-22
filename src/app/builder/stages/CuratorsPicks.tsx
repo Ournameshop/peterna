@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useState } from 'react';
+import Image from 'next/image';
 import { Sparkles, Hammer } from 'lucide-react';
 import { PALETTE } from '../lib/palette';
 import { StageShell, PathCard, Tag, Serif, Sans } from '../lib/primitives';
-import { StyleSwatch } from '../art';
 import { useBuilder } from '../state';
 import type { StageProps } from '../state';
 import { formats, themes, artStyles } from '@/lib/peternal-library';
@@ -74,12 +74,20 @@ export default function CuratorsPicks({ onNext, onBack, goToStep }: StageProps) 
                   borderRadius: 4,
                   overflow: 'hidden',
                   transition: 'all 200ms ease',
+                  display: 'flex',
+                  flexDirection: 'column',
                 }}
                 onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 8px 24px rgba(42,33,27,0.09)'; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'none'; (e.currentTarget as HTMLButtonElement).style.boxShadow = 'none'; }}
               >
-                <div style={{ position: 'relative' }}>
-                  <StyleSwatch styleId={pick.style} width="100%" height={90} />
+                <div style={{ position: 'relative', width: '100%', aspectRatio: '2 / 1', overflow: 'hidden', flexShrink: 0 }}>
+                  <Image
+                    src={`/curator-thumbnails/peterna-curator-${pick.id}.png`}
+                    alt={`${pick.name} curator pick preview`}
+                    fill
+                    sizes="(max-width: 760px) calc(100vw - 48px), (max-width: 1200px) 40vw, 455px"
+                    style={{ objectFit: 'cover' }}
+                  />
                   {isHighlighted && (
                     <div style={{ position: 'absolute', top: 8, left: 8 }}>
                       <Sans style={{ fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', background: PALETTE.brass, color: 'white', padding: '3px 8px', borderRadius: 999 }}>
