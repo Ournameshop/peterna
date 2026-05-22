@@ -239,6 +239,18 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "invalid music url" }, { status: 400 });
   }
 
+  // eslint-disable-next-line no-console
+  console.log(`[COMPOSE-INPUTS] ${JSON.stringify({
+    beats: beats.filter((b) => b.videoUrl).map((b) => ({ index: b.index, videoUrl: b.videoUrl })),
+    openingCardUrl: body.openingCardUrl ?? null,
+    closingCardUrl: body.closingCardUrl ?? null,
+    captionCards: Object.fromEntries(beats.filter((b) => b.captionCardUrl).map((b) => [b.index, b.captionCardUrl])),
+    narrationUrl: body.narrationUrl ?? null,
+    musicUrl: body.musicUrl ?? null,
+    aspectRatio,
+    perBeatMs: body.perBeatMs ?? null,
+  })}`);
+
   const now = Date.now();
   const tmpFiles: string[] = [];
   const outPath = path.join(os.tmpdir(), `compose_out_${now}.mp4`);
@@ -422,7 +434,14 @@ export async function POST(req: Request) {
       outPath
     );
 
-    await runFfmpeg(args);
+    try {
+      await runFfmpeg(args);
+    } catch (ffmpegErr) {
+      const ffmpegMsg = ffmpegErr instanceof Error ? ffmpegErr.message : String(ffmpegErr);
+      // eslint-disable-next-line no-console
+      console.log(`[COMPOSE-FAILED] ${ffmpegMsg}`);
+      throw ffmpegErr;
+    }
 
     tmpFiles.push(outPath);
 
@@ -430,6 +449,8 @@ export async function POST(req: Request) {
     const blob = new Blob([videoData], { type: "video/mp4" });
     const url = await fal.storage.upload(blob);
 
+    // eslint-disable-next-line no-console
+    console.log(`[COMPOSE-OUTPUT] url=${url}`);
     return NextResponse.json({ url });
   } catch (err) {
     const message = err instanceof Error ? err.message : "unknown error";

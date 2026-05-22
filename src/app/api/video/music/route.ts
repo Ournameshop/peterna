@@ -42,6 +42,8 @@ export async function POST(req: Request) {
   if (process.env.SUNO_API_KEY) {
     try {
       const result = await sunoGenerateInstrumental(prompt, durationSeconds);
+      // eslint-disable-next-line no-console
+      console.log(`[GEN-MUSIC] url=${result.url}`);
       return NextResponse.json(result);
     } catch (err) {
       // eslint-disable-next-line no-console
@@ -74,6 +76,8 @@ export async function POST(req: Request) {
     if (!url) {
       return NextResponse.json({ error: "no audio url in fal response" }, { status: 502 });
     }
+    // eslint-disable-next-line no-console
+    console.log(`[GEN-MUSIC] url=${url}`);
     return NextResponse.json({ url, durationMs: music_length_ms });
   } catch (err) {
     const message = err instanceof Error ? err.message : "unknown error";

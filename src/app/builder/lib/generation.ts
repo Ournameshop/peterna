@@ -690,10 +690,12 @@ INSTRUCTIONS
 export async function pollBeatVideo(
   endpoint: string,
   requestId: string,
+  beatIndex?: number,
 ): Promise<{ status: string; url?: string } | null> {
   try {
+    const indexParam = beatIndex != null ? `&beatIndex=${beatIndex}` : '';
     const res = await fetch(
-      `/api/video/status?endpoint=${encodeURIComponent(endpoint)}&requestId=${encodeURIComponent(requestId)}`,
+      `/api/video/status?endpoint=${encodeURIComponent(endpoint)}&requestId=${encodeURIComponent(requestId)}${indexParam}`,
     );
     if (!res.ok) return null;
     const json = (await res.json()) as { status?: string; url?: string };

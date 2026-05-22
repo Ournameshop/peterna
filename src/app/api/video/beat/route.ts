@@ -28,6 +28,7 @@ export const maxDuration = 60;
 
 interface ReqBody {
   beat?: { archetype?: string; brief?: string; caption?: string; spokenOrTitle?: string };
+  beatIndex?: number;
   pet?: { name?: string; species?: string; traits?: string[]; favorites?: string[] };
   format?: string;
   theme?: string;
@@ -126,6 +127,9 @@ export async function POST(req: Request) {
           { status: 502 }
         );
       }
+      const beatIdx = body.beatIndex ?? body.beat?.archetype ?? "?";
+      // eslint-disable-next-line no-console
+      console.log(`[GEN-BEAT] index=${beatIdx} url=${url}`);
       return NextResponse.json({ url, prompt });
     }
 

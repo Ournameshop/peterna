@@ -110,6 +110,8 @@ export async function POST(req: Request) {
       try { fs.unlinkSync(tmpAudio); } catch { /* best-effort */ }
     }
 
+    // eslint-disable-next-line no-console
+    console.log(`[GEN-NARRATION] url=${url} durationMs=${durationMs}`);
     return NextResponse.json({ url, durationMs, timestamps });
   } catch (err) {
     const message = err instanceof Error ? err.message : "unknown error";

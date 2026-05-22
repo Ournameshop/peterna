@@ -5,6 +5,18 @@ Working branch: `Adding-skill-in-webflow`.
 
 ## 2026-05-22
 
+### Download progress bar + generated-asset logging
+- **Progress bar:** the "Download tribute" flow now shows a real progress bar
+  with phase-aware text ("Preparing the narration…" → "Assembling your
+  tribute…" → "Downloading…") instead of a static line. The bar eases from 5%
+  and caps at 92% during the opaque compose, then completes on download.
+- **Asset logging (recovery):** every paid generation now logs its URL to the
+  server log with a greppable tag — `[GEN-BEAT]`, `[GEN-NARRATION]`,
+  `[GEN-MUSIC]` — and compose logs one `[COMPOSE-INPUTS]` JSON line with every
+  input URL (beat videos, cards, audio) plus `[COMPOSE-OUTPUT]` /
+  `[COMPOSE-FAILED]`. So if a compose fails, the expensive Seedance/audio URLs
+  are recoverable from the log and ffmpeg can be re-run by hand.
+
 ### 1-minute tribute length option
 Added a **1-minute** option (8 beats, ~7s each) alongside 2/3/4 minutes — a
 shorter tribute means fewer Seedance video-seconds, so a test run costs

@@ -157,7 +157,7 @@ export default function Generate({ onNext }: StageProps) {
             for (;;) {
               await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
               if (Date.now() > deadline) break;
-              const result = await pollBeatVideo(job.endpoint, job.requestId);
+              const result = await pollBeatVideo(job.endpoint, job.requestId, i);
               if (!result) {
                 consecutiveErrors += 1;
                 if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) break;
@@ -263,7 +263,7 @@ export default function Generate({ onNext }: StageProps) {
       for (;;) {
         await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
         if (Date.now() > deadline) break;
-        const result = await pollBeatVideo(job.endpoint, job.requestId);
+        const result = await pollBeatVideo(job.endpoint, job.requestId, i);
         if (!result) {
           consecutiveErrors += 1;
           if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) break;

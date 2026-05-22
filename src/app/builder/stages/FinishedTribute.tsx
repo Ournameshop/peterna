@@ -55,6 +55,9 @@ export default function FinishedTribute(_props: StageProps) {
   const [showEulogy, setShowEulogy] = useState(false);
   const [downloadStatus, setDownloadStatus] = useState<DownloadStatus>('idle');
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [downloadProgress, setDownloadProgress] = useState(0);
+  const [downloadPhase, setDownloadPhase] = useState('');
+  const downloadTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [shareStatus, setShareStatus] = useState<ShareStatus>('idle');
   const [shareError, setShareError] = useState<string | null>(null);
   const [shareLink, setShareLink] = useState<string | null>(null);
@@ -155,7 +158,7 @@ export default function FinishedTribute(_props: StageProps) {
 
   // Shared helper: compose the tribute video and return its URL.
   // Throws on any failure so callers can handle errors uniformly.
-  async function composeVideo(): Promise<string> {
+  async function composeVideo(onPhase?: (phase: string) => void): Promise<string> {
     if (Object.keys(state.beatVideos).length === 0) {
       throw new Error('Still rendering — try again in a moment.');
     }
@@ -172,6 +175,7 @@ export default function FinishedTribute(_props: StageProps) {
     let narrationScript: string | null = state.narrationScript ?? null;
     let narrationTimestamps: NarrationWord[] | null = state.narrationTimestamps ?? null;
     if (state.words.narration !== 'off' && !narrationUrl) {
+      onPhase?.('Preparing the narration…');
       const script = await composeNarrationScript(state);
       if (!script) {
         throw new Error('Could not compose a narration script — please fill in at least a pet name.');
@@ -252,6 +256,7 @@ export default function FinishedTribute(_props: StageProps) {
       state.words.subtitles === true &&
       narrationScript !== null;
 
+    onPhase?.('Assembling your tribute…');
     const res = await fetch('/api/video/compose', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -281,13 +286,41 @@ export default function FinishedTribute(_props: StageProps) {
     return json.url;
   }
 
+  function startProgressRamp() {
+    setDownloadProgress(5);
+    if (downloadTimerRef.current) clearInterval(downloadTimerRef.current);
+    downloadTimerRef.current = setInterval(() => {
+      setDownloadProgress((prev) => {
+        if (prev >= 92) return prev;
+        // Ease: larger steps early, smaller steps as we approach the cap.
+        const remaining = 92 - prev;
+        const step = Math.max(0.15, remaining * 0.018);
+        return Math.min(92, prev + step);
+      });
+    }, 400);
+  }
+
+  function stopProgressRamp() {
+    if (downloadTimerRef.current) {
+      clearInterval(downloadTimerRef.current);
+      downloadTimerRef.current = null;
+    }
+  }
+
   async function handleDownload() {
     setDownloadError(null);
+    setDownloadProgress(0);
+    setDownloadPhase('Preparing your tribute…');
     setDownloadStatus('preparing');
+    startProgressRamp();
     try {
       // Never re-use a cached assembledVideoUrl — always re-compose on download.
-      const videoUrl = await composeVideo();
+      const videoUrl = await composeVideo((phase) => setDownloadPhase(phase));
+      stopProgressRamp();
+      setDownloadPhase('Downloading…');
+      setDownloadProgress(95);
       const videoBlob = await fetch(videoUrl).then((r) => r.blob());
+      setDownloadProgress(100);
       const objectUrl = URL.createObjectURL(videoBlob);
       const a = document.createElement('a');
       a.href = objectUrl;
@@ -295,7 +328,14 @@ export default function FinishedTribute(_props: StageProps) {
       a.click();
       URL.revokeObjectURL(objectUrl);
       setDownloadStatus('done');
+      setTimeout(() => {
+        setDownloadProgress(0);
+        setDownloadPhase('');
+      }, 1200);
     } catch (err) {
+      stopProgressRamp();
+      setDownloadProgress(0);
+      setDownloadPhase('');
       setDownloadError(err instanceof Error ? err.message : 'Download failed');
       setDownloadStatus('error');
     }
@@ -403,6 +443,38 @@ export default function FinishedTribute(_props: StageProps) {
             </Sans>
           </div>
         )}
+      </div>
+
+      {/* Download progress bar */}
+      {downloadStatus === 'preparing' && (
+        <div style={{ marginTop: 14, maxWidth: 420 }}>
+          <div
+            style={{
+              height: 3,
+              background: PALETTE.parchmentLight,
+              borderRadius: 2,
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              style={{
+                height: '100%',
+                width: `${downloadProgress}%`,
+                background: PALETTE.brass,
+                borderRadius: 2,
+                transition: 'width 400ms ease-out',
+              }}
+            />
+          </div>
+          {downloadPhase && (
+            <Sans style={{ fontSize: 12, color: PALETTE.mute, marginTop: 6, letterSpacing: '0.04em' }}>
+              {downloadPhase}
+            </Sans>
+          )}
+        </div>
+      )}
+
+      <div style={{ marginTop: 12, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
         <PrimaryButton onClick={handleShare} disabled={shareStatus === 'preparing'} secondary>
           {shareStatus === 'preparing' ? 'Creating your page…' : 'Get my memorial page link'}
         </PrimaryButton>

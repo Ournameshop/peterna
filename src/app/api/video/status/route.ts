@@ -25,9 +25,15 @@ export async function GET(req: Request) {
     const status = await fal.queue.status(endpoint, { requestId, logs: false });
     if (status.status === "COMPLETED") {
       const result = await fal.queue.result(endpoint, { requestId });
+      const videoUrl = result?.data?.video?.url || null;
+      if (videoUrl) {
+        const beatIndex = url.searchParams.get("beatIndex") ?? requestId;
+        // eslint-disable-next-line no-console
+        console.log(`[GEN-BEAT] index=${beatIndex} url=${videoUrl}`);
+      }
       return NextResponse.json({
         status: "COMPLETED",
-        url: result?.data?.video?.url || null,
+        url: videoUrl,
       });
     }
     return NextResponse.json({ status: status.status });
