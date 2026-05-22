@@ -633,6 +633,14 @@ export async function composeNarrationScript(state: BuilderState): Promise<strin
     .map((b, i) => `${i + 1}. ${b.name}: ${b.visual}`)
     .join('\n');
 
+  // Narration length scales with the chosen tribute length so the voiceover
+  // fits WITHIN the video. A script longer than the video makes compose pad a
+  // frozen tail — e.g. a 200-word script on a 1-minute video overruns by ~35s.
+  // ~100 words ≈ ~50s of gentle ElevenLabs speech at the current 0.82 speed.
+  const wordsLow  = state.targetMinutes * 100;
+  const wordsHigh = state.targetMinutes * 120;
+  const wordsCap  = state.targetMinutes * 160;
+
   const prompt = `You are writing the voiceover narration for a memorial tribute video for a beloved pet. Write it in the FIRST PERSON, as if spoken aloud by the pet's owner — warm, intimate, and personal, never generic.
 
 THE PET
@@ -649,7 +657,7 @@ THE OPENING TITLE CARD READS: "${state.cardText.opening}"
 THE CLOSING TITLE CARD READS: "${state.cardText.closing}"
 
 INSTRUCTIONS
-- Write ONE continuous narration script, 200 to 230 words. This is critical — it must play for roughly 90 to 105 seconds at a gentle, unhurried pace, but not longer.
+- Write ONE continuous narration script, ${wordsLow} to ${wordsHigh} words. This is critical — it must fit comfortably WITHIN a roughly ${state.targetMinutes}-minute video at a gentle, unhurried pace, and must NOT run longer.
 - Follow the emotional arc of the beats above, from the opening to the close.
 - Speak as the owner, to or about ${name}. Use the correct pronouns.
 - Use the owner's own details — the memory, the traits, the things ${name} loved. Weave them in naturally; do not list them.
@@ -675,10 +683,11 @@ INSTRUCTIONS
     .replace(/\s+/g, ' ')
     .trim();
 
-  // Hard-cap at 280 words on a word boundary.
+  // Hard-cap on a word boundary — scales with tribute length so a runaway
+  // generation can't overrun the video.
   const words = clean.split(' ');
-  if (words.length > 280) {
-    clean = words.slice(0, 280).join(' ');
+  if (words.length > wordsCap) {
+    clean = words.slice(0, wordsCap).join(' ');
     // End at the last sentence boundary if possible.
     const lastPeriod = clean.lastIndexOf('.');
     if (lastPeriod > clean.length * 0.6) clean = clean.slice(0, lastPeriod + 1);

@@ -5,6 +5,14 @@ Working branch: `Adding-skill-in-webflow`.
 
 ## 2026-05-22
 
+### 1-minute dry-run fix — narration scales with tribute length
+A dry-run of the new 1-minute option found the narration script was hardcoded
+at 200–230 words (~90–105s) regardless of length. On a 1-minute (~60s) video
+that overruns by ~35s, and compose pads a ~35s frozen tail — the 1-minute
+tribute would actually be ~95s. The Gemini narration word target (and the
+hard cap) now scale with `targetMinutes`: ~100–120 words for 1 min, ~200–240
+for 2 min, and so on — so the voiceover always fits inside the video.
+
 ### Download progress bar + generated-asset logging
 - **Progress bar:** the "Download tribute" flow now shows a real progress bar
   with phase-aware text ("Preparing the narration…" → "Assembling your
