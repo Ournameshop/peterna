@@ -3,7 +3,6 @@
 import React from 'react';
 import { PALETTE } from '../lib/palette';
 import { StageShell, Serif, Sans } from '../lib/primitives';
-import { StyleSwatch } from '../art';
 import { useBuilder } from '../state';
 import type { StageProps } from '../state';
 import { artStyles } from '@/lib/peternal-library';
@@ -46,7 +45,12 @@ function StyleCard({ styleId, active, onClick }: { styleId: ArtStyleId; active: 
       onMouseEnter={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.borderColor = PALETTE.brass; }}
       onMouseLeave={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.borderColor = PALETTE.parchmentLight; }}
     >
-      <StyleSwatch styleId={styleId} width="100%" height={90} />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={`/style-thumbnails/peterna-style-${styleId}.png`}
+        alt={`${style.name} art style preview`}
+        style={{ width: '100%', aspectRatio: '4 / 3', objectFit: 'cover', display: 'block' }}
+      />
       <div style={{ padding: '10px 12px 14px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
           <span style={{ fontSize: 15 }}>{style.emoji}</span>

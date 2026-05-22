@@ -5,6 +5,15 @@ Working branch: `Adding-skill-in-webflow`.
 
 ## 2026-05-22
 
+### Art-style picker — real thumbnails
+Generated the 8 art-style thumbnails (`openai/gpt-image-2`, per the fal
+handover spec — a consistent dog+cat pair rendered in each medium so the
+styles are distinguishable at a glance) and wired them into the Stage 3.4
+`StylePick` cards, replacing the SVG `StyleSwatch`. Images in
+`public/style-thumbnails/`. The `storybook` prompt needed living-illustrator
+names stripped (OpenAI content filter) — same fix pattern as the watercolor
+pilot.
+
 ### Builder preview mode — standalone `/builder-preview` route
 A dev/review route to inspect any builder stage's UI with mock data and
 **zero API calls**. A step navigator lists all 24 stages grouped by phase —
