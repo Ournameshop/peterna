@@ -5,6 +5,12 @@ Working branch: `Adding-skill-in-webflow`.
 
 ## 2026-05-22
 
+### Format picker — 4-up grid + brand-brown line icons
+Stage 3.2 `FormatPick`: the card grid is now a fixed 4 columns (was a
+responsive `auto-fill`). The format-card icons are now monochrome
+Feather-style line icons in the brand brown (`espressoSoft`), replacing the
+colored emoji — matching the screenshot reference.
+
 ### Format picker — watercolor hero stills
 Generated the 8 format hero stills (`openai/gpt-image-2`, per the fal handover
 — one watercolor scene per format, same dog+cat pair) and wired them into the
