@@ -65,7 +65,7 @@ export default function FeaturedPortraitGallery() {
   const objectPosition = PORTRAIT_OBJECT_POSITION[pet.slug] ?? "center 35%";
 
   return (
-    <div className="peterna-portrait-gallery">
+    <div className="peterna-portrait-gallery" suppressHydrationWarning>
       {/* Featured card column */}
       <div className="peterna-portrait-featured">
         <div

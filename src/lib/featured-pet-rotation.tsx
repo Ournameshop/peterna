@@ -47,16 +47,15 @@ export function FeaturedPetRotationProvider({
   const prefersReducedMotion = useReducedMotion();
   const total = FEATURED_PETS.length;
 
-  // Deterministic SSR (index 0) — randomize on the client after mount so
-  // different visitors meet different pets first WITHOUT causing a
-  // hydration mismatch between server-rendered HTML and the first client
-  // pass. See `useEffect` below.
-  const [index, setIndex] = useState(0);
-  useEffect(() => {
-    if (total > 1) setIndex(Math.floor(Math.random() * total));
-    // Run once on mount; subsequent rotations happen in the timer effect below.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Random starting index — different visitors meet different pets first.
+  // Server-side renders pick one value, client picks another → React would
+  // warn about hydration mismatch under the gallery node. We let the
+  // hydration roundtrip use the server's value, then accept the divergence
+  // visually because the gallery container carries `suppressHydrationWarning`
+  // at its root (see FeaturedPortraitGallery).
+  const [index, setIndex] = useState(() =>
+    total > 0 ? Math.floor(Math.random() * total) : 0,
+  );
 
   const goTo = useCallback(
     (next: number) => {
