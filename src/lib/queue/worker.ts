@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
 
 import { generateVideo } from '@/lib/ai/generate-video';
@@ -20,7 +20,10 @@ import { findTheme } from '@/lib/library/themes';
 import { findMusicTrack } from '@/lib/library/music-tracks';
 import { sendTributeReadyEmail } from '@/lib/notifications/tribute-ready-email';
 import { normalizeAspect } from '@/lib/prompts/build-preview';
-import { buildVideoClipPrompt } from '@/lib/prompts/build-video-clip';
+import {
+  buildVideoClipPrompt,
+  selectSeedPhotoForBeat,
+} from '@/lib/prompts/build-video-clip';
 import { sendPushToSession } from '@/lib/push/send';
 import { shareUrlForSlug } from '@/lib/delivery/slug';
 import { getPublicUrl, uploadObject } from '@/lib/storage/s3';
@@ -210,6 +213,27 @@ async function runVideoClipJob(job: RenderJob): Promise<void> {
 
   await setClipStatus(job.sessionId, beatIdx, 'rendering');
 
+  // Phase 15a — opportunistic with_human seed photo. For memory/companionship
+  // beats, we feed Seedance a real photo of pet+person as the start frame
+  // instead of the rendered storyboard frame. Selector returns null when the
+  // archetype isn't in scope or the session has no with_human photos.
+  const withHumanRows = await db
+    .select({ url: assets.publicUrl })
+    .from(assets)
+    .where(
+      and(
+        eq(assets.sessionId, job.sessionId),
+        eq(assets.kind, 'pet_photo'),
+        sql`${assets.metadata}->>'photo_role' = 'with_human'`,
+      ),
+    );
+  const seedPhotoOverrideUrl =
+    selectSeedPhotoForBeat({
+      beatIdx,
+      archetype: beat.archetype,
+      withHumanPhotoUrls: withHumanRows.map((r) => r.url),
+    }) ?? undefined;
+
   const { prompt, imageUrl, durationSeconds, aspectRatio } = buildVideoClipPrompt({
     session,
     beat,
@@ -218,6 +242,7 @@ async function runVideoClipJob(job: RenderJob): Promise<void> {
     theme,
     style,
     storyboardFrameUrl: frame.publicUrl,
+    seedPhotoOverrideUrl,
   });
 
   let result;

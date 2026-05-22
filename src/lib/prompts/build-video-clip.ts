@@ -70,7 +70,52 @@ export type BuildVideoClipInput = {
   style: ArtStyle;
   /** S3 public URL of the approved `kind='storyboard_frame'` asset for this beat. */
   storyboardFrameUrl: string;
+  /**
+   * Phase 15a — optional seed-photo override. When set, the builder uses this
+   * URL as the Seedance `image_url` instead of the storyboard frame. The
+   * storyboard frame is still referenced as a likeness anchor inside the prompt
+   * body ("Maintain the look established in the reference frame.") so identity
+   * doesn't drift. Only fires on memory/companionship/turning archetypes when
+   * the session has at least one with_human photo (see selectSeedPhotoForBeat).
+   */
+  seedPhotoOverrideUrl?: string;
 };
+
+/**
+ * Beat archetypes that get the with_human seed-photo override when an
+ * appropriate photo exists. Kept as a `Set` lookup so the selector is O(1)
+ * and the list is the single source of truth for the override rule.
+ */
+export const WITH_HUMAN_OVERRIDE_ARCHETYPES: ReadonlySet<string> = new Set([
+  'peak_warmth',
+  'companionship',
+  'turning',
+]);
+
+/**
+ * Round-robin selector for the with_human image-to-video seed. Returns the
+ * next photo URL for a given beat_idx so the override URLs vary across the
+ * tribute's memory beats instead of all reusing the same photo. Pure function
+ * — same `(beatIdx, photos)` always picks the same URL, so retries with the
+ * same idempotency key produce the same prompt.
+ *
+ * Returns `null` when the beat's archetype isn't in the override set OR when
+ * there are no with_human photos available. Callers fall back to the
+ * storyboard frame on `null`.
+ */
+export function selectSeedPhotoForBeat(input: {
+  beatIdx: number;
+  archetype: string;
+  withHumanPhotoUrls: ReadonlyArray<string>;
+}): string | null {
+  if (!WITH_HUMAN_OVERRIDE_ARCHETYPES.has(input.archetype)) return null;
+  if (input.withHumanPhotoUrls.length === 0) return null;
+  // Round-robin by beat_idx. Modulo over the photo array length keeps the
+  // selection deterministic and bounded.
+  const i = ((input.beatIdx % input.withHumanPhotoUrls.length) + input.withHumanPhotoUrls.length) %
+    input.withHumanPhotoUrls.length;
+  return input.withHumanPhotoUrls[i] ?? null;
+}
 
 export type BuildVideoClipOutput = {
   prompt: string;
@@ -83,6 +128,14 @@ export function buildVideoClipPrompt(input: BuildVideoClipInput): BuildVideoClip
   const petName = (input.session.pet_name ?? '').trim() || 'this pet';
   const aspect = normalizeAspect(input.session.aspect_ratio);
   const brief = input.brief;
+
+  // Phase 15a — when a with_human seed override is in play, Seedance animates
+  // a real photo of pet+person instead of the rendered storyboard frame. We
+  // still pin the storyboard frame inside the prompt body as a likeness
+  // anchor so the model doesn't drift the pet's identity toward whatever
+  // pet happens to be in the with_human photo angle.
+  const usingOverride = Boolean(input.seedPhotoOverrideUrl);
+  const seedImageUrl = input.seedPhotoOverrideUrl ?? input.storyboardFrameUrl;
 
   const likenessSentence = LIKENESS_REFERENCE_SENTENCE_TEMPLATE.replace(
     /\[PET_NAME\]/g,
@@ -121,9 +174,20 @@ export function buildVideoClipPrompt(input: BuildVideoClipInput): BuildVideoClip
     exclusions,
   ];
 
+  if (usingOverride) {
+    // Likeness anchor sentence — the storyboard frame still defines the
+    // canonical look of the pet; the override only changes the starting
+    // frame Seedance animates from. We append the anchor as a tail line so
+    // the locked likeness sentence stays at position 0.
+    sections.push('');
+    sections.push(
+      'Animate the start image directly. Maintain the look established in the storyboard reference for the pet — markings, proportions, and distinguishing features stay exactly as rendered. Do not alter the human in the frame; gently animate breathing and small natural motion only.',
+    );
+  }
+
   return {
     prompt: sections.join('\n').trim(),
-    imageUrl: input.storyboardFrameUrl,
+    imageUrl: seedImageUrl,
     durationSeconds: 15,
     aspectRatio: aspect,
   };
