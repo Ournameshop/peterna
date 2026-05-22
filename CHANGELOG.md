@@ -5,6 +5,22 @@ Working branch: `Adding-skill-in-webflow`.
 
 ## 2026-05-22
 
+### Beat videos — fixed the "dog just breathing" stillness
+The Seedance beat prompts handed the model raw internal enum tokens
+(`camera move: slow_push`, `subject motion: breath_only`) — jargon a video
+model can't act on — so clips barely animated. Plus the cinematography engine
+collapsed most beats to `breath_only`. Fixed:
+- New `peternal-motion-phrasing.ts` translates every cinematography enum into
+  vivid, directive motion language.
+- `buildBeatPrompt` rewritten — leads with a "this is a moving clip, not a
+  still" mandate, an archetype motion directive, and full motion sentences for
+  camera, subject, lighting; the raw jargon line is gone.
+- Engine: memory beats no longer default to a lying/`breath_only` pose;
+  action keywords broadened; medium/high-energy memory/connection/release
+  beats now get real `loop_action`/`one_shot_action` motion. Calm
+  opening/closing bookends preserved.
+Render tier unchanged (fast) — zero added cost.
+
 ### Video length, narration script, and a warmer voice
 Audit of a real downloaded tribute found a 2-minute tribute produced a **6:43**
 file — ~5 minutes of frozen frame. Three fixes (architect-planned, reviewed):

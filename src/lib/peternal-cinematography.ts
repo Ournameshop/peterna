@@ -57,7 +57,7 @@ const ARCHETYPE_ENV_MOTION: Record<BeatArchetype, FrameMetadata['environmentalMo
 // Map beat archetypes to a default subject pose.
 const ARCHETYPE_POSE: Record<BeatArchetype, FrameMetadata['subjectPose']> = {
   open:        'sitting',
-  memory:      'lying',
+  memory:      'standing',
   connection:  'sitting',
   ceremonial:  'standing',
   release:     'running',
@@ -88,8 +88,8 @@ const ARCHETYPE_FRAMING: Record<BeatArchetype, FrameMetadata['framing']> = {
 function sceneHintEnergyBump(hint: string | undefined): 'still' | 'low' | 'medium' | 'high' {
   if (!hint) return 'low';
   const h = hint.toLowerCase();
-  if (h.includes('run') || h.includes('play') || h.includes('car') || h.includes('snow')) return 'high';
-  if (h.includes('walk') || h.includes('patrol') || h.includes('window')) return 'medium';
+  if (h.includes('run') || h.includes('bound') || h.includes('leap') || h.includes('chase') || h.includes('fetch') || h.includes('beach') || h.includes('zoom') || h.includes('play') || h.includes('car') || h.includes('snow')) return 'high';
+  if (h.includes('walk') || h.includes('trot') || h.includes('patrol') || h.includes('path') || h.includes('backyard') || h.includes('window')) return 'medium';
   if (h.includes('nap') || h.includes('sleep') || h.includes('sunbeam') || h.includes('cuddle')) return 'still';
   return 'low';
 }
@@ -113,6 +113,14 @@ export function simulateFrameMetadata(beat: Beat, theme: ThemeId): FrameMetadata
   let subjectPose = ARCHETYPE_POSE[archetype];
   if (subjectEnergy === 'high' && archetype === 'memory') subjectPose = 'running';
   if (subjectEnergy === 'medium' && archetype === 'memory') subjectPose = 'walking';
+  // Gate lying on explicit rest-keyword in the visual — never use it as an archetype default.
+  if (archetype === 'memory' && subjectPose === 'standing') {
+    const visualLower = (beat.visual ?? '').toLowerCase();
+    const sceneHintLower = (beat.sceneHintSource ?? '').toLowerCase();
+    if (/nap|sleep|sunbeam|cuddle|curl/.test(visualLower) || /nap|sleep|sunbeam|cuddle|curl/.test(sceneHintLower)) {
+      subjectPose = 'lying';
+    }
+  }
 
   // Framing: close-up on connection/close, wide on release/ceremonial.
   const framing = ARCHETYPE_FRAMING[archetype];
@@ -239,12 +247,18 @@ function deriveMoveIntensity(
 function deriveSubjectMotion(
   pose: FrameMetadata['subjectPose'],
   archetype: BeatArchetype,
+  energy: FrameMetadata['subjectEnergy'],
 ): CinematographyBrief['subjectMotion'] {
   if (archetype === 'open' || archetype === 'close') return 'breath_only';
-  if (pose === 'lying') return 'breath_only';
   if (pose === 'closed_eyes') return 'locked';
   if (pose === 'running' || pose === 'mid_leap') return 'one_shot_action';
   if (pose === 'walking') return 'loop_action';
+  // For active archetypes at medium/high energy, never collapse to breath_only.
+  const activeArchetype = archetype === 'memory' || archetype === 'connection' || archetype === 'release';
+  if (activeArchetype && energy === 'high') return 'one_shot_action';
+  if (activeArchetype && energy === 'medium') return 'loop_action';
+  // lying is still valid for explicit rest keywords (energy will be still/low).
+  if (pose === 'lying') return 'breath_only';
   if (archetype === 'release') return 'loop_action';
   return 'loop_idle';
 }
@@ -360,7 +374,7 @@ export function deriveBrief(
   const lensCharacter = deriveLensCharacter(lensMm);
   const cameraMove = deriveCameraMove(frame.subjectEnergy, beat.archetype, ctx.prevMove);
   const moveIntensity = deriveMoveIntensity(captionWordCount, frame.subjectEnergy);
-  const subjectMotion = deriveSubjectMotion(frame.subjectPose, beat.archetype);
+  const subjectMotion = deriveSubjectMotion(frame.subjectPose, beat.archetype, frame.subjectEnergy);
   const lightingMotion = deriveLightingMotion(frame.environmentalMotion, beat.archetype);
   const dofBehavior = deriveDofBehavior(beat.archetype, captionWordCount);
   const shotStructure = deriveShotStructure(frame.subjectEnergy, ctx.format, beat.archetype);
