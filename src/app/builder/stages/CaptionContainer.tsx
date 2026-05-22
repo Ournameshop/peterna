@@ -66,6 +66,7 @@ export default function CaptionContainer({ onNext, onBack }: StageProps) {
             fontFamily: 'Inter, sans-serif', fontSize: 10,
             letterSpacing: '0.1em', textTransform: 'uppercase',
             padding: '2px 8px', borderRadius: 999,
+            whiteSpace: 'nowrap',
           }}>
             Recommended for your style
           </div>
