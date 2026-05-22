@@ -75,7 +75,7 @@ export default function EulogyView({
     {
       id: "approve",
       label: EULOGY.review.pills.approve,
-      variant: "primary",
+      variant: "affirm",
     },
     {
       id: "rerender",

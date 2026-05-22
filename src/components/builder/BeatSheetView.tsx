@@ -64,7 +64,7 @@ export default function BeatSheetView({
     {
       id: "approve",
       label: BEAT_SHEET_REVIEW.pills.approve,
-      variant: "primary",
+      variant: "affirm",
     },
     {
       id: "regenerate",

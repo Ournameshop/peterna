@@ -61,7 +61,7 @@ export default function CardPreviewView({
     {
       id: "approve",
       label: CARD_PREVIEW.pills.approve,
-      variant: "primary",
+      variant: "affirm",
     },
     {
       id: "restart_words",
