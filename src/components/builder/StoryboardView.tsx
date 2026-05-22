@@ -73,7 +73,7 @@ export default function StoryboardView({
     {
       id: "approve",
       label: STORYBOARD_REVIEW.pills.approve,
-      variant: "primary",
+      variant: "affirm",
     },
     {
       id: "restart",

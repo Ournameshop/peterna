@@ -172,7 +172,7 @@ function ReviewBody({
     {
       id: "approve",
       label: CINEMATOGRAPHY.review.pills.approve,
-      variant: "primary",
+      variant: "affirm",
     },
     {
       id: "regenerate",

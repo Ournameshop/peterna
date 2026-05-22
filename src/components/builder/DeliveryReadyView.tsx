@@ -14,6 +14,7 @@ import { DELIVERY, substitutePetName } from "@/lib/library/copy";
 import { completion } from "@/lib/builder/haptic";
 import { DURATION, EASE } from "@/lib/builder/motion-tokens";
 import NotificationOptIn from "./NotificationOptIn";
+import { AffirmBtn } from "./buttons";
 
 // Phase 9 — Final wizard stage. The screen the user lands on after the
 // eulogy is locked. Responsibilities:
@@ -111,9 +112,14 @@ export default function DeliveryReadyView({
 
       {eulogyPdfUrl ? (
         <div style={downloadRow}>
-          <DownloadButton href={eulogyPdfUrl}>
+          {/* Phase 9 — the closing affirmation. Uses AffirmBtn for
+              gold-keyed continuity with the wizard's gate affordances. */}
+          <AffirmBtn
+            href={eulogyPdfUrl}
+            ariaLabel={DELIVERY.ready.download_eulogy}
+          >
             {DELIVERY.ready.download_eulogy}
-          </DownloadButton>
+          </AffirmBtn>
         </div>
       ) : null}
 
@@ -421,32 +427,6 @@ function FinalizingPanel({ petName }: { petName: string | null }) {
 }
 
 // -----------------------------------------------------------------------------
-// Inline download button helper
-// -----------------------------------------------------------------------------
-
-function DownloadButton({
-  href,
-  children,
-}: {
-  href: string;
-  children: string;
-}) {
-  return (
-    <motion.a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.98 }}
-      transition={{ type: "spring", stiffness: 400, damping: 25 }}
-      style={downloadButton}
-    >
-      {children}
-    </motion.a>
-  );
-}
-
-// -----------------------------------------------------------------------------
 // Styles
 // -----------------------------------------------------------------------------
 
@@ -579,23 +559,6 @@ const hiddenTextarea: CSSProperties = {
 const downloadRow: CSSProperties = {
   display: "flex",
   justifyContent: "center",
-};
-
-const downloadButton: CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 6,
-  fontFamily: FONT_SANS,
-  fontSize: 13,
-  fontWeight: 500,
-  padding: "12px 22px",
-  borderRadius: 999,
-  background: C.gold,
-  color: C.ink,
-  border: "none",
-  textDecoration: "none",
-  cursor: "pointer",
-  letterSpacing: "0.01em",
 };
 
 const emailFormWrap: CSSProperties = {

@@ -30,11 +30,16 @@ import { tap, confirm } from "@/lib/builder/haptic";
 export type GateAction = {
   id: string;
   label: string;
-  // Optional visual modifier — `primary` keeps the slot's default ink-on-cream
-  // look; `quiet` is borderless underlined; `danger` is for destructive
-  // "Start over" affordances. The visual difference is small and intentional —
-  // the gate should not feel like a high-stakes UI moment.
-  variant?: "primary" | "quiet" | "danger";
+  // Optional visual modifier:
+  //   - `affirm`  — gold-keyed primary affirmation (NEW). Used for the *one*
+  //                 "approve / it's beautiful" action per gate. Per audit
+  //                 CC-2 this is what every gate's first pill should be.
+  //   - `primary` — legacy ink-on-cream. Kept for back-compat / non-gate
+  //                 callers; new gates should prefer `affirm`.
+  //   - `quiet`   — borderless underlined; for skip / start-over / cancel.
+  //   - `danger`  — outlined neutral; for destructive "Start over" or
+  //                 "Rewrite the whole sheet" affordances.
+  variant?: "affirm" | "primary" | "quiet" | "danger";
 };
 
 type Props = {
@@ -111,7 +116,19 @@ function styleFor(variant: GateAction["variant"], disabled: boolean): CSSPropert
       opacity: disabled ? 0.5 : 1,
     };
   }
-  // primary (default)
+  if (variant === "affirm") {
+    // Gold-keyed primary affirmation — the *one* primary action per gate.
+    // Mirrors the new AffirmBtn semantic in src/components/builder/buttons.tsx.
+    return {
+      ...baseActionStyle,
+      background: C.gold,
+      color: C.ink,
+      border: "none",
+      cursor: disabled ? "not-allowed" : "pointer",
+      opacity: disabled ? 0.55 : 1,
+    };
+  }
+  // primary (default, ink-on-cream — kept for back-compat).
   return {
     ...baseActionStyle,
     background: C.ink,

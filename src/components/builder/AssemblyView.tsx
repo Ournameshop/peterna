@@ -72,7 +72,7 @@ export default function AssemblyView({
     {
       id: "approve",
       label: ASSEMBLY.review.pills.approve,
-      variant: "primary",
+      variant: "affirm",
     },
     {
       id: "restitch",

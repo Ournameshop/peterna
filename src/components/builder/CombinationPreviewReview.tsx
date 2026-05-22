@@ -87,7 +87,7 @@ export default function CombinationPreviewReview({
     {
       id: "approve",
       label: COMBINATION_PREVIEW.pills.approve,
-      variant: "primary",
+      variant: "affirm",
     },
     {
       id: "restart_style",

@@ -94,7 +94,7 @@ export default function CharacterSheetView({
     {
       id: "approve",
       label: CHARACTER_SHEET_REVIEW.pills.approve,
-      variant: "primary",
+      variant: "affirm",
     },
     {
       id: "refine",
