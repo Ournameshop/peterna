@@ -75,23 +75,20 @@ export default function FormatPick({ onNext, goToStep }: StageProps) {
               onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLButtonElement).style.borderColor = PALETTE.brass; }}
               onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLButtonElement).style.borderColor = PALETTE.parchmentLight; }}
             >
-              <div style={{ width: '100%', aspectRatio: '4 / 3', overflow: 'hidden', pointerEvents: 'none' }}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={`/format-thumbnails/peterna-format-${f.id}.png`}
-                  alt={`${f.name} format preview`}
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'cover',
-                    display: 'block',
-                    // greatest_hits has empty space at the top of its hero
-                    // still — crop it tighter, biased upward. Others unchanged.
-                    transform: f.id === 'greatest_hits' ? 'scale(1.17)' : 'scale(1.14)',
-                    transformOrigin: f.id === 'greatest_hits' ? 'center 62%' : 'center',
-                  }}
-                />
-              </div>
+              {/* The hero stills are 1152×896 — the card image area uses that
+                  exact ratio so every image fits fully, no crop. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={`/format-thumbnails/peterna-format-${f.id}.png`}
+                alt={`${f.name} format preview`}
+                style={{
+                  width: '100%',
+                  aspectRatio: '1152 / 896',
+                  objectFit: 'cover',
+                  display: 'block',
+                  pointerEvents: 'none',
+                }}
+              />
               <div style={{ padding: '12px 14px 14px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 4 }}>
                   <span style={{ display: 'flex', flexShrink: 0, color: PALETTE.brassDeep }}>

@@ -5,6 +5,12 @@ Working branch: `Adding-skill-in-webflow`.
 
 ## 2026-05-22
 
+### Format cards — images show at native ratio, crop removed
+The format card image area now uses the hero stills' exact `1152 / 896`
+ratio, so each watercolor scene fits fully with no crop. Removed the
+per-image zoom-crop (`scale()` / `transformOrigin`) that was causing
+empty-space whack-a-mole — the images now display exactly as generated.
+
 ### Picker framing — per-style crop + format image fill + icon color
 - `StylePick`: replaced the single zoom-crop with a per-style `STYLE_CROP`
   map — `cinematic_realism`, `animated_3d`, `claymation`, `pixel_art` needed
