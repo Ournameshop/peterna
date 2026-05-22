@@ -2,19 +2,20 @@
 
 import type { ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { C, FONT_SANS, NARROW_MAX } from "@/lib/peterna-tokens";
-import { SHELL_COPY } from "@/lib/library/copy";
+import { C, NARROW_MAX } from "@/lib/peterna-tokens";
 import type { StageTag } from "@/lib/builder/state";
 import { DURATION, EASE } from "@/lib/builder/motion-tokens";
 import StageBanner from "./StageBanner";
+import BuilderProgressRail from "./BuilderProgressRail";
+import HelpFooter from "./HelpFooter";
 
-// Outer wizard shell: stage banner on top, panel content in the middle,
-// quiet "stuck" footer at the bottom. The spec's per-widget "if the form
-// sticks" line collapses to this single shell footer for web.
+// Outer wizard shell: progress rail, stage banner, panel content, and a
+// quiet help affordance pinned to the corner. The spec's per-widget "if the
+// form sticks" line collapses to the single HelpFooter for web (audit CC-6).
 //
 // `showBanner` is opt-out for Stage 1.0 (the welcome screen is full-bleed
-// and pre-banner). Every screen from intake_returning_user_check onward
-// renders the banner.
+// pre-banner and intentionally chrome-less per audit). Every screen from
+// intake_returning_user_check onward renders the banner + the rail.
 
 type Props = {
   stage: StageTag;
@@ -23,14 +24,38 @@ type Props = {
   children: ReactNode;
 };
 
+// Global :focus-visible ring. Inlined here so the wizard root always has a
+// keyboard-visible focus indicator (audit CC-8). Gold-keyed, 2px, 2px offset.
+// Template-stringed from C.gold so we don't drift from the token. Skipped
+// transition keeps it instant — respects prefers-reduced-motion implicitly.
+const FOCUS_RING_CSS = `
+  .peterna-wizard-root button:focus-visible,
+  .peterna-wizard-root a:focus-visible,
+  .peterna-wizard-root [role="button"]:focus-visible,
+  .peterna-wizard-root input:focus-visible,
+  .peterna-wizard-root textarea:focus-visible,
+  .peterna-wizard-root [tabindex]:focus-visible {
+    outline: 2px solid ${C.gold};
+    outline-offset: 2px;
+    border-radius: inherit;
+    transition: none;
+  }
+`;
+
 export default function WizardShell({
   stage,
   petName,
   showBanner = true,
   children,
 }: Props) {
+  // The welcome screen suppresses all chrome — the WelcomePanel above carries
+  // the entire moment. `showBanner` doubles as our chrome flag because Stage
+  // 1.0 is the only screen that hides the banner.
+  const showChrome = showBanner;
+
   return (
     <div
+      className="peterna-wizard-root"
       style={{
         background: C.cream,
         color: C.ink,
@@ -39,7 +64,9 @@ export default function WizardShell({
         minHeight: "calc(100vh - 72px)", // leave room for sticky <Nav>
       }}
     >
+      <style dangerouslySetInnerHTML={{ __html: FOCUS_RING_CSS }} />
       <div style={NARROW_MAX}>
+        {showChrome ? <BuilderProgressRail currentStage={stage} /> : null}
         {showBanner ? <StageBanner stage={stage} petName={petName} /> : null}
         <main role="main" aria-live="polite">
           {/* AnimatePresence wraps the active stage so each transitions out
@@ -59,19 +86,8 @@ export default function WizardShell({
             </motion.div>
           </AnimatePresence>
         </main>
-        <p
-          style={{
-            marginTop: 56,
-            textAlign: "center",
-            fontFamily: FONT_SANS,
-            fontSize: 12,
-            color: C.inkSofter,
-            letterSpacing: "0.02em",
-          }}
-        >
-          {SHELL_COPY.stuck_footer}
-        </p>
       </div>
+      {showChrome ? <HelpFooter /> : null}
     </div>
   );
 }
