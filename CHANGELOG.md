@@ -5,6 +5,14 @@ Working branch: `Adding-skill-in-webflow`.
 
 ## 2026-05-22
 
+### Format picker — watercolor hero stills
+Generated the 8 format hero stills (`openai/gpt-image-2`, per the fal handover
+— one watercolor scene per format, same dog+cat pair) and wired them into the
+Stage 3.2 `FormatPick` cards, replacing the SVG `FormatThumb`. Images in
+`public/format-thumbnails/`. Note: 3 handover prompt headings were remapped to
+this project's format IDs on save — `letter_to_my_pet`→`letter`,
+`their_greatest_hits`→`greatest_hits`, `postcards_from`→`postcards`.
+
 ### Builder UX — fill style thumbnails + scroll-to-top on step change
 - `StylePick`: CSS zoom-crop (`scale(1.38)`) on the art-style thumbnails so
   the dog+cat pair fills the card — the fal handover composed them at ~65%
