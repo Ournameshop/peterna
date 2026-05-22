@@ -80,7 +80,16 @@ export default function FormatPick({ onNext, goToStep }: StageProps) {
                 <img
                   src={`/format-thumbnails/peterna-format-${f.id}.png`}
                   alt={`${f.name} format preview`}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', transform: 'scale(1.14)' }}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    display: 'block',
+                    // greatest_hits has empty space at the top of its hero
+                    // still — crop it tighter, biased upward. Others unchanged.
+                    transform: f.id === 'greatest_hits' ? 'scale(1.17)' : 'scale(1.14)',
+                    transformOrigin: f.id === 'greatest_hits' ? 'center 62%' : 'center',
+                  }}
                 />
               </div>
               <div style={{ padding: '12px 14px 14px' }}>
