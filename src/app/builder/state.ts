@@ -283,6 +283,13 @@ export function resetDownstream(state: BuilderState, fromStage: StepId): Partial
   }
 }
 
+// PreviewContext — exposes preview mode flag to any stage that needs to gate generation.
+export const PreviewContext = createContext<boolean>(false);
+
+export function usePreviewMode(): boolean {
+  return useContext(PreviewContext);
+}
+
 interface BuilderContextValue {
   state: BuilderState;
   update: (patch: Partial<BuilderState>) => void;
@@ -291,8 +298,9 @@ interface BuilderContextValue {
 
 export const BuilderContext = createContext<BuilderContextValue | null>(null);
 
-export function BuilderProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<BuilderState>(initialState);
+export function BuilderProvider({ children, seed }: { children: React.ReactNode; seed?: BuilderState }) {
+  const [state, setState] = useState<BuilderState>(seed ?? initialState);
+  const isPreview = seed !== undefined;
 
   const update = (patch: Partial<BuilderState>) => setState(s => ({ ...s, ...patch }));
 
@@ -301,9 +309,13 @@ export function BuilderProvider({ children }: { children: React.ReactNode }) {
   };
 
   return React.createElement(
-    BuilderContext.Provider,
-    { value: { state, update, resetDownstream: resetDs } },
-    children,
+    PreviewContext.Provider,
+    { value: isPreview },
+    React.createElement(
+      BuilderContext.Provider,
+      { value: { state, update, resetDownstream: resetDs } },
+      children,
+    ),
   );
 }
 

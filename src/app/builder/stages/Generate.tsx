@@ -5,7 +5,7 @@ import { Loader2, Maximize2, X, RefreshCw } from 'lucide-react';
 import { PALETTE } from '../lib/palette';
 import { Serif, Sans, Eyebrow, PrimaryButton } from '../lib/primitives';
 import { BeatScene } from '../art';
-import { useBuilder } from '../state';
+import { useBuilder, usePreviewMode } from '../state';
 import type { StageProps } from './types';
 import { themes } from '@/lib/peternal-library';
 import { generateBeatVideo, pollBeatVideo } from '../lib/generation';
@@ -26,6 +26,7 @@ function defaultClipState(): ClipState {
 
 export default function Generate({ onNext }: StageProps) {
   const { state, update } = useBuilder();
+  const previewMode = usePreviewMode();
   const beatCount = state.beatCount;
   const [completedCount, setCompletedCount] = useState(
     () => Object.keys(state.beatVideos).length,
@@ -61,8 +62,8 @@ export default function Generate({ onNext }: StageProps) {
   const startedRef = useRef(false);
 
   useEffect(() => {
-    // Return visit: already have all videos, skip regeneration.
-    if (Object.keys(state.beatVideos).length >= beatCount) {
+    // Return visit or preview mode: already have all videos, skip regeneration.
+    if (previewMode || Object.keys(state.beatVideos).length >= beatCount) {
       setCompletedCount(beatCount);
       setDone(true);
       return;

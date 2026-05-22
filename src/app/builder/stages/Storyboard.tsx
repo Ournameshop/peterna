@@ -4,12 +4,13 @@ import React, { useEffect, useRef, useState } from 'react';
 import { PALETTE } from '../lib/palette';
 import { Serif, Sans, GateReview } from '../lib/primitives';
 import { generateStoryboardFrame } from '../lib/generation';
-import { useBuilder } from '../state';
+import { useBuilder, usePreviewMode } from '../state';
 import { BeatScene } from '../art';
 import type { StageProps } from './types';
 
 export default function Storyboard({ onNext, onBack }: StageProps) {
   const { state, update } = useBuilder();
+  const previewMode = usePreviewMode();
   const [generating, setGenerating] = useState(false);
   // Init from the persisted approval flag — not from beatSheet length (which is
   // always populated by the time Storyboard is reached). This way the batch
@@ -30,7 +31,7 @@ export default function Storyboard({ onNext, onBack }: StageProps) {
     if (ranRef.current) return;
     ranRef.current = true;
     const hasImages = Object.keys(state.storyboardImages).length > 0;
-    if (generated || hasImages || beats.length === 0) {
+    if (previewMode || generated || hasImages || beats.length === 0) {
       setGenerated(true);
       return;
     }

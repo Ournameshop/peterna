@@ -3,13 +3,14 @@
 import React, { useEffect, useState } from 'react';
 import { PALETTE } from '../lib/palette';
 import { Serif, Sans, StageShell, ApprovalPills } from '../lib/primitives';
-import { useBuilder } from '../state';
+import { useBuilder, usePreviewMode } from '../state';
 import { generateBeatSheet } from '@/lib/peternal-beatsheet';
 import type { StageProps } from './types';
 import type { Beat } from '../state';
 
 export default function BeatSheet({ onNext, onBack }: StageProps) {
   const { state, update, resetDownstream } = useBuilder();
+  const previewMode = usePreviewMode();
   const [action, setAction] = useState<string | null>(null);
   const [editIndex, setEditIndex] = useState<number | null>(null);
   const [editField, setEditField] = useState<'name' | 'visual' | 'caption' | 'spokenOrTitle' | null>(null);
@@ -17,7 +18,7 @@ export default function BeatSheet({ onNext, onBack }: StageProps) {
   const [reorderFrom, setReorderFrom] = useState<number | null>(null);
 
   useEffect(() => {
-    if (state.beatSheet.length === 0 && state.format && state.theme && state.gender) {
+    if (!previewMode && state.beatSheet.length === 0 && state.format && state.theme && state.gender) {
       const beatSheet = generateBeatSheet({
         beatCount: state.beatCount,
         format: state.format,

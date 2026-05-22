@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { PALETTE } from '../lib/palette';
 import { GateReview, Sans, Eyebrow } from '../lib/primitives';
-import { useBuilder } from '../state';
+import { useBuilder, usePreviewMode } from '../state';
 import type { StageProps } from './types';
 import type { CinematographyBrief, DpStyleId } from '../state';
 import { dpStyleLibrary } from '@/lib/peternal-library';
@@ -46,12 +46,13 @@ const FIELD_OPTIONS: Partial<Record<keyof CinematographyBrief, string[]>> = {
 
 export default function Cinematography({ onNext, onBack }: StageProps) {
   const { state, update } = useBuilder();
+  const previewMode = usePreviewMode();
   const [editing, setEditing] = useState<{ beatIndex: number; field: keyof CinematographyBrief } | null>(null);
   const [adjustMode, setAdjustMode] = useState(false);
 
   // On mount: if briefs are empty, run the engine
   useEffect(() => {
-    if (state.cinematographyBriefs.length === 0) {
+    if (!previewMode && state.cinematographyBriefs.length === 0) {
       const { briefs, adjustments } = runCinematographyEngine(state);
       update({ cinematographyBriefs: briefs, engineAdjustments: adjustments });
     }

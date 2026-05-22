@@ -7,6 +7,7 @@ import { Serif, Sans, GateReview } from '../lib/primitives';
 import { useBuilder } from '../state';
 import { CardArt } from '../art';
 import { generateCardImage, generateCaptionOverlay } from '../lib/generation';
+import { usePreviewMode } from '../state';
 import type { StageProps } from './types';
 import type { ContainerId } from '../state';
 import { openingArchetypes, closingArchetypes } from '@/lib/peternal-library';
@@ -14,6 +15,7 @@ import { resolveText } from '@/lib/peternal-resolvers';
 
 export default function CardPreview({ onNext, onBack, goToStep }: StageProps) {
   const { state, update } = useBuilder();
+  const previewMode = usePreviewMode();
   const [generating, setGenerating] = useState(false);
   const [zoomed, setZoomed] = useState<number | null>(null);
 
@@ -150,7 +152,7 @@ export default function CardPreview({ onNext, onBack, goToStep }: StageProps) {
     if (ranRef.current) return;
     ranRef.current = true;
     const imgs = state.cardPreviewImages;
-    if (imgs.opening !== null || imgs.closing !== null || imgs.caption !== null) return;
+    if (previewMode || imgs.opening !== null || imgs.closing !== null || imgs.caption !== null) return;
     runGeneration();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

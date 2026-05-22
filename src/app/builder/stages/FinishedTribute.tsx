@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Download } from 'lucide-react';
 import { PALETTE } from '../lib/palette';
 import { Serif, Sans, Eyebrow, PrimaryButton } from '../lib/primitives';
-import { useBuilder } from '../state';
+import { useBuilder, usePreviewMode } from '../state';
 import { initialState } from '../state';
 import type { StageProps } from './types';
 import type { BuilderState } from '../state';
@@ -52,6 +52,7 @@ type ShareStatus = 'idle' | 'preparing' | 'done' | 'error';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export default function FinishedTribute(_props: StageProps) {
   const { state, update } = useBuilder();
+  const previewMode = usePreviewMode();
   const [showEulogy, setShowEulogy] = useState(false);
   const [downloadStatus, setDownloadStatus] = useState<DownloadStatus>('idle');
   const [downloadError, setDownloadError] = useState<string | null>(null);
@@ -70,6 +71,7 @@ export default function FinishedTribute(_props: StageProps) {
     // Generate a Suno music bed unless the user explicitly chose silence.
     // The bed plays in both the narration-off and narration-on cases — when
     // narration is on, Stage 7 (compose) ducks it to -18dB beneath the voice.
+    if (previewMode) return;
     if (state.words.music === 'silence') return;
     if (state.musicBedUrl) return;
     if (musicStartedRef.current) return;
@@ -115,6 +117,7 @@ export default function FinishedTribute(_props: StageProps) {
   // be HEARD in the preview (and reused at compose time, not regenerated).
   const narrationStartedRef = useRef(false);
   useEffect(() => {
+    if (previewMode) return;
     if (state.words.narration === 'off') return;
     if (state.narrationUrl) return;
     if (narrationStartedRef.current) return;

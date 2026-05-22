@@ -6,7 +6,7 @@ import { PALETTE } from '../lib/palette';
 import { Eyebrow, Sans, Serif, GateReview } from '../lib/primitives';
 import { PetSketch } from '../art';
 import { generateCharacterSheet } from '../lib/generation';
-import { useBuilder } from '../state';
+import { useBuilder, usePreviewMode } from '../state';
 import type { StageProps } from '../state';
 
 const REFINE_OPTIONS = [
@@ -28,6 +28,7 @@ const GATE_OPTIONS = [
 
 export default function CharacterSheet({ onNext, onBack, goToStep }: StageProps) {
   const { state, update } = useBuilder();
+  const previewMode = usePreviewMode();
   const [generating, setGenerating] = useState(true);
   const [selected, setSelected] = useState<string | null>(null);
   const [selectedRefinements, setSelectedRefinements] = useState<string[]>([]);
@@ -53,7 +54,7 @@ export default function CharacterSheet({ onNext, onBack, goToStep }: StageProps)
   useEffect(() => {
     if (ranRef.current) return;
     ranRef.current = true;
-    if (state.characterSheetUrl) {
+    if (previewMode || state.characterSheetUrl) {
       setGenerating(false);
       return;
     }

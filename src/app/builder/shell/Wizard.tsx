@@ -48,9 +48,9 @@ export function useWizard(): WizardContextValue {
   return ctx;
 }
 
-export function WizardProvider({ children }: { children: React.ReactNode }) {
-  const [stepIndex, setStepIndex] = useState(0);
-  const [furthestReached, setFurthestReached] = useState(0);
+export function WizardProvider({ children, initialStepIndex = 0 }: { children: React.ReactNode; initialStepIndex?: number }) {
+  const [stepIndex, setStepIndex] = useState(initialStepIndex);
+  const [furthestReached, setFurthestReached] = useState(initialStepIndex);
   const { resetDownstream } = useBuilder();
 
   const next = useCallback(() => {

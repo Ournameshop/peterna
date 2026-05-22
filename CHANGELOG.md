@@ -5,6 +5,15 @@ Working branch: `Adding-skill-in-webflow`.
 
 ## 2026-05-22
 
+### Builder preview mode — standalone `/builder-preview` route
+A dev/review route to inspect any builder stage's UI with mock data and
+**zero API calls**. A step navigator lists all 24 stages grouped by phase —
+click any to jump straight to it. Built on `buildMockState()` (a fully
+populated `BuilderState`) so every stage's generation guard is satisfied;
+each stage also has a `previewMode` belt-and-suspenders guard. The production
+`/builder` is untouched. Discardable by deleting `src/app/builder-preview/`,
+`src/app/builder/lib/mockState.ts`, and `public/_preview-placeholder.png`.
+
 ### Caption-container picker — real thumbnails
 Generated the 13 caption-container thumbnails (`openai/gpt-image-2`, per the
 fal handover spec) and wired them into the Stage 4.5 picker — each card now

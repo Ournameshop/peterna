@@ -6,12 +6,13 @@ import { PALETTE } from '../lib/palette';
 import { StageShell, Pill, Serif, Sans } from '../lib/primitives';
 import { BeatScene } from '../art';
 import { generateCombinationPreview } from '../lib/generation';
-import { useBuilder } from '../state';
+import { useBuilder, usePreviewMode } from '../state';
 import type { StageProps } from '../state';
 import { formats, themes, artStyles } from '@/lib/peternal-library';
 
 export default function CombinationPreview({ onNext, onBack, goToStep }: StageProps) {
   const { state, update } = useBuilder();
+  const previewMode = usePreviewMode();
   const [generating, setGenerating] = useState(!state.combinationPreviewUrl);
 
   const petName = state.petName || 'them';
@@ -34,7 +35,7 @@ export default function CombinationPreview({ onNext, onBack, goToStep }: StagePr
   useEffect(() => {
     if (ranRef.current) return;
     ranRef.current = true;
-    if (state.combinationPreviewUrl) {
+    if (previewMode || state.combinationPreviewUrl) {
       setGenerating(false);
       return;
     }
