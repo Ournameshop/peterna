@@ -390,11 +390,15 @@ export async function POST(req: Request) {
     const hasAudio = narrationPath !== null || musicPath !== null;
     const tLen = targetLength.toFixed(3);
 
+    const fadeDur = 1.5;
+    const fadeSt = targetLength - fadeDur;
+    const musicFade = fadeSt > 0 ? `,afade=t=out:st=${fadeSt.toFixed(3)}:d=${fadeDur}` : '';
+
     if (narrationPath && musicPath) {
       // Case A: narration + music, music ducked
       filterParts.push(
         `[${narrationIndex}:a]${NARR_POST},apad=whole_dur=${tLen},atrim=0:${tLen},asetpts=N/SR/TB[na]`,
-        `[${musicIndex}:a]volume=${MUSIC_DUCK_VOLUME},atrim=0:${tLen},asetpts=N/SR/TB[ma]`,
+        `[${musicIndex}:a]volume=${MUSIC_DUCK_VOLUME}${musicFade},atrim=0:${tLen},asetpts=N/SR/TB[ma]`,
         `[na][ma]amix=inputs=2:duration=longest:dropout_transition=0:normalize=0[aout]`
       );
     } else if (narrationPath) {
@@ -405,7 +409,7 @@ export async function POST(req: Request) {
     } else if (musicPath) {
       // Case C: music only at full volume, trimmed to video length
       filterParts.push(
-        `[${musicIndex}:a]volume=1.0,atrim=0:${tLen},asetpts=N/SR/TB[aout]`
+        `[${musicIndex}:a]volume=1.0${musicFade},atrim=0:${tLen},asetpts=N/SR/TB[aout]`
       );
     }
 

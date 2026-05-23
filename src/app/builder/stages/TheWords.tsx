@@ -31,6 +31,7 @@ import {
 } from '@/lib/peternal-library';
 import { resolveArchetype, resolveText, musicTracksFor, captionVoiceFor } from '@/lib/peternal-resolvers';
 import { buildInstrumentalPrompt } from '@/lib/music-prompts';
+import { computeTributeAudioSeconds } from '../lib/tribute-duration';
 
 const NARRATION_QUESTIONS = narrationQuestions;
 const PREVIEW_AUDIO_URL =
@@ -88,6 +89,12 @@ function defaultMusicStyle(state: BuilderState): string {
 
 function songDurationLabel(state: BuilderState): string {
   return `${state.targetMinutes}:00`;
+}
+
+function fmtMmSs(totalSeconds: number): string {
+  const m = Math.floor(totalSeconds / 60);
+  const s = Math.floor(totalSeconds % 60);
+  return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
 function lyricLengthInstruction(state: BuilderState): string {
@@ -543,7 +550,7 @@ export default function TheWords({ onNext, onBack }: StageProps) {
       ? `${style}${musicNote.trim() ? `. ${musicNote.trim()}` : ''}. ${lyricLengthInstruction(state)} End cleanly before ${songDurationLabel(state)}; no extended instrumental outro.`
       : style;
     const lyrics = state.words.musicLyrics || buildLyricDraft(state, musicOpeningLabel, musicClosingLabel);
-    const durationSeconds = Math.ceil(state.targetMinutes * 60);
+    const durationSeconds = computeTributeAudioSeconds(state);
 
     update({
       words: {
@@ -1451,6 +1458,17 @@ export default function TheWords({ onNext, onBack }: StageProps) {
             {state.musicBedUrl && (
               <div style={{ marginTop: 18 }}>
                 <audio src={state.musicBedUrl} controls style={{ width: '100%' }} />
+                {(() => {
+                  if (!state.musicBedDurationMs || state.musicBedDurationMs <= 0) return null;
+                  const tributeSec = computeTributeAudioSeconds(state);
+                  const songSec = state.musicBedDurationMs / 1000;
+                  if (songSec <= tributeSec + 30) return null;
+                  return (
+                    <Serif italic style={{ display: 'block', marginTop: 10, fontSize: 13, color: PALETTE.mute, lineHeight: 1.5 }}>
+                      Your song is {fmtMmSs(songSec)}. We&apos;ll fade it out at {fmtMmSs(tributeSec)} to match your tribute length.
+                    </Serif>
+                  );
+                })()}
               </div>
             )}
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>

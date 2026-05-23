@@ -13,6 +13,7 @@ import { downloadEulogyPdf } from '@/lib/peternal-eulogy-pdf';
 import { musicTracks, narrationVoices } from '@/lib/peternal-library';
 import { buildInstrumentalPrompt } from '@/lib/music-prompts';
 import { composeNarrationScript } from '../lib/generation';
+import { computeTributeAudioSeconds } from '../lib/tribute-duration';
 import TributePlayer from './TributePlayer';
 import type { NarrationWord } from '@/lib/peternal-subtitles';
 
@@ -86,9 +87,7 @@ export default function FinishedTribute(_props: StageProps) {
     const title = state.words.musicTitle || `For ${state.petName || 'You'}`.slice(0, 80);
 
     // Duration: total tribute length in seconds.
-    const captionCardCount = Object.keys(state.captionCardImages).length;
-    const cardsSeconds = 6 + captionCardCount * 2.5;
-    const totalSeconds = Math.ceil(state.targetMinutes * 60 + cardsSeconds + captionCardCount * 2.5);
+    const totalSeconds = computeTributeAudioSeconds(state);
 
     (async () => {
       try {
