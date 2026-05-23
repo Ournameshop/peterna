@@ -122,6 +122,8 @@ export interface BuilderState {
   characterSheetApproved: boolean;
   characterSheetRefinements: string[];
   characterSheetUrl: string | null;           // the locked 2x2 likeness reference (skill Stage 2) — data URL
+  musicIntent: 'lyric' | 'standard' | null;
+  lockedDurationSeconds: number | null;
   beatCount: 8 | 12 | 16;
   targetMinutes: 1 | 2 | 3 | 4;
   aspectRatio: AspectId;
@@ -181,6 +183,8 @@ export const initialState: BuilderState = {
   characterSheetApproved: false,
   characterSheetRefinements: [],
   characterSheetUrl: null,
+  musicIntent: null,
+  lockedDurationSeconds: null,
   beatCount: 12,
   targetMinutes: 3,
   aspectRatio: '9:16',
@@ -245,6 +249,32 @@ export const initialState: BuilderState = {
 
 export function resetDownstream(state: BuilderState, fromStage: StepId): Partial<BuilderState> {
   switch (fromStage) {
+    case 'music_intent':
+      return {
+        lockedDurationSeconds: null,
+        beatSheet: [],
+        beatSheetApproved: false,
+        storyboardApproved: false,
+        storyboardImages: {},
+        beatVideos: {},
+        captionCardImages: {},
+        captionOverlayImages: {},
+        burnedBeatVideos: {},
+        assembledVideoUrl: null,
+        musicBedUrl: null,
+        musicBedDurationMs: null,
+        narrationUrl: null,
+        narrationDurationMs: null,
+        narrationScript: null,
+        narrationTimestamps: null,
+        cinematographyBriefs: [],
+        cinematographyApproved: false,
+        words: {
+          ...state.words,
+          musicVariants: [],
+          musicApproved: false,
+        },
+      };
     case 'length_aspect':
       return {
         beatSheet: [],

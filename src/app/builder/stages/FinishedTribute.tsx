@@ -76,6 +76,7 @@ export default function FinishedTribute(_props: StageProps) {
     if (previewMode) return;
     if (state.words.music === 'silence') return;
     if (state.musicBedUrl) return;
+    if (state.musicIntent === 'lyric') return;
     if (state.words.musicMode !== 'preset') return;
     if (!state.words.musicApproved) return;
     if (musicStartedRef.current) return;
@@ -272,6 +273,7 @@ export default function FinishedTribute(_props: StageProps) {
         narrationUrl: narrationUrl || null,
         narrationDurationMs: narrationDurationMs ?? undefined,
         musicUrl: musicUrl || null,
+        lockedDurationSeconds: state.lockedDurationSeconds ?? undefined,
         subtitlesEnabled,
         narrationScript: subtitlesEnabled ? narrationScript : null,
         narrationTimestamps: subtitlesEnabled ? narrationTimestamps : null,

@@ -8,6 +8,7 @@ export type StepId =
   | 'traits_fav'
   | 'creator_years'
   | 'character'
+  | 'music_intent'
   | 'length_aspect'
   | 'curators'
   | 'style_confirm'
@@ -50,6 +51,7 @@ export const STEPS: StepDef[] = [
   { id: 'traits_fav',       group: 'intake',     skillStage: '1.9' },
   { id: 'creator_years',    group: 'intake',     skillStage: '1.11' },
   { id: 'character',        group: 'likeness',   gate: 1, skillStage: '2' },
+  { id: 'music_intent',     group: 'likeness',   skillStage: '2.4' },
   { id: 'length_aspect',    group: 'likeness',   skillStage: '2.5' },
   { id: 'curators',         group: 'direction',  skillStage: '3.1' },
   { id: 'style_confirm',    group: 'direction',  skillStage: '3.1.5' },

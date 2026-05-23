@@ -86,6 +86,7 @@ interface ReqBody {
   subtitlesEnabled?: boolean;
   narrationScript?: string | null;
   narrationTimestamps?: NarrationWord[] | null;
+  lockedDurationSeconds?: number | null;
 }
 
 interface Segment {
@@ -300,7 +301,11 @@ export async function POST(req: Request) {
     const narrationLength = narrationPath
       ? (bodyNarrationSec > 0 ? bodyNarrationSec : await probeDurationSec(narrationPath))
       : 0;
-    const targetLength = Math.max(videoContentLength, narrationLength);
+    // When a lyric song locked the tribute length, use that as master timing.
+    const lockedSec = (body.lockedDurationSeconds ?? 0) > 0 ? (body.lockedDurationSeconds as number) : 0;
+    const targetLength = lockedSec > 0
+      ? lockedSec
+      : Math.max(videoContentLength, narrationLength);
     const videoDeficit = targetLength - videoContentLength;
 
     // Build subtitle ASS file if requested.

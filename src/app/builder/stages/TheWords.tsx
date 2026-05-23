@@ -331,10 +331,28 @@ export default function TheWords({ onNext, onBack }: StageProps) {
   const musicOptions = musicTracksFor(theme, artStyle);
   const selectedMusicTrack = musicOptions.find((m) => m.id === state.words.music);
 
-  // Auto-select the first recommended track when the user first enters the
-  // music sub-step and has not made an explicit choice yet.
+  // Auto-select music mode when the user first enters the music sub-step.
+  // Lyric intent → force custom_lyrics; standard intent → preset.
   useEffect(() => {
     if (sub !== 3) return;
+    if (state.musicIntent === 'lyric') {
+      if (state.words.musicMode !== 'custom_lyrics') {
+        update({
+          words: {
+            ...state.words,
+            musicMode: 'custom_lyrics',
+            musicTitle: state.words.musicTitle || safeTitle(petName),
+            musicStyle: state.words.musicStyle || defaultMusicStyle(state),
+            musicLyrics: state.words.musicLyrics || '',
+            musicApproved: false,
+            musicGenerationStatus: 'idle',
+            musicGenerationError: '',
+            musicVariants: [],
+          },
+        });
+      }
+      return;
+    }
     if (state.words.musicMode !== 'ambient_only') return;
     if (state.words.music !== 'silence') return;
     if (musicOptions.length === 0) return;
@@ -621,6 +639,7 @@ export default function TheWords({ onNext, onBack }: StageProps) {
         durationMs: json.durationMs ?? 0,
         title: json.title ?? title,
       };
+      const shouldLock = isLyrics && state.musicIntent === 'lyric' && (json.durationMs ?? 0) > 0;
       update({
         words: {
           ...state.words,
@@ -636,6 +655,7 @@ export default function TheWords({ onNext, onBack }: StageProps) {
         },
         musicBedUrl: json.url,
         musicBedDurationMs: json.durationMs ?? null,
+        lockedDurationSeconds: shouldLock ? Math.ceil((json.durationMs as number) / 1000) : state.lockedDurationSeconds,
         assembledVideoUrl: null,
       });
     } catch (err) {
@@ -1110,6 +1130,17 @@ export default function TheWords({ onNext, onBack }: StageProps) {
     const mode = state.words.musicMode;
     const isGenerating = state.words.musicGenerationStatus === 'generating';
     const canContinue = mode === 'ambient_only' || (state.words.musicApproved && !!state.musicBedUrl);
+    const intentIsLyric = state.musicIntent === 'lyric';
+
+    // Allowed mode tabs vary by musicIntent.
+    const allowedModes: Array<[MusicMode, string]> = intentIsLyric
+      ? [['custom_lyrics', 'Create song with lyrics']]
+      : [
+          ['preset', 'Recommended score'],
+          ['custom_instrumental', 'Create instrumental'],
+          ['upload', 'Upload audio'],
+          ['ambient_only', 'Ambient only'],
+        ];
 
     return (
       <StageShell
@@ -1121,32 +1152,32 @@ export default function TheWords({ onNext, onBack }: StageProps) {
         canNext={canContinue}
         nextLabel="Next: Narration"
       >
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 28 }}>
-          {([
-            ['preset', 'Recommended score'],
-            ['custom_instrumental', 'Create instrumental'],
-            ['custom_lyrics', 'Create song with lyrics'],
-            ['upload', 'Upload audio'],
-            ['ambient_only', 'Ambient only'],
-          ] as const).map(([id, label]) => (
-            <button
-              key={id}
-              onClick={() => setMusicMode(id)}
-              style={{
-                padding: '9px 15px',
-                border: `1px solid ${mode === id ? PALETTE.espresso : PALETTE.parchmentLight}`,
-                background: mode === id ? PALETTE.espresso : 'white',
-                color: mode === id ? PALETTE.bone : PALETTE.espresso,
-                borderRadius: 999,
-                cursor: 'pointer',
-                fontFamily: 'Inter, sans-serif',
-                fontSize: 13,
-              }}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        {intentIsLyric ? (
+          <div style={{ marginBottom: 20, padding: '10px 14px', background: 'rgba(201,169,97,0.06)', border: `1px solid ${PALETTE.brass}`, borderRadius: 4, display: 'inline-block' }}>
+            <Sans style={{ fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: PALETTE.brassDeep }}>Lyric song</Sans>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 28 }}>
+            {allowedModes.map(([id, label]) => (
+              <button
+                key={id}
+                onClick={() => setMusicMode(id)}
+                style={{
+                  padding: '9px 15px',
+                  border: `1px solid ${mode === id ? PALETTE.espresso : PALETTE.parchmentLight}`,
+                  background: mode === id ? PALETTE.espresso : 'white',
+                  color: mode === id ? PALETTE.bone : PALETTE.espresso,
+                  borderRadius: 999,
+                  cursor: 'pointer',
+                  fontFamily: 'Inter, sans-serif',
+                  fontSize: 13,
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
 
         {mode === 'preset' && (
           <FieldGroup label="Recommended scores" hint="choose one, then generate a preview">
@@ -1459,6 +1490,7 @@ export default function TheWords({ onNext, onBack }: StageProps) {
               <div style={{ marginTop: 18 }}>
                 <audio src={state.musicBedUrl} controls style={{ width: '100%' }} />
                 {(() => {
+                  if (state.musicIntent === 'lyric') return null;
                   if (!state.musicBedDurationMs || state.musicBedDurationMs <= 0) return null;
                   const tributeSec = computeTributeAudioSeconds(state);
                   const songSec = state.musicBedDurationMs / 1000;

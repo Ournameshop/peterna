@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PALETTE } from '../lib/palette';
 import { Serif, Sans, StageShell } from '../lib/primitives';
 import { useBuilder } from '../state';
@@ -12,7 +12,15 @@ type InternalStep = 'length' | 'aspect';
 
 export default function LengthAspect({ onNext, onBack }: StageProps) {
   const { state, update, resetDownstream } = useBuilder();
-  const [step, setStep] = useState<InternalStep>('length');
+  const isLyric = state.musicIntent === 'lyric';
+  const [step, setStep] = useState<InternalStep>(isLyric ? 'aspect' : 'length');
+
+  useEffect(() => {
+    if (isLyric && !state.targetMinutes) {
+      update({ targetMinutes: 3, beatCount: 12 });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLyric]);
 
   function selectLength(beatCount: 8 | 12 | 16, targetMinutes: 1 | 2 | 3 | 4) {
     // 1- and 2-minute both use 8 beats, so the choice can change without
@@ -102,10 +110,23 @@ export default function LengthAspect({ onNext, onBack }: StageProps) {
       title={<>Which screen <em>shape</em> feels right?</>}
       lede="The tribute will be rendered in this format. You can change it any time before generation."
       onNext={onNext}
-      onBack={() => setStep('length')}
+      onBack={isLyric ? onBack : () => setStep('length')}
       canNext={true}
       nextLabel="Continue"
     >
+      {isLyric && (
+        <div style={{
+          marginBottom: 24,
+          padding: '16px 18px',
+          background: 'rgba(201,169,97,0.06)',
+          border: `1px solid ${PALETTE.brass}`,
+          borderRadius: 4,
+        }}>
+          <Serif italic style={{ fontSize: 16, color: PALETTE.espresso, lineHeight: 1.5 }}>
+            Length: auto — your lyric song decides the tribute length. We&apos;ll lock it once your song generates.
+          </Serif>
+        </div>
+      )}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
         {aspects.map(asp => {
           const active = state.aspectRatio === asp.id;

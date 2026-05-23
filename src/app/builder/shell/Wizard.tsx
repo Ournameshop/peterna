@@ -15,6 +15,7 @@ import {
   TraitsFavorites,
   CreatorYears,
   CharacterSheet,
+  MusicIntent,
   LengthAspect,
   CuratorsPicks,
   StyleConfirm,
@@ -114,6 +115,7 @@ export default function Wizard() {
           case 'traits_fav':        return <TraitsFavorites {...props} />;
           case 'creator_years':     return <CreatorYears {...props} />;
           case 'character':         return <CharacterSheet {...props} />;
+          case 'music_intent':      return <MusicIntent {...props} />;
           case 'length_aspect':     return <LengthAspect {...props} />;
           case 'curators':          return <CuratorsPicks {...props} />;
           case 'style_confirm':     return <StyleConfirm {...props} />;

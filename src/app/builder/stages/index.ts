@@ -7,6 +7,7 @@ export { default as MemoryRelationship } from './MemoryRelationship';
 export { default as TraitsFavorites } from './TraitsFavorites';
 export { default as CreatorYears } from './CreatorYears';
 export { default as CharacterSheet } from './CharacterSheet';
+export { default as MusicIntent } from './MusicIntent';
 export { default as LengthAspect } from './LengthAspect';
 export { default as CuratorsPicks } from './CuratorsPicks';
 export { default as StyleConfirm } from './StyleConfirm';
