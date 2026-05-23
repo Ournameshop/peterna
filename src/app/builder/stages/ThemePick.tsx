@@ -9,10 +9,22 @@ import { themeCategories, themes } from '@/lib/peternal-library';
 import type { ThemeCategoryId, ThemeId } from '@/lib/peternal-library';
 
 // Themes that have a generated preview image in public/theme-thumbnails/.
-// Themes not listed here fall back to the gradient swatch. This set grows as
-// each theme category's previews are generated — to avoid duplicates, check
-// here before generating a theme thumbnail.
-const THEMES_WITH_THUMBNAILS = new Set<ThemeId>(['rainbow_bridge', 'sunrise_reunion']);
+// Themes not listed here fall back to the gradient swatch. All 12 are now
+// generated — keep this set in sync with the asset folder.
+const THEMES_WITH_THUMBNAILS = new Set<ThemeId>([
+  'rainbow_bridge',
+  'sunrise_reunion',
+  'gentle_rain',
+  'moonlight_vigil',
+  'quiet_home',
+  'beloved_places',
+  'golden_meadow',
+  'endless_shore',
+  'forever_playful',
+  'nap_champion',
+  'starlit_reunion',
+  'signs_and_symbols',
+]);
 
 export default function ThemePick({ onNext, onBack }: StageProps) {
   const { state, update } = useBuilder();
