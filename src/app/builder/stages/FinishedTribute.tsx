@@ -212,7 +212,9 @@ export default function FinishedTribute(_props: StageProps) {
     const burnedVideoMap: Record<number, string> = {};
     let burnSucceeded = false;
 
-    if (hasOverlays) {
+    // Skip the burn-captions step entirely when narration is off — the burned
+    // captions wouldn't be used in the final video anyway.
+    if (hasOverlays && state.words.narration !== 'off') {
       try {
         const burnBeats = state.beatSheet
           .filter((beat) => state.beatVideos[beat.index])
@@ -241,7 +243,11 @@ export default function FinishedTribute(_props: StageProps) {
       }
     }
 
-    const captionCardCount = burnSucceeded ? 0 : Object.keys(state.captionCardImages).length;
+    // Caption cards are a narration-only feature. When narration is off,
+    // we never insert per-beat caption cards (opening + closing cards are
+    // unconditional — they're added at the start and end regardless).
+    const narrationOn = state.words.narration !== 'off';
+    const captionCardCount = (!narrationOn || burnSucceeded) ? 0 : Object.keys(state.captionCardImages).length;
     const cardsSeconds = 6 + captionCardCount * 2.5;
     const beatLength = state.beatSheet.length || 1;
     // When the audio sets the tribute's length (lyric song or uploaded audio),
@@ -272,7 +278,7 @@ export default function FinishedTribute(_props: StageProps) {
         beats: state.beatSheet.map((beat) => ({
           index: beat.index,
           videoUrl: composeBeatVideoMap[beat.index] ?? state.beatVideos[beat.index],
-          captionCardUrl: burnSucceeded ? undefined : state.captionCardImages[beat.index],
+          captionCardUrl: (!narrationOn || burnSucceeded) ? undefined : state.captionCardImages[beat.index],
         })),
         aspectRatio,
         perBeatMs,

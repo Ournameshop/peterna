@@ -85,7 +85,9 @@ export default function Storyboard({ onNext, onBack }: StageProps) {
             state.style,
             state.format,
             state.aspectRatio,
-            state.captionContainer,
+            // Storyboard captions are only baked in when narration is on
+            // — they're the visible companion to the spoken caption text.
+            state.words.narration !== 'off' ? state.captionContainer : null,
             undefined,
             undefined,
             petIdentity,
@@ -139,7 +141,7 @@ export default function Storyboard({ onNext, onBack }: StageProps) {
         state.style,
         state.format,
         state.aspectRatio,
-        state.captionContainer,
+        state.words.narration !== 'off' ? state.captionContainer : null,
         state.gateNotes.storyboard, // user's notes from the corrections box → into the re-render
         state.storyboardImages[beatIdx], // the frame being re-rendered — edited in place when a note is given
         petIdentity,
