@@ -736,6 +736,12 @@ export default function TheWords({ onNext, onBack }: StageProps) {
       const res = await fetch('/api/audio/upload', { method: 'POST', body: form });
       const json = (await res.json()) as { url?: string; durationMs?: number; title?: string; error?: string };
       if (!res.ok || !json.url) throw new Error(json.error ?? 'Audio upload failed');
+      // When the user brings their own audio, the audio is the master clock:
+      // lock the tribute length to the upload's actual duration (same mechanism
+      // as lyric mode). Compose + perBeatSeconds key off lockedDurationSeconds.
+      const uploadSec = json.durationMs && json.durationMs > 0
+        ? Math.ceil(json.durationMs / 1000)
+        : state.lockedDurationSeconds;
       update({
         words: {
           ...state.words,
@@ -749,6 +755,7 @@ export default function TheWords({ onNext, onBack }: StageProps) {
         },
         musicBedUrl: json.url,
         musicBedDurationMs: json.durationMs ?? null,
+        lockedDurationSeconds: uploadSec,
         assembledVideoUrl: null,
       });
     } catch (err) {

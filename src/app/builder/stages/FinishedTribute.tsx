@@ -244,9 +244,15 @@ export default function FinishedTribute(_props: StageProps) {
     const captionCardCount = burnSucceeded ? 0 : Object.keys(state.captionCardImages).length;
     const cardsSeconds = 6 + captionCardCount * 2.5;
     const beatLength = state.beatSheet.length || 1;
+    // When the audio sets the tribute's length (lyric song or uploaded audio),
+    // size the beats from that master duration; otherwise from the Stage 2.5 pick.
+    // Seedance's 15s-per-clip cap and a 4s floor still apply.
+    const masterSeconds = state.lockedDurationSeconds && state.lockedDurationSeconds > 0
+      ? state.lockedDurationSeconds
+      : state.targetMinutes * 60;
     const perBeatSeconds = Math.min(
       15,
-      Math.max(4, Math.round((state.targetMinutes * 60 - cardsSeconds) / beatLength))
+      Math.max(4, Math.round((masterSeconds - cardsSeconds) / beatLength))
     );
     const perBeatMs = perBeatSeconds * 1000;
     const composeBeatVideoMap = burnSucceeded ? burnedVideoMap : state.beatVideos;
