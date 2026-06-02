@@ -1,248 +1,60 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Play, Pause, RotateCcw } from 'lucide-react';
+import React from 'react';
+import { Loader2, RotateCw, Play } from 'lucide-react';
 import { PALETTE } from '../lib/palette';
 import { Sans, Serif } from '../lib/primitives';
 import { useBuilder } from '../state';
-import CardArt from '../art/CardArt';
-import BeatScene from '../art/BeatScene';
 import { themes } from '@/lib/peternal-library';
-import { resolveText } from '@/lib/peternal-resolvers';
 
-// Segment types
-type Segment =
-  | { kind: 'card'; cardType: 'opening' | 'closing'; text: string; imageUrl?: string; duration: 3000 }
-  | { kind: 'captionCard'; beatIndex: number; url: string; duration: 2500 }
-  | { kind: 'video'; beatIndex: number; url: string; duration: number }
-  | { kind: 'image'; beatIndex: number; url: string; duration: number }
-  | { kind: 'scene'; beatIndex: number; duration: number };
+// ---------------------------------------------------------------------------
+// TributePlayer — plays the REAL composed tribute MP4.
+//
+// Previously this component re-stitched the raw beat clips + cards client-side
+// (a "simulation"). That produced blank frames between segments and, more
+// importantly, never matched the downloaded output (no music/narration mux, no
+// burned captions, no real card timing). We now play the single merged file
+// produced by /api/video/compose — the same artifact the user downloads — which
+// mirrors builder.blck's StepFinal (it plays Show.masterVideoUrl directly).
+// ---------------------------------------------------------------------------
 
-function buildSegments(
-  beatSheet: import('../state').Beat[],
-  beatVideos: Record<number, string>,
-  storyboardImages: Record<number, string>,
-  captionCardImages: Record<number, string>,
-  cardPreviewImages: { opening: string | null; closing: string | null; caption: string | null },
-  openingText: string,
-  closingText: string,
-  perBeatMs: number,
-): Segment[] {
-  const segs: Segment[] = [];
-  segs.push({
-    kind: 'card',
-    cardType: 'opening',
-    text: openingText,
-    imageUrl: cardPreviewImages.opening ?? undefined,
-    duration: 3000,
-  });
-  for (let i = 0; i < beatSheet.length; i++) {
-    // If a caption card image exists for this beat, show it before the beat video (matches compose timeline).
-    if (captionCardImages[i]) {
-      segs.push({ kind: 'captionCard', beatIndex: i, url: captionCardImages[i], duration: 2500 });
-    }
-    if (beatVideos[i]) {
-      segs.push({ kind: 'video', beatIndex: i, url: beatVideos[i], duration: perBeatMs });
-    } else if (storyboardImages[i]) {
-      segs.push({ kind: 'image', beatIndex: i, url: storyboardImages[i], duration: perBeatMs });
-    } else {
-      segs.push({ kind: 'scene', beatIndex: i, duration: perBeatMs });
-    }
-  }
-  segs.push({
-    kind: 'card',
-    cardType: 'closing',
-    text: closingText,
-    imageUrl: cardPreviewImages.closing ?? undefined,
-    duration: 3000,
-  });
-  return segs;
+interface TributePlayerProps {
+  /** The single composed/merged MP4 — the real output. Played directly when present. */
+  assembledUrl?: string | null;
+  /** True while the server is assembling the video. */
+  composing?: boolean;
+  /** Short status line shown beneath the spinner while composing. */
+  phase?: string | null;
+  /** Compose error, if any. */
+  error?: string | null;
+  /** Re-mix / retry handler — re-runs the compose on the existing clips. */
+  onRemix?: () => void;
 }
 
-export default function TributePlayer() {
+export default function TributePlayer({
+  assembledUrl,
+  composing = false,
+  phase,
+  error,
+  onRemix,
+}: TributePlayerProps) {
   const { state } = useBuilder();
 
-  // Continuous audio bed in the preview. Approved music is generated in The Words;
-  // when narration is on, the voiceover is previewed as the foreground audio.
-  const activeBedUrl =
-    state.words.narration !== 'off'
-      ? (state.narrationUrl ?? null)
-      : (state.musicBedUrl ?? null);
-
-  const petName = state.petName || 'them';
-  const gender = state.gender ?? 'neutral';
-  const ctx = { gender, petName };
-
-  const openingText =
-    state.cardText.opening ||
-    resolveText('[PET_NAME] · a tribute', ctx);
-  const closingText =
-    state.cardText.closing ||
-    resolveText('Forever loved · [PET_NAME].', ctx);
-
-  const containerId =
-    state.typographyLocked ?? state.captionContainer ?? 'cinematic_lower_third';
-  const artStyle = state.style ?? undefined;
-
-  const themeObj = themes.find((t) => t.id === state.theme);
-  const themeGradient = themeObj?.gradient ?? PALETTE.brass;
-
+  // Aspect-ratio framing — keep the frame matching the chosen format so the
+  // player reads as a finished piece, not a raw video tag.
   const aspectId = state.aspectRatio === 'all_three' ? '9:16' : state.aspectRatio;
   const aspectRatioCss =
     aspectId === '9:16' ? '9 / 16' : aspectId === '16:9' ? '16 / 9' : '1';
-
   const maxHeight = aspectId === '9:16' ? 580 : 480;
-  // The frame needs an EXPLICIT width — with only maxWidth/maxHeight and
-  // absolutely-positioned content, an aspect-ratio box collapses to zero size.
+  // The frame needs an EXPLICIT width — an aspect-ratio box with only
+  // maxWidth/maxHeight collapses to zero.
   const frameWidth: string | number =
     aspectId === '9:16' ? 326 : aspectId === '1:1' ? 460 : '100%';
   const frameMaxWidth: number =
     aspectId === '16:9' ? 760 : aspectId === '1:1' ? 460 : 326;
 
-  // Compute per-beat duration matching the compose timeline (same formula as FinishedTribute).
-  const captionCardCount = Object.keys(state.captionCardImages).length;
-  const cardsSeconds = 6 + captionCardCount * 2.5;
-  const beatLength = state.beatSheet.length || 1;
-  const perBeatSeconds = Math.min(
-    15,
-    Math.max(4, Math.round((state.targetMinutes * 60 - cardsSeconds) / beatLength)),
-  );
-
-  const segments = buildSegments(
-    state.beatSheet,
-    state.beatVideos,
-    state.storyboardImages,
-    state.captionCardImages,
-    state.cardPreviewImages,
-    openingText,
-    closingText,
-    perBeatSeconds * 1000,
-  );
-  const total = segments.length;
-
-  const [segIdx, setSegIdx] = useState(0);
-  const [playing, setPlaying] = useState(false);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const clearTimer = () => {
-    if (timerRef.current !== null) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
-  };
-
-  const advance = useCallback(() => {
-    setSegIdx((prev) => {
-      if (prev >= total - 1) {
-        setPlaying(false);
-        return prev;
-      }
-      return prev + 1;
-    });
-  }, [total]);
-
-  // When segment changes, set a timer for all timed segments (including video, capped at perBeatMs).
-  useEffect(() => {
-    clearTimer();
-    const seg = segments[segIdx];
-    if (!seg || !playing) return;
-    timerRef.current = setTimeout(advance, (seg as { duration: number }).duration);
-    return clearTimer;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [segIdx, playing]);
-
-  // Manage video element when segment is a video
-  useEffect(() => {
-    const seg = segments[segIdx];
-    if (!seg || seg.kind !== 'video') return;
-    const vid = videoRef.current;
-    if (!vid) return;
-    vid.src = seg.url;
-    vid.load();
-    if (playing) {
-      vid.play().catch(() => {});
-    } else {
-      vid.pause();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [segIdx]);
-
-  // Play/pause video when `playing` changes
-  useEffect(() => {
-    const seg = segments[segIdx];
-    const vid = videoRef.current;
-    if (!seg || seg.kind !== 'video' || !vid) return;
-    if (playing) {
-      vid.play().catch(() => {});
-    } else {
-      vid.pause();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playing]);
-
-  // Restart timed segments when playing resumes
-  useEffect(() => {
-    clearTimer();
-    const seg = segments[segIdx];
-    if (!seg || !playing) return;
-    timerRef.current = setTimeout(advance, (seg as { duration: number }).duration);
-    return clearTimer;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playing]);
-
-  // Sync the music bed audio with the player transport.
-  // The audio element is independent of segIdx — it runs continuously across all segments.
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    if (playing) {
-      audio.play().catch(() => {});
-    } else {
-      audio.pause();
-    }
-  }, [playing]);
-
-  function handleRestart() {
-    clearTimer();
-    setSegIdx(0);
-    setPlaying(false);
-    if (videoRef.current) {
-      videoRef.current.pause();
-      videoRef.current.currentTime = 0;
-    }
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-    }
-  }
-
-  function handlePlayPause() {
-    setPlaying((p) => !p);
-  }
-
-  function handleVideoEnded() {
-    advance();
-  }
-
-  // Derive caption for current beat (not shown on captionCard segments — they are the card)
-  const seg = segments[segIdx];
-  const beatIndexForCaption =
-    seg && (seg.kind === 'video' || seg.kind === 'image' || seg.kind === 'scene')
-      ? seg.beatIndex
-      : null;
-  const caption =
-    beatIndexForCaption !== null
-      ? state.words.captions.find((c) => c.beatIndex === beatIndexForCaption)?.text ?? null
-      : null;
-
-  // Beat N of total indicator (exclude card and captionCard segments from beat count)
-  const beatSegs = segments.filter((s) => s.kind !== 'card' && s.kind !== 'captionCard');
-  const currentBeatNumber =
-    seg && seg.kind !== 'card' && seg.kind !== 'captionCard'
-      ? beatSegs.indexOf(seg) + 1
-      : null;
+  const themeObj = themes.find((t) => t.id === state.theme);
+  const themeGradient = themeObj?.gradient ?? PALETTE.brass;
 
   return (
     <div
@@ -255,20 +67,10 @@ export default function TributePlayer() {
         justifyContent: 'center',
       }}
     >
-      {/* Hidden continuous audio bed — plays across all segments, independent of segIdx */}
-      {activeBedUrl && (
-        <audio
-          ref={audioRef}
-          src={activeBedUrl}
-          loop
-          style={{ display: 'none' }}
-        />
-      )}
-      {/* Frame */}
       <div
         style={{
           aspectRatio: aspectRatioCss,
-          background: themeGradient,
+          background: assembledUrl ? '#000' : themeGradient,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -280,211 +82,80 @@ export default function TributePlayer() {
           overflow: 'hidden',
         }}
       >
-        {/* Card segments — show real generated image when available, else SVG fallback */}
-        {seg && seg.kind === 'card' && (
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              background: themeGradient,
-            }}
-          >
-            {seg.imageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={seg.imageUrl}
-                alt={seg.cardType}
-                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-              />
-            ) : (
-              <CardArt
-                containerId={containerId}
-                text={seg.text}
-                aspectRatio={aspectId}
-                artStyle={artStyle ?? undefined}
-                cardType={seg.cardType}
-              />
-            )}
-          </div>
-        )}
-
-        {/* Caption card image segment — shown before the beat video it belongs to */}
-        {seg && seg.kind === 'captionCard' && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={seg.url}
-            alt={`Caption card for beat ${seg.beatIndex + 1}`}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-          />
-        )}
-
-        {/* Video segment — muted while a music bed plays (the bed is the sole
-            audio source); unmuted when the user chose silence so the clip's
-            own ambient audio carries the preview. */}
-        {seg && seg.kind === 'video' && (
-          <video
-            ref={videoRef}
-            onEnded={handleVideoEnded}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-            playsInline
-            preload="auto"
-            muted={activeBedUrl !== null}
-          />
-        )}
-
-        {/* Image (storyboard still) segment */}
-        {seg && seg.kind === 'image' && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={seg.url}
-            alt={`Beat ${seg.beatIndex + 1}`}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-          />
-        )}
-
-        {/* BeatScene fallback */}
-        {seg && seg.kind === 'scene' && (
-          <div style={{ position: 'absolute', inset: 0 }}>
-            <BeatScene
-              beatIndex={seg.beatIndex}
-              themeGradient={themeGradient}
-              aspect={aspectId}
-              species={state.petProfile?.species}
-            />
-          </div>
-        )}
-
-        {/* Caption lower-third (video/image/scene only — not on card or captionCard segments) */}
-        {caption && seg && seg.kind !== 'card' && seg.kind !== 'captionCard' && (() => {
-          const overlayUrl = beatIndexForCaption !== null
-            ? state.captionOverlayImages[beatIndexForCaption] ?? null
-            : null;
-          if (overlayUrl) {
-            return (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={overlayUrl}
-                alt="caption overlay"
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'fill',
-                  pointerEvents: 'none',
-                }}
-              />
-            );
-          }
-          return (
-            <div
-              style={{
-                position: 'absolute',
-                bottom: 0,
-                left: 0,
-                right: 0,
-                background: 'linear-gradient(transparent, rgba(0,0,0,0.55))',
-                padding: '32px 20px 18px',
-                pointerEvents: 'none',
-              }}
-            >
-              <Serif
-                italic
-                style={{
-                  fontSize: 15,
-                  color: 'white',
-                  textShadow: '0 1px 8px rgba(0,0,0,0.5)',
-                  lineHeight: 1.4,
-                  textAlign: 'center',
-                }}
-              >
-                {caption}
-              </Serif>
-            </div>
-          );
-        })()}
-
-        {/* Controls overlay */}
-        <div
-          style={{
-            position: 'absolute',
-            bottom: 14,
-            right: 14,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-          }}
-        >
-          {/* Restart */}
-          <button
-            onClick={handleRestart}
-            aria-label="Restart"
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: '50%',
-              background: 'rgba(0,0,0,0.45)',
-              border: 'none',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-            }}
-          >
-            <RotateCcw size={15} color="white" />
-          </button>
-
-          {/* Play / Pause */}
-          <button
-            onClick={handlePlayPause}
-            aria-label={playing ? 'Pause' : 'Play'}
-            style={{
-              width: 52,
-              height: 52,
-              borderRadius: '50%',
-              background: 'rgba(255,255,255,0.95)',
-              border: 'none',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
-            }}
-          >
-            {playing ? (
-              <Pause size={20} color={PALETTE.espresso} />
-            ) : (
-              <Play size={20} color={PALETTE.espresso} style={{ marginLeft: 3 }} />
-            )}
-          </button>
-        </div>
-
-        {/* Beat counter */}
-        {currentBeatNumber !== null && (
-          <div
-            style={{
-              position: 'absolute',
-              top: 12,
-              left: 14,
-              pointerEvents: 'none',
-            }}
-          >
-            <Sans
-              style={{
-                fontSize: 11,
-                color: 'rgba(255,255,255,0.82)',
-                letterSpacing: '0.14em',
-                textTransform: 'uppercase',
-              }}
-            >
-              Beat {currentBeatNumber} of {beatSegs.length}
+        {/* 1) Assembling — checked FIRST so a re-mix shows progress instead of
+              the stale previous cut (whose URL is still set while it runs). */}
+        {composing ? (
+          <div style={centerCol}>
+            <Loader2 size={26} color="white" style={{ animation: 'tp-spin 1.1s linear infinite' }} />
+            <Sans style={{ fontSize: 13, color: 'rgba(255,255,255,0.9)', letterSpacing: '0.04em' }}>
+              {phase || 'Assembling your tribute…'}
             </Sans>
+          </div>
+        ) : assembledUrl ? (
+          /* 2) The real merged MP4 — native controls, single source, no blanks.
+                key={assembledUrl} forces a fresh <video> when a re-mix produces a
+                new URL so the element reloads the new file. */
+          <video
+            key={assembledUrl}
+            src={assembledUrl}
+            controls
+            playsInline
+            preload="metadata"
+            style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', background: '#000' }}
+          />
+        ) : error ? (
+          /* 3) Compose failed */
+          <div style={centerCol}>
+            <Serif italic style={{ fontSize: 17, color: 'white', textAlign: 'center', maxWidth: 280, lineHeight: 1.4 }}>
+              {error}
+            </Serif>
+            {onRemix && (
+              <button onClick={onRemix} style={ctaButtonStyle}>
+                <RotateCw size={14} /> Try again
+              </button>
+            )}
+          </div>
+        ) : (
+          /* 4) Idle — not composed yet (e.g. still waiting on music). Never a
+                stuck spinner: the user can assemble on demand. */
+          <div style={centerCol}>
+            <Serif italic style={{ fontSize: 17, color: 'rgba(255,255,255,0.92)', textAlign: 'center', maxWidth: 300, lineHeight: 1.4 }}>
+              Your tribute will appear here once it&apos;s assembled.
+            </Serif>
+            {onRemix && (
+              <button onClick={onRemix} style={ctaButtonStyle}>
+                <Play size={14} /> Assemble the video
+              </button>
+            )}
           </div>
         )}
       </div>
+
+      <style>{`@keyframes tp-spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
+
+const centerCol: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 14,
+  padding: 24,
+};
+
+const ctaButtonStyle: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 6,
+  fontFamily: 'Inter, sans-serif',
+  fontSize: 13,
+  letterSpacing: '0.04em',
+  padding: '9px 18px',
+  background: 'rgba(255,255,255,0.95)',
+  color: PALETTE.espresso,
+  border: 'none',
+  borderRadius: 3,
+  cursor: 'pointer',
+};

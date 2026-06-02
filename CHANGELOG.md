@@ -3,6 +3,31 @@
 Notable changes to the Peternal tribute builder (`/builder`). Newest first.
 Working branch: `Adding-skill-in-webflow`.
 
+## 2026-06-02
+
+### Finished step — player plays the REAL composed video (fixes blank screens)
+`TributePlayer` no longer re-stitches the raw beat clips client-side (a
+"simulation" that flashed blank frames between segments and never matched the
+downloaded file). It now plays the single merged MP4 from `/api/video/compose`
+— the same artifact the user downloads — mirroring builder.blck's `StepFinal`
+playing `Show.masterVideoUrl`. `FinishedTribute` assembles that MP4 on arrival,
+**gated on music/narration/card readiness** so it never composes before the
+Suno bed arrives (avoids the music-race silent-video bug). States: assembling
+spinner → real `<video controls>` → error/idle with a manual assemble button.
+
+### Finished step — Re-mix button (recompose existing clips, cheap)
+Added a **Re-mix the video** button that re-runs the assembly on the EXISTING
+beat clips (no fal re-roll), mirroring builder.blck's `reassembleShow`. Use it
+after editing a scene/storyboard or to pick up a freshly-generated music bed.
+Download/share now reuse the assembled file instead of always re-composing, so
+preview == download.
+
+### Finished step — back navigation
+Added **Back** and **Edit the storyboard** controls to `FinishedTribute`
+(`onBack` / `goToStep('storyboard')`). Going back is non-destructive —
+`resetDownstream('storyboard'|'generate')` hits the default case, so rendered
+clips and the composed video are preserved for the in-session round-trip.
+
 ## 2026-05-22
 
 ### Format cards — images show at native ratio, crop removed
@@ -298,6 +323,14 @@ per-beat captions composited into the assembled video; A/V sync corrected.
 
 ## Known issues / pending
 
+- **Persistence ("store everything like builder.blck") — NOT YET BUILT.**
+  peterna is 100% in-memory: the wizard state lives only in React context and
+  every asset (beat clips, cards, music, narration, final MP4) is an *ephemeral
+  fal.media URL* that expires ~24h. Nothing survives a reload, and shared
+  memorial pages will eventually 404. The builder.blck pattern to mirror:
+  Postgres `Show`-style row holding all asset URLs + draft state, S3 re-hosting
+  of fal outputs (`storage.ts` / `computeAssetKey`), and explicit save on step
+  changes + load/resume on mount. Scoped, awaiting go-ahead.
 - **Share link deferred.** "Get my memorial page link" (and "Add to family
   channel") remain no-op stubs. PostgreSQL is provisioned on the staging box
   (database `peterna`, `tributes` table) and `DATABASE_URL` is set in both

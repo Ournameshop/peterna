@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Download } from 'lucide-react';
+import { Download, ChevronLeft, RotateCw, Pencil } from 'lucide-react';
 import { PALETTE } from '../lib/palette';
 import { Serif, Sans, Eyebrow, PrimaryButton } from '../lib/primitives';
 import { useBuilder, usePreviewMode } from '../state';
@@ -51,8 +51,7 @@ function composeEulogy(state: BuilderState): string {
 type DownloadStatus = 'idle' | 'preparing' | 'done' | 'error';
 type ShareStatus = 'idle' | 'preparing' | 'done' | 'error';
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export default function FinishedTribute(_props: StageProps) {
+export default function FinishedTribute({ onBack, goToStep }: StageProps) {
   const { state, update } = useBuilder();
   const previewMode = usePreviewMode();
   const [showEulogy, setShowEulogy] = useState(false);
@@ -65,6 +64,13 @@ export default function FinishedTribute(_props: StageProps) {
   const [shareError, setShareError] = useState<string | null>(null);
   const [shareLink, setShareLink] = useState<string | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
+
+  // Compose state — the finished step assembles the REAL MP4 (the same file the
+  // user downloads) and the player plays THAT, not a client-side simulation.
+  const [composeStatus, setComposeStatus] = useState<'idle' | 'composing' | 'error'>('idle');
+  const [composePhase, setComposePhase] = useState('');
+  const [composeError, setComposeError] = useState<string | null>(null);
+  const composeStartedRef = useRef(false);
 
   // Single-fire ref guard — React StrictMode double-invokes effects.
   const musicStartedRef = useRef(false);
@@ -299,6 +305,57 @@ export default function FinishedTribute(_props: StageProps) {
     return json.url;
   }
 
+  // Readiness gate — only assemble once every timeline input exists. This is
+  // what prevents the music race (composing before the Suno bed arrives → a
+  // silent video) and the "card images still generating" failure.
+  const beatsReady =
+    state.beatSheet.length > 0 && state.beatSheet.every((b) => !!state.beatVideos[b.index]);
+  const narrationReady = state.words.narration === 'off' || !!state.narrationUrl;
+  const cardsReady = state.words.narration === 'off' || !!state.cardPreviewImages.opening;
+  const musicReady = state.words.music === 'silence' || !!state.musicBedUrl;
+  const composeReady = beatsReady && narrationReady && cardsReady && musicReady;
+
+  // Run the compose. force=true re-mixes even when a previous cut exists.
+  async function runCompose(force: boolean): Promise<string | null> {
+    if (!force && state.assembledVideoUrl) {
+      setComposeStatus('idle');
+      return state.assembledVideoUrl;
+    }
+    setComposeError(null);
+    setComposePhase('Assembling your tribute…');
+    setComposeStatus('composing');
+    try {
+      const url = await composeVideo((p) => setComposePhase(p));
+      setComposeStatus('idle');
+      return url;
+    } catch (err) {
+      setComposeError(err instanceof Error ? err.message : 'Could not assemble the video.');
+      setComposeStatus('error');
+      return null;
+    }
+  }
+
+  // Assemble the real MP4 on arrival, once all inputs are ready. Single-fire;
+  // a user re-mix (or going back to edit and returning) goes through the button.
+  useEffect(() => {
+    if (previewMode) return;
+    if (state.assembledVideoUrl) return; // already assembled — the player shows it
+    if (composeStartedRef.current) return;
+    if (!composeReady) return;
+    composeStartedRef.current = true;
+    // Defer out of the effect's synchronous body so the compose's setState
+    // calls don't cascade renders during commit.
+    queueMicrotask(() => { void runCompose(false); });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [previewMode, composeReady, state.assembledVideoUrl]);
+
+  // Re-mix: re-run the assembly on the EXISTING clips (no fal re-roll). Cheap —
+  // mirrors builder.blck's reassembleShow. Used after editing a scene/storyboard
+  // or to pick up a freshly-arrived music bed.
+  async function handleRemix() {
+    await runCompose(true);
+  }
+
   function startProgressRamp() {
     setDownloadProgress(5);
     if (downloadTimerRef.current) clearInterval(downloadTimerRef.current);
@@ -327,8 +384,10 @@ export default function FinishedTribute(_props: StageProps) {
     setDownloadStatus('preparing');
     startProgressRamp();
     try {
-      // Never re-use a cached assembledVideoUrl — always re-compose on download.
-      const videoUrl = await composeVideo((phase) => setDownloadPhase(phase));
+      // Download the exact file the player is showing; only compose if none
+      // exists yet (e.g. download clicked before the auto-assemble finished).
+      const videoUrl =
+        state.assembledVideoUrl ?? (await composeVideo((phase) => setDownloadPhase(phase)));
       stopProgressRamp();
       setDownloadPhase('Downloading…');
       setDownloadProgress(95);
@@ -395,8 +454,32 @@ export default function FinishedTribute(_props: StageProps) {
     }
   }
 
+  const navLinkStyle: React.CSSProperties = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 5,
+    background: 'transparent',
+    border: 'none',
+    color: PALETTE.mute,
+    fontFamily: 'Inter, sans-serif',
+    fontSize: 13,
+    cursor: 'pointer',
+    padding: 0,
+  };
+
   return (
     <section style={{ paddingTop: 16 }}>
+      {/* Back navigation — return to earlier steps to refine, then re-mix.
+          Going back is non-destructive: rendered clips are preserved. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginBottom: 18 }}>
+        <button onClick={onBack} style={navLinkStyle}>
+          <ChevronLeft size={15} /> Back
+        </button>
+        <button onClick={() => goToStep('storyboard')} style={{ ...navLinkStyle, textDecoration: 'underline', textUnderlineOffset: 4 }}>
+          <Pencil size={13} /> Edit the storyboard
+        </button>
+      </div>
+
       <Eyebrow>Tribute · ready</Eyebrow>
       <Serif
         as="h2"
@@ -415,9 +498,26 @@ export default function FinishedTribute(_props: StageProps) {
         A {state.targetMinutes}-minute tribute, made with care. Yours to keep, yours to share.
       </Serif>
 
-      {/* Tribute player */}
+      {/* Tribute player — plays the real composed MP4 */}
       <div style={{ marginTop: 32 }}>
-        <TributePlayer />
+        <TributePlayer
+          assembledUrl={state.assembledVideoUrl}
+          composing={composeStatus === 'composing'}
+          phase={composePhase}
+          error={composeStatus === 'error' ? composeError : null}
+          onRemix={handleRemix}
+        />
+      </div>
+
+      {/* Re-mix — re-assemble the existing clips (e.g. after editing a scene or
+          the storyboard, or to pick up a freshly-generated music bed). */}
+      <div style={{ marginTop: 14, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+        <PrimaryButton onClick={handleRemix} disabled={composeStatus === 'composing'} secondary small>
+          <RotateCw size={13} /> {composeStatus === 'composing' ? 'Re-mixing…' : 'Re-mix the video'}
+        </PrimaryButton>
+        <Sans style={{ fontSize: 12, color: PALETTE.mute, lineHeight: 1.4 }}>
+          Edited a scene or the storyboard? Re-mix to refresh your video.
+        </Sans>
       </div>
 
       {/* Closing credit */}
