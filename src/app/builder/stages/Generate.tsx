@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Loader2, Maximize2, X, RefreshCw } from 'lucide-react';
+import { Loader2, Maximize2, X, RefreshCw, ChevronLeft } from 'lucide-react';
 import { PALETTE } from '../lib/palette';
 import { Serif, Sans, Eyebrow, PrimaryButton } from '../lib/primitives';
 import { BeatScene } from '../art';
@@ -9,6 +9,20 @@ import { useBuilder, usePreviewMode } from '../state';
 import type { StageProps } from './types';
 import { themes } from '@/lib/peternal-library';
 import { generateBeatVideo, pollBeatVideo } from '../lib/generation';
+
+const BACK_LINK_STYLE: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 5,
+  background: 'transparent',
+  border: 'none',
+  color: PALETTE.mute,
+  fontFamily: 'Inter, sans-serif',
+  fontSize: 13,
+  cursor: 'pointer',
+  padding: 0,
+  marginBottom: 16,
+};
 
 const BATCH_SIZE = 3;
 const POLL_INTERVAL_MS = 5000;
@@ -24,7 +38,7 @@ function defaultClipState(): ClipState {
   return { regenerating: false, showNoteInput: false, note: '' };
 }
 
-export default function Generate({ onNext }: StageProps) {
+export default function Generate({ onNext, onBack }: StageProps) {
   const { state, update } = useBuilder();
   const previewMode = usePreviewMode();
   const beatCount = state.beatCount;
@@ -306,6 +320,9 @@ export default function Generate({ onNext }: StageProps) {
   if (!state.cinematographyApproved || state.cinematographyBriefs.length < beats.length) {
     return (
       <section style={{ paddingTop: 48 }}>
+        <button onClick={onBack} style={BACK_LINK_STYLE}>
+          <ChevronLeft size={15} /> Back
+        </button>
         <Eyebrow>Stage 6 · Rendering</Eyebrow>
         <Serif as="h2" italic style={{ fontSize: 'clamp(28px, 4vw, 44px)', lineHeight: 1.1, marginTop: 14, marginBottom: 16, color: PALETTE.espresso }}>
           One more step first.
@@ -319,6 +336,9 @@ export default function Generate({ onNext }: StageProps) {
 
   return (
     <section style={{ paddingTop: 32 }}>
+      <button onClick={onBack} style={BACK_LINK_STYLE}>
+        <ChevronLeft size={15} /> Back
+      </button>
       <Eyebrow>Stage 6 · Rendering</Eyebrow>
       <Serif
         as="h2"
