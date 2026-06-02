@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Upload, Link as LinkIcon, X } from 'lucide-react';
 import { PALETTE } from '../lib/palette';
 import { Serif, Sans, Eyebrow, PrimaryButton, StageShell } from '../lib/primitives';
@@ -15,6 +15,31 @@ export default function Photos({ onNext, onBack }: StageProps) {
   const [drag, setDrag] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Always-current snapshot of petPhotos so async upload callbacks merge into
+  // the latest array (avoids one upload clobbering another's url).
+  const photosRef = useRef(state.petPhotos);
+  useEffect(() => {
+    photosRef.current = state.petPhotos;
+  });
+
+  // Re-host an uploaded file to durable storage (S3 when configured, else fal),
+  // then set the photo's `url` so it persists and survives a save + resume.
+  async function uploadPhoto(file: File, id: string) {
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch('/api/photo/upload', { method: 'POST', body: fd });
+      if (!res.ok) return; // keep preview-only; works this session, lost on resume
+      const json = (await res.json()) as { url?: string };
+      if (!json.url) return;
+      const next = photosRef.current.map((p) => (p.id === id ? { ...p, url: json.url } : p));
+      photosRef.current = next; // sync immediately so concurrent uploads don't clobber
+      update({ petPhotos: next });
+    } catch {
+      // Network failure — photo still shows via its blob preview this session.
+    }
+  }
+
   const addFiles = (fileList: FileList | null) => {
     if (!fileList || fileList.length === 0) return;
     const incoming = Array.from(fileList).filter(f => f && f.type && (f.type.startsWith('image/') || f.name.toLowerCase().endsWith('.heic') || f.name.toLowerCase().endsWith('.heif')));
@@ -26,6 +51,8 @@ export default function Photos({ onNext, onBack }: StageProps) {
       preview: URL.createObjectURL(f),
     }));
     update({ petPhotos: [...state.petPhotos, ...mapped] });
+    // Upload each in the background; sets a durable `url` when done.
+    mapped.forEach((photo, idx) => uploadPhoto(incoming[idx], photo.id));
   };
 
   const openPicker = () => {
