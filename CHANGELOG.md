@@ -6,6 +6,15 @@ Working branch: `Adding-skill-in-webflow`
 
 ## 2026-06-02
 
+### Finished step — self-heal "Forbidden"/expired video URLs
+The Download button showed "Forbidden" when the composed video URL was an
+expired fal link. Now Download fetches the assembled URL and, on a non-OK
+response (403/expired), re-assembles once (compose re-hosts the master to
+durable S3) and retries before erroring. The player's `<video onError>` shows a
+"link expired — Re-mix" CTA instead of a broken frame. The composed master is
+uploaded to S3 in `/api/video/compose` (`store(videoData,'video/mp4','master',
+'mp4')`); durability needs the S3 env on the box.
+
 ### Durable assets — S3 re-hosting at every asset route (Workstream B)
 fal generation/storage URLs expire ~24h, so resumed drafts would have dead
 media. Ported builder.blck's `storage.ts` (S3-only, trimmed) as
