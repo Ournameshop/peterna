@@ -29,27 +29,6 @@ export default function BuilderPage() {
 
     const id = new URLSearchParams(window.location.search).get('id');
 
-    async function createFresh() {
-      try {
-        const res = await fetch('/api/build', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ stepIndex: 0 }),
-        });
-        if (res.ok) {
-          const { id: newId } = (await res.json()) as { id: string };
-          if (!cancelled) {
-            // replaceState (not router) so the URL gains an id WITHOUT remounting
-            // the provider tree (which would reset in-memory state = a flow change).
-            window.history.replaceState(null, '', `?id=${newId}`);
-            setBuildId(newId);
-          }
-        }
-      } catch {
-        /* persistence unavailable — the wizard still works, just without saving */
-      }
-    }
-
     (async () => {
       if (id) {
         try {
@@ -74,9 +53,10 @@ export default function BuilderPage() {
           /* network error → fresh draft */
         }
       }
-      // No id, or an unusable id: start fresh now; create the row in background.
+      // No id (or unusable): start fresh. We do NOT create a Build row here —
+      // usePersistBuild creates it lazily on the first real change, so merely
+      // opening /builder never spawns an empty "Untitled" draft.
       if (!cancelled) setResume({ seed: undefined, stepIndex: 0 });
-      void createFresh();
     })();
 
     return () => {

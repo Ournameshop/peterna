@@ -23,6 +23,9 @@ export async function GET() {
     // Light list — no `state` blob (can be large with data URLs). `hasVideo`
     // tells the picker whether a finished video exists without shipping it.
     const rows = await prisma.build.findMany({
+      // Hide untouched drafts (no name AND still on the first step) so the
+      // picker isn't cluttered with empty "Untitled" rows.
+      where: { NOT: { AND: [{ petName: null }, { stepIndex: 0 }] } },
       orderBy: { updatedAt: 'desc' },
       take: 100,
       select: { id: true, petName: true, stepIndex: true, updatedAt: true },

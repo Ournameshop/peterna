@@ -2,12 +2,16 @@
 
 // usePersistBuild — fire-and-forget persistence of the builder draft.
 //
-// Additive only: it READS context (state + stepIndex) and PUTs to /api/build/[id].
-// It never throws into render, never blocks the UI, and changes no flow. When
-// buildId is null (persistence unavailable / not yet created) it is a no-op.
+// Additive only: it READS context (state + stepIndex) and writes to /api/build.
+// It never throws into render, never blocks the UI, and changes no flow.
 //
-// Triggers: every step change (primary), plus a debounced save on state changes
-// (captures asset-generation writes mid-step), plus a best-effort save on unload.
+// LAZY creation: the Build row is NOT created on mount — that would spawn an
+// empty "Untitled" draft every time someone merely opens /builder. Instead the
+// row is created on the FIRST real save (first step change or state edit); the
+// new id is pushed into the URL via replaceState. After that, saves are PUTs.
+//
+// Triggers: every step change (primary), a debounced save on state changes
+// (captures asset-generation writes mid-step), and a best-effort save on unload.
 
 import { useEffect, useRef } from 'react';
 import { useBuilder } from './state';
@@ -26,7 +30,7 @@ function serializeState(state: BuilderState): Record<string, unknown> {
   };
 }
 
-export function usePersistBuild(buildId: string | null): void {
+export function usePersistBuild(initialBuildId: string | null): void {
   const { state } = useBuilder();
   const { stepIndex } = useWizard();
 
@@ -38,35 +42,59 @@ export function usePersistBuild(buildId: string | null): void {
     stepRef.current = stepIndex;
   });
 
-  // A stable save fn that always sees the current buildId.
+  // Owns the build id: starts from a resumed ?id= (or null) and is filled in
+  // lazily on first save. A guard prevents creating more than one row.
+  const idRef = useRef<string | null>(initialBuildId);
+  useEffect(() => {
+    if (initialBuildId) idRef.current = initialBuildId;
+  }, [initialBuildId]);
+  const creatingRef = useRef(false);
+
+  // Stable save fn (only reads refs) — assigned once on mount.
   const save = useRef<() => void>(() => {});
   useEffect(() => {
     save.current = () => {
-      if (!buildId) return;
       const body = JSON.stringify({
         state: serializeState(stateRef.current),
         stepIndex: stepRef.current,
       });
-      void fetch(`/api/build/${buildId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body,
-        keepalive: true,
-      }).catch(() => {
-        /* fire-and-forget — a failed save must never affect the wizard */
-      });
+      if (idRef.current) {
+        void fetch(`/api/build/${idRef.current}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body,
+          keepalive: true,
+        }).catch(() => {
+          /* fire-and-forget */
+        });
+        return;
+      }
+      // No row yet — create it now (once). Pushes the id into the URL so the
+      // draft is shareable/resumable without a remount.
+      if (creatingRef.current) return;
+      creatingRef.current = true;
+      void (async () => {
+        try {
+          const res = await fetch('/api/build', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body,
+          });
+          if (res.ok) {
+            const json = (await res.json()) as { id?: string };
+            if (json.id) {
+              idRef.current = json.id;
+              window.history.replaceState(null, '', `?id=${json.id}`);
+            }
+          }
+        } catch {
+          /* persistence unavailable — wizard keeps working */
+        } finally {
+          creatingRef.current = false;
+        }
+      })();
     };
-  }, [buildId]);
-
-  // When a freshly-created build's id arrives (null → id), flush the current
-  // state immediately. This closes the window where progress made during the
-  // create round-trip would otherwise be dropped (saves no-op while id is null).
-  const flushedRef = useRef(false);
-  useEffect(() => {
-    if (!buildId || flushedRef.current) return;
-    flushedRef.current = true;
-    save.current();
-  }, [buildId]);
+  }, []);
 
   // Save on step change (primary trigger). Skip the mount run.
   const firstStep = useRef(true);
