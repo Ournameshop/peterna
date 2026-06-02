@@ -10,12 +10,9 @@ import { themes } from '@/lib/peternal-library';
 // ---------------------------------------------------------------------------
 // TributePlayer — plays the REAL composed tribute MP4.
 //
-// Previously this component re-stitched the raw beat clips + cards client-side
-// (a "simulation"). That produced blank frames between segments and, more
-// importantly, never matched the downloaded output (no music/narration mux, no
-// burned captions, no real card timing). We now play the single merged file
-// produced by /api/video/compose — the same artifact the user downloads — which
-// mirrors builder.blck's StepFinal (it plays Show.masterVideoUrl directly).
+// The finished video is shown at its NATURAL aspect ratio (the element wraps the
+// video) so there are no black letterbox/pillarbox bars. The loading / idle /
+// error states use a shaped aspect-ratio box so they still read as a player.
 // ---------------------------------------------------------------------------
 
 interface TributePlayerProps {
@@ -40,14 +37,10 @@ export default function TributePlayer({
 }: TributePlayerProps) {
   const { state } = useBuilder();
 
-  // Aspect-ratio framing — keep the frame matching the chosen format so the
-  // player reads as a finished piece, not a raw video tag.
   const aspectId = state.aspectRatio === 'all_three' ? '9:16' : state.aspectRatio;
   const aspectRatioCss =
     aspectId === '9:16' ? '9 / 16' : aspectId === '16:9' ? '16 / 9' : '1';
   const maxHeight = aspectId === '9:16' ? 580 : 480;
-  // The frame needs an EXPLICIT width — an aspect-ratio box with only
-  // maxWidth/maxHeight collapses to zero.
   const frameWidth: string | number =
     aspectId === '9:16' ? 326 : aspectId === '1:1' ? 460 : '100%';
   const frameMaxWidth: number =
@@ -62,94 +55,88 @@ export default function TributePlayer({
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const videoFailed = !!assembledUrl && failedUrl === assembledUrl;
 
+  // Shaped box used only for the non-video states (spinner / idle / error).
+  const frameBox: React.CSSProperties = {
+    aspectRatio: aspectRatioCss,
+    background: themeGradient,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    maxHeight,
+    width: frameWidth,
+    maxWidth: frameMaxWidth,
+    position: 'relative',
+    overflow: 'hidden',
+    borderRadius: 4,
+    margin: '0 auto',
+  };
+
   return (
-    <div
-      style={{
-        background: PALETTE.espresso,
-        borderRadius: 4,
-        overflow: 'hidden',
-        position: 'relative',
-        display: 'flex',
-        justifyContent: 'center',
-      }}
-    >
-      <div
-        style={{
-          aspectRatio: aspectRatioCss,
-          background: assembledUrl ? '#000' : themeGradient,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          maxHeight,
-          margin: '0 auto',
-          width: frameWidth,
-          maxWidth: frameMaxWidth,
-          position: 'relative',
-          overflow: 'hidden',
-        }}
-      >
-        {/* 1) Assembling — checked FIRST so a re-mix shows progress instead of
-              the stale previous cut (whose URL is still set while it runs). */}
-        {composing ? (
-          <div style={centerCol}>
-            <Loader2 size={26} color="white" style={{ animation: 'tp-spin 1.1s linear infinite' }} />
-            <Sans style={{ fontSize: 13, color: 'rgba(255,255,255,0.9)', letterSpacing: '0.04em' }}>
-              {phase || 'Assembling your tribute…'}
-            </Sans>
-          </div>
-        ) : assembledUrl && !videoFailed ? (
-          /* 2) The real merged MP4 — native controls, single source, no blanks.
-                key={assembledUrl} forces a fresh <video> when a re-mix produces a
-                new URL so the element reloads the new file. onError catches an
-                expired/forbidden source and flips to the recovery CTA below. */
-          <video
-            key={assembledUrl}
-            src={assembledUrl}
-            controls
-            playsInline
-            preload="metadata"
-            onError={() => setFailedUrl(assembledUrl ?? null)}
-            style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', background: '#000' }}
-          />
-        ) : videoFailed ? (
-          /* 2b) The source couldn't load (expired/forbidden) — offer a rebuild. */
-          <div style={centerCol}>
-            <Serif italic style={{ fontSize: 17, color: 'white', textAlign: 'center', maxWidth: 300, lineHeight: 1.4 }}>
-              This video link expired. Re-mix to rebuild it.
-            </Serif>
-            {onRemix && (
-              <button onClick={onRemix} style={ctaButtonStyle}>
-                <RotateCw size={14} /> Re-mix
-              </button>
-            )}
-          </div>
-        ) : error ? (
-          /* 3) Compose failed */
-          <div style={centerCol}>
-            <Serif italic style={{ fontSize: 17, color: 'white', textAlign: 'center', maxWidth: 280, lineHeight: 1.4 }}>
-              {error}
-            </Serif>
-            {onRemix && (
-              <button onClick={onRemix} style={ctaButtonStyle}>
-                <RotateCw size={14} /> Try again
-              </button>
-            )}
-          </div>
-        ) : (
-          /* 4) Idle — not composed yet (e.g. still waiting on music). Never a
-                stuck spinner: the user can assemble on demand. */
-          <div style={centerCol}>
-            <Serif italic style={{ fontSize: 17, color: 'rgba(255,255,255,0.92)', textAlign: 'center', maxWidth: 300, lineHeight: 1.4 }}>
-              Your tribute will appear here once it&apos;s assembled.
-            </Serif>
-            {onRemix && (
-              <button onClick={onRemix} style={ctaButtonStyle}>
-                <Play size={14} /> Assemble the video
-              </button>
-            )}
-          </div>
-        )}
-      </div>
+    <div style={{ display: 'flex', justifyContent: 'center' }}>
+      {!composing && assembledUrl && !videoFailed ? (
+        // The real merged MP4 at its NATURAL size — the element wraps the video,
+        // so no black bars. key forces a reload when a re-mix changes the URL.
+        <video
+          key={assembledUrl}
+          src={assembledUrl}
+          controls
+          playsInline
+          preload="metadata"
+          onError={() => setFailedUrl(assembledUrl ?? null)}
+          style={{
+            display: 'block',
+            width: '100%',
+            maxWidth: frameMaxWidth,
+            height: 'auto',
+            borderRadius: 4,
+            background: '#000',
+          }}
+        />
+      ) : (
+        <div style={frameBox}>
+          {composing ? (
+            <div style={centerCol}>
+              <Loader2 size={26} color="white" style={{ animation: 'tp-spin 1.1s linear infinite' }} />
+              <Sans style={{ fontSize: 13, color: 'rgba(255,255,255,0.9)', letterSpacing: '0.04em' }}>
+                {phase || 'Assembling your tribute…'}
+              </Sans>
+            </div>
+          ) : videoFailed ? (
+            <div style={centerCol}>
+              <Serif italic style={{ fontSize: 17, color: 'white', textAlign: 'center', maxWidth: 300, lineHeight: 1.4 }}>
+                This video link expired. Re-mix to rebuild it.
+              </Serif>
+              {onRemix && (
+                <button onClick={onRemix} style={ctaButtonStyle}>
+                  <RotateCw size={14} /> Re-mix
+                </button>
+              )}
+            </div>
+          ) : error ? (
+            <div style={centerCol}>
+              <Serif italic style={{ fontSize: 17, color: 'white', textAlign: 'center', maxWidth: 280, lineHeight: 1.4 }}>
+                {error}
+              </Serif>
+              {onRemix && (
+                <button onClick={onRemix} style={ctaButtonStyle}>
+                  <RotateCw size={14} /> Try again
+                </button>
+              )}
+            </div>
+          ) : (
+            <div style={centerCol}>
+              <Serif italic style={{ fontSize: 17, color: 'rgba(255,255,255,0.92)', textAlign: 'center', maxWidth: 300, lineHeight: 1.4 }}>
+                Your tribute will appear here once it&apos;s assembled.
+              </Serif>
+              {onRemix && (
+                <button onClick={onRemix} style={ctaButtonStyle}>
+                  <Play size={14} /> Assemble the video
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       <style>{`@keyframes tp-spin { to { transform: rotate(360deg); } }`}</style>
     </div>
