@@ -93,7 +93,13 @@ jobs:
 
       - name: Rsync artifact
         run: |
+          # --delete prunes stale build files, but the runtime .env is a
+          # persistent, manually-managed file that lives ONLY on the box —
+          # it is not part of the artifact. Excluding it here prevents the
+          # deploy from wiping the app's API keys (FAL_KEY, GEMINI_API_KEY, …)
+          # and leaving the service returning "FAL_KEY not configured".
           rsync -az --delete \
+            --exclude='.env' --exclude='.env.local' --exclude='.env.production' \
             -e "ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no" \
             artifact/ \
             "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:${APP_DIR}/"
