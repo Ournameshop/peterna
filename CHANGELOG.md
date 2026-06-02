@@ -1,9 +1,22 @@
 # Changelog
 
 Notable changes to the Peternal tribute builder (`/builder`). Newest first.
-Working branch: `Adding-skill-in-webflow`.
+Working branch: `Adding-skill-in-webflow`
+(persistence work on `feat/builder-finished-step-persistence`, merge later).
 
 ## 2026-06-02
+
+### Resumable drafts — Prisma `Build` table + `?id=` persistence (Workstream A)
+"Store everything like builder.blck" — additive, **no flow change**. Added
+Prisma 6 (matching builder.blck) with a single `Build` model that stores the
+whole `BuilderState` as one JSON blob (+ `stepIndex`, `petName`). New routes
+`POST /api/build` and `GET`/`PUT /api/build/[id]`. A fire-and-forget
+`usePersistBuild` hook saves on step change + debounced state change + unload.
+`page.tsx` reads `?id=` → loads + hydrates both providers, or creates a fresh
+draft and `history.replaceState`s the id into the URL (no remount). Decoupled
+`BuilderProvider` preview-mode from `seed` so a resumed draft hydrates without
+entering preview. **Needs `prisma db push` on the target DB to create the
+table.** Prisma added to `serverExternalPackages`.
 
 ### Finished step — player plays the REAL composed video (fixes blank screens)
 `TributePlayer` no longer re-stitches the raw beat clips client-side (a
@@ -323,14 +336,17 @@ per-beat captions composited into the assembled video; A/V sync corrected.
 
 ## Known issues / pending
 
-- **Persistence ("store everything like builder.blck") — NOT YET BUILT.**
-  peterna is 100% in-memory: the wizard state lives only in React context and
-  every asset (beat clips, cards, music, narration, final MP4) is an *ephemeral
-  fal.media URL* that expires ~24h. Nothing survives a reload, and shared
-  memorial pages will eventually 404. The builder.blck pattern to mirror:
-  Postgres `Show`-style row holding all asset URLs + draft state, S3 re-hosting
-  of fal outputs (`storage.ts` / `computeAssetKey`), and explicit save on step
-  changes + load/resume on mount. Scoped, awaiting go-ahead.
+- **Persistence — Workstream A DONE (code), needs `prisma db push`.** The
+  draft now persists to a Postgres `Build` row and resumes via `?id=`. To
+  activate on staging: `prisma db push` against `peterna` DB (additive — leaves
+  the `tributes` table untouched), then deploy.
+- **Durable assets (Workstream B) — BLOCKED on S3 creds.** Generated assets are
+  still ephemeral fal.media URLs (~24h), so resumed drafts older than a day will
+  have dead asset URLs. Fix = port builder.blck `storage.ts` + re-host fal
+  outputs to S3 at each asset route. **peterna-staging `.env` currently has NO
+  AWS keys** — needs `AWS_ACCESS_KEY_ID/SECRET`, `S3_BUCKET=peterna-tribute-assets-dev`,
+  `S3_KEY_PREFIX=peterna/` added before B can activate. `rehost()` is written to
+  fall back to the fal URL when S3 env is absent, so B is safe to ship dormant.
 - **Share link deferred.** "Get my memorial page link" (and "Add to family
   channel") remain no-op stubs. PostgreSQL is provisioned on the staging box
   (database `peterna`, `tributes` table) and `DATABASE_URL` is set in both
