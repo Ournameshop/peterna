@@ -248,115 +248,15 @@ export const initialState: BuilderState = {
 };
 
 export function resetDownstream(state: BuilderState, fromStage: StepId): Partial<BuilderState> {
-  switch (fromStage) {
-    case 'music_intent':
-      return {
-        lockedDurationSeconds: null,
-        beatSheet: [],
-        beatSheetApproved: false,
-        storyboardApproved: false,
-        storyboardImages: {},
-        beatVideos: {},
-        captionCardImages: {},
-        captionOverlayImages: {},
-        burnedBeatVideos: {},
-        assembledVideoUrl: null,
-        musicBedUrl: null,
-        musicBedDurationMs: null,
-        narrationUrl: null,
-        narrationDurationMs: null,
-        narrationScript: null,
-        narrationTimestamps: null,
-        cinematographyBriefs: [],
-        cinematographyApproved: false,
-        words: {
-          ...state.words,
-          musicVariants: [],
-          musicApproved: false,
-        },
-      };
-    case 'length_aspect':
-      return {
-        beatSheet: [],
-        beatSheetApproved: false,
-        storyboardApproved: false,
-        storyboardImages: {},
-        beatVideos: {},
-        captionCardImages: {},
-        captionOverlayImages: {},
-        burnedBeatVideos: {},
-        assembledVideoUrl: null,
-        musicBedUrl: null,
-        musicBedDurationMs: null,
-        narrationUrl: null,
-        narrationDurationMs: null,
-        narrationScript: null,
-        narrationTimestamps: null,
-        cinematographyBriefs: [],
-        cinematographyApproved: false,
-      };
-    case 'format':
-    case 'theme':
-    case 'style':
-      return {
-        combinationPreviewUrl: null,
-        beatSheet: [],
-        beatSheetApproved: false,
-        captionContainer: null,
-        storyboardApproved: false,
-        storyboardImages: {},
-        beatVideos: {},
-        captionCardImages: {},
-        captionOverlayImages: {},
-        burnedBeatVideos: {},
-        assembledVideoUrl: null,
-        musicBedUrl: null,
-        musicBedDurationMs: null,
-        narrationUrl: null,
-        narrationDurationMs: null,
-        narrationScript: null,
-        narrationTimestamps: null,
-        cinematographyBriefs: [],
-        cinematographyApproved: false,
-        ...(fromStage === 'style' ? { cardPreviewApproved: false, typographyLocked: null, cardPreviewImages: { opening: null, closing: null, caption: null } } : {}),
-      };
-    case 'beatsheet':
-      return {
-        storyboardApproved: false,
-        storyboardImages: {},
-        beatVideos: {},
-        captionCardImages: {},
-        captionOverlayImages: {},
-        burnedBeatVideos: {},
-        assembledVideoUrl: null,
-        musicBedUrl: null,
-        musicBedDurationMs: null,
-        narrationUrl: null,
-        narrationDurationMs: null,
-        narrationScript: null,
-        narrationTimestamps: null,
-        cinematographyBriefs: [],
-        cinematographyApproved: false,
-      };
-    case 'words':
-      return {
-        storyboardImages: {},
-        storyboardApproved: false,
-        cardPreviewImages: { opening: null, closing: null, caption: null },
-        cardPreviewApproved: false,
-        cinematographyBriefs: [],
-        cinematographyApproved: false,
-        musicBedUrl: null,
-        musicBedDurationMs: null,
-        words: {
-          ...state.words,
-          musicVariants: [],
-          musicApproved: false,
-        },
-      };
-    default:
-      return {};
-  }
+  // Non-destructive navigation. Going BACK (or jumping to an earlier step) must
+  // NEVER delete already-generated assets — beat clips, storyboard frames, cards,
+  // music, narration, or the composed video — nor their approvals. Wiping them
+  // on navigation caused accidental, costly regeneration (and lost work). To
+  // refresh something after changing an upstream choice, regenerate it
+  // explicitly (the per-step Regenerate controls / the Re-mix button).
+  void state;
+  void fromStage;
+  return {};
 }
 
 // PreviewContext — exposes preview mode flag to any stage that needs to gate generation.
