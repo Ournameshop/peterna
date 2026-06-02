@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { PALETTE } from '../lib/palette';
-import { Serif, Sans, StageShell } from '../lib/primitives';
+import { Serif, Sans, StageShell, SELECTED_BORDER, SELECTED_RING } from '../lib/primitives';
 import { useBuilder } from '../state';
 import { lengths, aspects } from '@/lib/peternal-library';
 import type { StageProps } from '../state';
@@ -58,8 +58,9 @@ export default function LengthAspect({ onNext, onBack }: StageProps) {
                 style={{
                   textAlign: 'left',
                   padding: '20px 22px',
-                  border: `1px solid ${active ? PALETTE.espresso : PALETTE.parchmentLight}`,
+                  border: active ? SELECTED_BORDER : `1px solid ${PALETTE.parchmentLight}`,
                   background: active ? PALETTE.boneSoft : 'white',
+                  boxShadow: active ? SELECTED_RING : 'none',
                   borderRadius: 4,
                   cursor: 'pointer',
                   transition: 'all 180ms ease',
@@ -135,10 +136,12 @@ export default function LengthAspect({ onNext, onBack }: StageProps) {
               key={asp.id}
               onClick={() => selectAspect(asp.id)}
               style={{
+                position: 'relative',
                 textAlign: 'left',
                 padding: '20px 20px',
-                border: `1px solid ${active ? PALETTE.espresso : PALETTE.parchmentLight}`,
+                border: active ? SELECTED_BORDER : `1px solid ${PALETTE.parchmentLight}`,
                 background: active ? PALETTE.boneSoft : 'white',
+                boxShadow: active ? SELECTED_RING : 'none',
                 borderRadius: 4,
                 cursor: 'pointer',
                 transition: 'all 180ms ease',

@@ -11,6 +11,8 @@ import {
   Eyebrow,
   FieldGroup,
   SummaryItem,
+  SELECTED_BORDER,
+  SELECTED_RING,
 } from '../lib/primitives';
 import { Waveform } from '../art';
 import { useBuilder, usePreviewMode } from '../state';
@@ -827,8 +829,9 @@ export default function TheWords({ onNext, onBack }: StageProps) {
                     onClick={() => setOpening(a.id)}
                     style={{
                       padding: '10px 18px',
-                      border: `1px solid ${active ? PALETTE.espresso : PALETTE.parchmentLight}`,
+                      border: active ? SELECTED_BORDER : `1px solid ${PALETTE.parchmentLight}`,
                       background: active ? PALETTE.boneSoft : 'white',
+                      boxShadow: active ? SELECTED_RING : 'none',
                       borderRadius: 999,
                       cursor: 'pointer',
                       fontFamily: '"Cormorant Garamond", serif',
@@ -923,8 +926,9 @@ export default function TheWords({ onNext, onBack }: StageProps) {
                     onClick={() => setClosing(a.id)}
                     style={{
                       padding: '10px 18px',
-                      border: `1px solid ${active ? PALETTE.espresso : PALETTE.parchmentLight}`,
+                      border: active ? SELECTED_BORDER : `1px solid ${PALETTE.parchmentLight}`,
                       background: active ? PALETTE.boneSoft : 'white',
+                      boxShadow: active ? SELECTED_RING : 'none',
                       borderRadius: 999,
                       cursor: 'pointer',
                       fontFamily: '"Cormorant Garamond", serif',
@@ -1020,8 +1024,9 @@ export default function TheWords({ onNext, onBack }: StageProps) {
                   }}
                   style={{
                     padding: '8px 14px',
-                    border: `1px solid ${selected ? PALETTE.espresso : PALETTE.parchmentLight}`,
+                    border: selected ? SELECTED_BORDER : `1px solid ${PALETTE.parchmentLight}`,
                     background: selected ? PALETTE.boneSoft : 'white',
+                    boxShadow: selected ? SELECTED_RING : 'none',
                     borderRadius: 999,
                     cursor: locked ? 'not-allowed' : 'pointer',
                     opacity: locked ? 0.45 : 1,
@@ -1171,9 +1176,10 @@ export default function TheWords({ onNext, onBack }: StageProps) {
                 onClick={() => setMusicMode(id)}
                 style={{
                   padding: '9px 15px',
-                  border: `1px solid ${mode === id ? PALETTE.espresso : PALETTE.parchmentLight}`,
+                  border: mode === id ? SELECTED_BORDER : `1px solid ${PALETTE.parchmentLight}`,
                   background: mode === id ? PALETTE.espresso : 'white',
                   color: mode === id ? PALETTE.bone : PALETTE.espresso,
+                  boxShadow: mode === id ? SELECTED_RING : 'none',
                   borderRadius: 999,
                   cursor: 'pointer',
                   fontFamily: 'Inter, sans-serif',
@@ -1206,8 +1212,9 @@ export default function TheWords({ onNext, onBack }: StageProps) {
                     style={{
                       textAlign: 'left',
                       padding: '14px 16px',
-                      border: `1px solid ${active ? PALETTE.espresso : PALETTE.parchmentLight}`,
+                      border: active ? SELECTED_BORDER : `1px solid ${PALETTE.parchmentLight}`,
                       background: active ? PALETTE.boneSoft : 'white',
+                      boxShadow: active ? SELECTED_RING : 'none',
                       cursor: 'pointer',
                       borderRadius: 4,
                       transition: 'all 180ms ease',
@@ -1559,8 +1566,9 @@ export default function TheWords({ onNext, onBack }: StageProps) {
               style={{
                 textAlign: 'left',
                 padding: '12px 14px',
-                border: `1px solid ${!narrationOn ? PALETTE.espresso : PALETTE.parchmentLight}`,
+                border: !narrationOn ? SELECTED_BORDER : `1px solid ${PALETTE.parchmentLight}`,
                 background: !narrationOn ? PALETTE.boneSoft : 'white',
+                boxShadow: !narrationOn ? SELECTED_RING : 'none',
                 cursor: 'pointer',
                 borderRadius: 4,
                 transition: 'all 180ms ease',
@@ -1582,8 +1590,9 @@ export default function TheWords({ onNext, onBack }: StageProps) {
                     style={{
                       textAlign: 'left',
                       padding: '12px 14px',
-                      border: `1px solid ${active ? PALETTE.espresso : PALETTE.parchmentLight}`,
+                      border: active ? SELECTED_BORDER : `1px solid ${PALETTE.parchmentLight}`,
                       background: active ? PALETTE.boneSoft : 'white',
+                      boxShadow: active ? SELECTED_RING : 'none',
                       cursor: 'pointer',
                       borderRadius: 4,
                       transition: 'all 180ms ease',
@@ -1610,8 +1619,9 @@ export default function TheWords({ onNext, onBack }: StageProps) {
                     onClick={() => setSubtitles(id)}
                     style={{
                       padding: '10px 18px',
-                      border: `1px solid ${active ? PALETTE.espresso : PALETTE.parchmentLight}`,
+                      border: active ? SELECTED_BORDER : `1px solid ${PALETTE.parchmentLight}`,
                       background: active ? PALETTE.boneSoft : 'white',
+                      boxShadow: active ? SELECTED_RING : 'none',
                       borderRadius: 999,
                       cursor: 'pointer',
                       fontFamily: 'Inter, sans-serif',

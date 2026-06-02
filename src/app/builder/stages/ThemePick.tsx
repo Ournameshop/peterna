@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { PALETTE } from '../lib/palette';
-import { StageShell, ChoiceCard, Serif } from '../lib/primitives';
+import { StageShell, ChoiceCard, Serif, SelectedBadge, SELECTED_BORDER, SELECTED_RING } from '../lib/primitives';
 import { useBuilder } from '../state';
 import type { StageProps } from '../state';
 import { themeCategories, themes } from '@/lib/peternal-library';
@@ -66,10 +66,12 @@ export default function ThemePick({ onNext, onBack }: StageProps) {
                 key={theme.id}
                 onClick={() => handleThemeSelect(theme.id)}
                 style={{
+                  position: 'relative',
                   textAlign: 'left',
                   padding: 0,
-                  border: `1px solid ${isActive ? PALETTE.espresso : PALETTE.parchmentLight}`,
+                  border: isActive ? SELECTED_BORDER : `1px solid ${PALETTE.parchmentLight}`,
                   background: isActive ? PALETTE.boneSoft : 'white',
+                  boxShadow: isActive ? SELECTED_RING : 'none',
                   cursor: 'pointer',
                   borderRadius: 4,
                   overflow: 'hidden',
@@ -79,8 +81,9 @@ export default function ThemePick({ onNext, onBack }: StageProps) {
                   flexDirection: 'column',
                 }}
                 onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)'; if (!isActive) (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 8px 24px rgba(42,33,27,0.08)'; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'none'; (e.currentTarget as HTMLButtonElement).style.boxShadow = 'none'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'none'; (e.currentTarget as HTMLButtonElement).style.boxShadow = isActive ? SELECTED_RING : 'none'; }}
               >
+                {isActive && <SelectedBadge />}
                 {THEMES_WITH_THUMBNAILS.has(theme.id) ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img

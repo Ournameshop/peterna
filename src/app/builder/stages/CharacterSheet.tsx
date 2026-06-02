@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Loader2, RotateCcw } from 'lucide-react';
 import { PALETTE } from '../lib/palette';
-import { Eyebrow, Sans, Serif, GateReview } from '../lib/primitives';
+import { Eyebrow, Sans, Serif, GateReview, SELECTED_BORDER, SELECTED_RING } from '../lib/primitives';
 import { PetSketch } from '../art';
 import { generateCharacterSheet } from '../lib/generation';
 import { useBuilder, usePreviewMode } from '../state';
@@ -208,9 +208,10 @@ export default function CharacterSheet({ onNext, onBack, goToStep }: StageProps)
                         fontFamily: 'Inter, sans-serif',
                         fontSize: 13,
                         padding: '8px 16px',
-                        border: `1px solid ${active ? PALETTE.espresso : PALETTE.parchment}`,
+                        border: active ? SELECTED_BORDER : `1px solid ${PALETTE.parchment}`,
                         background: active ? PALETTE.espresso : 'transparent',
                         color: active ? PALETTE.bone : PALETTE.espresso,
+                        boxShadow: active ? SELECTED_RING : 'none',
                         borderRadius: 999,
                         cursor: 'pointer',
                         transition: 'all 180ms ease',

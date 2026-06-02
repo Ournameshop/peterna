@@ -3,7 +3,7 @@
 import React from 'react';
 import Image from 'next/image';
 import { PALETTE } from '../lib/palette';
-import { StageShell, Serif } from '../lib/primitives';
+import { StageShell, Serif, SelectedBadge, SELECTED_BORDER, SELECTED_RING } from '../lib/primitives';
 import { useBuilder } from '../state';
 import type { StageProps } from '../state';
 import { formats } from '@/lib/peternal-library';
@@ -64,10 +64,12 @@ export default function FormatPick({ onNext, goToStep }: StageProps) {
               key={f.id}
               onClick={() => handleSelect(f.id)}
               style={{
+                position: 'relative',
                 textAlign: 'left',
                 padding: 0,
-                border: `1px solid ${isActive ? PALETTE.espresso : PALETTE.parchmentLight}`,
+                border: isActive ? SELECTED_BORDER : `1px solid ${PALETTE.parchmentLight}`,
                 background: isActive ? PALETTE.boneSoft : 'white',
+                boxShadow: isActive ? SELECTED_RING : 'none',
                 cursor: 'pointer',
                 borderRadius: 4,
                 overflow: 'hidden',
@@ -78,6 +80,7 @@ export default function FormatPick({ onNext, goToStep }: StageProps) {
               onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLButtonElement).style.borderColor = PALETTE.brass; }}
               onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLButtonElement).style.borderColor = PALETTE.parchmentLight; }}
             >
+              {isActive && <SelectedBadge />}
               {/* Source thumbnails are 1024x768, matching this 4:3 slot exactly. */}
               <div style={{ width: '100%', aspectRatio: '4 / 3', overflow: 'hidden', position: 'relative', flexShrink: 0 }}>
                 <Image

@@ -5,6 +5,22 @@ import React from 'react';
 import { ArrowLeft, ArrowRight, Check, ChevronRight, Pencil } from 'lucide-react';
 import { PALETTE } from './palette';
 
+// Shared "selected" treatment so every picker reads consistently:
+// a 2px brass border + a soft brass ring/glow, and (for image cards) a
+// corner check badge. Use SELECTED_BORDER / SELECTED_RING together.
+export const SELECTED_BORDER = `2px solid ${PALETTE.brass}`;
+export const SELECTED_RING = '0 0 0 3px rgba(201,169,97,0.20)';
+
+// Corner check badge for image/thumbnail cards. The parent card must be
+// position: relative; this absolutely-positions itself at top-right.
+export const SelectedBadge = () => (
+  <div style={{ position: 'absolute', top: 8, right: 8, width: 24, height: 24, borderRadius: '50%',
+    background: PALETTE.brass, display: 'flex', alignItems: 'center', justifyContent: 'center',
+    boxShadow: '0 2px 6px rgba(0,0,0,0.25)', zIndex: 3, pointerEvents: 'none' }}>
+    <Check size={14} color="#fff" strokeWidth={3} />
+  </div>
+);
+
 // Typed public-API prop interfaces. A couple of polymorphic primitives (Serif,
 // Sans) use an `any`-typed `as`/rest-prop escape hatch — the eslint rule for
 // that is disabled above — but every exported component carries an explicit
@@ -90,9 +106,10 @@ export const Pill = ({ active, onClick, children, large }: PillProps) => (
       fontFamily: 'Inter, sans-serif',
       fontSize: large ? 14 : 13,
       padding: large ? '12px 22px' : '8px 16px',
-      border: `1px solid ${active ? PALETTE.espresso : PALETTE.parchment}`,
+      border: active ? SELECTED_BORDER : `1px solid ${PALETTE.parchment}`,
       background: active ? PALETTE.espresso : 'transparent',
       color: active ? PALETTE.bone : PALETTE.espresso,
+      boxShadow: active ? SELECTED_RING : 'none',
       borderRadius: 999,
       cursor: 'pointer',
       transition: 'all 180ms ease',
@@ -170,8 +187,9 @@ export const ChoiceCard = ({ active, onClick, icon, emoji, title, desc, compact 
   <button onClick={onClick}
     style={{
       textAlign: 'left', padding: compact ? '14px 16px' : '18px 18px',
-      border: `1px solid ${active ? PALETTE.espresso : PALETTE.parchmentLight}`,
+      border: active ? SELECTED_BORDER : `1px solid ${PALETTE.parchmentLight}`,
       background: active ? PALETTE.boneSoft : 'white',
+      boxShadow: active ? SELECTED_RING : 'none',
       cursor: 'pointer', borderRadius: 4, transition: 'all 180ms ease',
       display: 'flex', flexDirection: 'column', gap: 6, minHeight: compact ? 'auto' : 100,
     }}
@@ -196,14 +214,17 @@ export interface PathCardProps {
 export const PathCard = ({ title, tagline, icon, onClick, accent }: PathCardProps) => (
   <button onClick={onClick}
     style={{
+      position: 'relative',
       textAlign: 'left', padding: '32px 28px',
-      border: `1px solid ${accent ? PALETTE.brass : PALETTE.parchment}`,
+      border: accent ? SELECTED_BORDER : `1px solid ${PALETTE.parchment}`,
       background: accent ? 'rgba(201,169,97,0.06)' : 'white',
+      boxShadow: accent ? SELECTED_RING : 'none',
       cursor: 'pointer', borderRadius: 4, transition: 'all 200ms ease', minHeight: 200,
       display: 'flex', flexDirection: 'column', gap: 14,
     }}
-    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 12px 32px rgba(42,33,27,0.08)'; }}
-    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'none'; (e.currentTarget as HTMLButtonElement).style.boxShadow = 'none'; }}>
+    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLButtonElement).style.boxShadow = accent ? `${SELECTED_RING}, 0 12px 32px rgba(42,33,27,0.08)` : '0 12px 32px rgba(42,33,27,0.08)'; }}
+    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'none'; (e.currentTarget as HTMLButtonElement).style.boxShadow = accent ? SELECTED_RING : 'none'; }}>
+    {accent && <SelectedBadge />}
     <div style={{ color: PALETTE.brassDeep }}>{icon}</div>
     <Serif style={{ fontSize: 28 }}>{title}</Serif>
     <Serif italic style={{ fontSize: 16, color: PALETTE.mute, lineHeight: 1.4 }}>{tagline}</Serif>

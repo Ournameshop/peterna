@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { PALETTE } from '../lib/palette';
-import { Sans, Pill, StageShell, FieldGroup } from '../lib/primitives';
+import { Sans, Pill, StageShell, FieldGroup, SELECTED_BORDER, SELECTED_RING } from '../lib/primitives';
 import { useBuilder } from '../state';
 import { memoryPrompts, relationships } from '@/lib/peternal-library';
 import type { StageProps } from './types';
@@ -124,8 +124,9 @@ export default function MemoryRelationship({ onNext, onBack }: StageProps) {
               style={{
                 textAlign: 'left',
                 padding: '12px 16px',
-                border: `1px solid ${rel === r.id ? PALETTE.espresso : PALETTE.parchmentLight}`,
+                border: rel === r.id ? SELECTED_BORDER : `1px solid ${PALETTE.parchmentLight}`,
                 background: rel === r.id ? PALETTE.boneSoft : 'transparent',
+                boxShadow: rel === r.id ? SELECTED_RING : 'none',
                 borderRadius: 4,
                 cursor: 'pointer',
                 fontFamily: 'Inter, sans-serif',

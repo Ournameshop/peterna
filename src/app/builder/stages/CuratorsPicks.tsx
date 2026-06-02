@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import Image from 'next/image';
 import { Sparkles, Hammer } from 'lucide-react';
 import { PALETTE } from '../lib/palette';
-import { StageShell, PathCard, Tag, Serif, Sans } from '../lib/primitives';
+import { StageShell, PathCard, Tag, Serif, Sans, SelectedBadge, SELECTED_BORDER, SELECTED_RING } from '../lib/primitives';
 import { useBuilder } from '../state';
 import type { StageProps } from '../state';
 import { formats, themes, artStyles } from '@/lib/peternal-library';
@@ -66,10 +66,12 @@ export default function CuratorsPicks({ onNext, onBack, goToStep }: StageProps) 
                 key={pick.id}
                 onClick={() => handlePickSelect(pick.id)}
                 style={{
+                  position: 'relative',
                   textAlign: 'left',
                   padding: 0,
-                  border: `1px solid ${isHighlighted ? PALETTE.brass : PALETTE.parchmentLight}`,
+                  border: isHighlighted ? SELECTED_BORDER : `1px solid ${PALETTE.parchmentLight}`,
                   background: isHighlighted ? 'rgba(201,169,97,0.04)' : 'white',
+                  boxShadow: isHighlighted ? SELECTED_RING : 'none',
                   cursor: 'pointer',
                   borderRadius: 4,
                   overflow: 'hidden',
@@ -77,9 +79,10 @@ export default function CuratorsPicks({ onNext, onBack, goToStep }: StageProps) 
                   display: 'flex',
                   flexDirection: 'column',
                 }}
-                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 8px 24px rgba(42,33,27,0.09)'; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'none'; (e.currentTarget as HTMLButtonElement).style.boxShadow = 'none'; }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLButtonElement).style.boxShadow = isHighlighted ? `${SELECTED_RING}, 0 8px 24px rgba(42,33,27,0.09)` : '0 8px 24px rgba(42,33,27,0.09)'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'none'; (e.currentTarget as HTMLButtonElement).style.boxShadow = isHighlighted ? SELECTED_RING : 'none'; }}
               >
+                {isHighlighted && <SelectedBadge />}
                 <div style={{ position: 'relative', width: '100%', aspectRatio: '2 / 1', overflow: 'hidden', flexShrink: 0 }}>
                   <Image
                     src={`/curator-thumbnails/peterna-curator-${pick.id}.png`}

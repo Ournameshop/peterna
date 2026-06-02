@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { PALETTE } from '../lib/palette';
-import { GateReview, Sans, Eyebrow } from '../lib/primitives';
+import { GateReview, Sans, Eyebrow, SELECTED_BORDER, SELECTED_RING } from '../lib/primitives';
 import { useBuilder, usePreviewMode } from '../state';
 import type { StageProps } from './types';
 import type { CinematographyBrief, DpStyleId } from '../state';
@@ -132,8 +132,9 @@ export default function Cinematography({ onNext, onBack }: StageProps) {
                 onClick={() => handleDpChange(dp.id as DpStyleId)}
                 style={{
                   padding: '8px 16px',
-                  border: `1px solid ${active ? PALETTE.espresso : PALETTE.parchmentLight}`,
+                  border: active ? SELECTED_BORDER : `1px solid ${PALETTE.parchmentLight}`,
                   background: active ? PALETTE.boneSoft : 'white',
+                  boxShadow: active ? SELECTED_RING : 'none',
                   borderRadius: 999,
                   cursor: 'pointer',
                   fontFamily: 'Inter, sans-serif',

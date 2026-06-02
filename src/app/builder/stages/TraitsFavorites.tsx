@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { PALETTE } from '../lib/palette';
-import { Sans, StageShell, FieldGroup } from '../lib/primitives';
+import { Sans, StageShell, FieldGroup, SELECTED_BORDER, SELECTED_RING } from '../lib/primitives';
 import { useBuilder } from '../state';
 import { personalityTraits, favoriteThings } from '@/lib/peternal-library';
 import type { StageProps } from './types';
@@ -70,9 +70,10 @@ export default function TraitsFavorites({ onNext, onBack }: StageProps) {
                   fontFamily: 'Inter, sans-serif',
                   fontSize: 13,
                   padding: '8px 16px',
-                  border: `1px solid ${active ? PALETTE.espresso : PALETTE.parchment}`,
+                  border: active ? SELECTED_BORDER : `1px solid ${PALETTE.parchment}`,
                   background: active ? PALETTE.espresso : 'transparent',
                   color: active ? PALETTE.bone : (disabled ? PALETTE.parchment : PALETTE.espresso),
+                  boxShadow: active ? SELECTED_RING : 'none',
                   borderRadius: 999,
                   cursor: disabled ? 'not-allowed' : 'pointer',
                   transition: 'all 180ms ease',
@@ -116,9 +117,10 @@ export default function TraitsFavorites({ onNext, onBack }: StageProps) {
                   fontFamily: 'Inter, sans-serif',
                   fontSize: 13,
                   padding: '8px 16px',
-                  border: `1px solid ${active ? PALETTE.espresso : PALETTE.parchment}`,
+                  border: active ? SELECTED_BORDER : `1px solid ${PALETTE.parchment}`,
                   background: active ? PALETTE.espresso : 'transparent',
                   color: active ? PALETTE.bone : (disabled ? PALETTE.parchment : PALETTE.espresso),
+                  boxShadow: active ? SELECTED_RING : 'none',
                   borderRadius: 999,
                   cursor: disabled ? 'not-allowed' : 'pointer',
                   transition: 'all 180ms ease',

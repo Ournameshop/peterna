@@ -2,7 +2,7 @@
 
 import React, { useEffect } from 'react';
 import { PALETTE } from '../lib/palette';
-import { Serif, Sans, StageShell } from '../lib/primitives';
+import { Serif, Sans, StageShell, SelectedBadge, SELECTED_BORDER, SELECTED_RING } from '../lib/primitives';
 import { useBuilder } from '../state';
 import { captionContainers, containerForStyle } from '@/lib/peternal-library';
 import type { StageProps } from './types';
@@ -46,10 +46,12 @@ export default function CaptionContainer({ onNext, onBack }: StageProps) {
         key={c.id}
         onClick={() => select(c.id as ContainerId)}
         style={{
+          position: 'relative',
           textAlign: 'left',
           padding: '10px 12px',
-          border: `1px solid ${isSelected ? PALETTE.espresso : PALETTE.parchmentLight}`,
+          border: isSelected ? SELECTED_BORDER : `1px solid ${PALETTE.parchmentLight}`,
           background: isSelected ? PALETTE.boneSoft : 'white',
+          boxShadow: isSelected ? SELECTED_RING : 'none',
           cursor: 'pointer',
           borderRadius: 6,
           transition: 'all 180ms ease',
@@ -61,6 +63,7 @@ export default function CaptionContainer({ onNext, onBack }: StageProps) {
         onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLButtonElement).style.borderColor = PALETTE.brass; }}
         onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLButtonElement).style.borderColor = PALETTE.parchmentLight; }}
       >
+        {isSelected && <SelectedBadge />}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={`/container-thumbnails/peternal-container-${c.id}.png`}

@@ -3,7 +3,7 @@
 import React from 'react';
 import Image from 'next/image';
 import { PALETTE } from '../lib/palette';
-import { StageShell, Serif, Sans } from '../lib/primitives';
+import { StageShell, Serif, Sans, SelectedBadge, SELECTED_BORDER, SELECTED_RING } from '../lib/primitives';
 import { useBuilder } from '../state';
 import type { StageProps } from '../state';
 import { artStyles } from '@/lib/peternal-library';
@@ -34,10 +34,12 @@ function StyleCard({ styleId, active, onClick }: { styleId: ArtStyleId; active: 
     <button
       onClick={onClick}
       style={{
+        position: 'relative',
         textAlign: 'left',
         padding: 0,
-        border: `1px solid ${active ? PALETTE.espresso : PALETTE.parchmentLight}`,
+        border: active ? SELECTED_BORDER : `1px solid ${PALETTE.parchmentLight}`,
         background: active ? PALETTE.boneSoft : 'white',
+        boxShadow: active ? SELECTED_RING : 'none',
         cursor: 'pointer',
         borderRadius: 4,
         overflow: 'hidden',
@@ -48,6 +50,7 @@ function StyleCard({ styleId, active, onClick }: { styleId: ArtStyleId; active: 
       onMouseEnter={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.borderColor = PALETTE.brass; }}
       onMouseLeave={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.borderColor = PALETTE.parchmentLight; }}
     >
+      {active && <SelectedBadge />}
       {/* Source thumbnails are 1024x768, matching this 4:3 slot exactly. */}
       <div style={{ width: '100%', aspectRatio: '4 / 3', overflow: 'hidden', position: 'relative', flexShrink: 0 }}>
         <Image
