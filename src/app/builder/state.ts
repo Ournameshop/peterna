@@ -418,5 +418,5 @@ export function useBuilder(): BuilderContextValue {
 export interface StageProps {
   onNext: () => void;
   onBack: () => void;
-  goToStep: (id: StepId) => void;
+  goToStep: (id: StepId, opts?: { preserve?: boolean }) => void;
 }

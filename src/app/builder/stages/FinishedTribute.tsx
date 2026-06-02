@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Download, ChevronLeft, RotateCw, Pencil } from 'lucide-react';
+import { Download, ChevronLeft, RotateCw, Pencil, Music } from 'lucide-react';
 import { PALETTE } from '../lib/palette';
 import { Serif, Sans, Eyebrow, PrimaryButton } from '../lib/primitives';
 import { useBuilder, usePreviewMode } from '../state';
@@ -515,6 +515,17 @@ export default function FinishedTribute({ onBack, goToStep }: StageProps) {
         </button>
         <button onClick={() => goToStep('storyboard')} style={{ ...navLinkStyle, textDecoration: 'underline', textUnderlineOffset: 4 }}>
           <Pencil size={13} /> Edit the storyboard
+        </button>
+        <button
+          onClick={() => {
+            // Non-destructive: keep storyboard/clips/cards; land on the music
+            // sub-step so the song can be re-rolled, then Re-mix.
+            window.location.hash = 'words-music';
+            goToStep('words', { preserve: true });
+          }}
+          style={{ ...navLinkStyle, textDecoration: 'underline', textUnderlineOffset: 4 }}
+        >
+          <Music size={13} /> Edit the song
         </button>
       </div>
 

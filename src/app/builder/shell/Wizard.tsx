@@ -38,7 +38,9 @@ export interface WizardContextValue {
   furthestReached: number;
   next: () => void;
   back: () => void;
-  goToStep: (id: StepId) => void;
+  // opts.preserve = jump without the downstream reset (e.g. to edit the song
+  // without discarding the storyboard / clips / cards).
+  goToStep: (id: StepId, opts?: { preserve?: boolean }) => void;
 }
 
 const WizardContext = createContext<WizardContextValue | null>(null);
@@ -72,11 +74,13 @@ export function WizardProvider({ children, initialStepIndex = 0 }: { children: R
     });
   }, [resetDownstream]);
 
-  const goToStep = useCallback((id: StepId) => {
+  const goToStep = useCallback((id: StepId, opts?: { preserve?: boolean }) => {
     const target = STEPS.findIndex(s => s.id === id);
     if (target < 0) return;
     setStepIndex(current => {
-      if (target < current) {
+      // preserve = a non-destructive jump (keeps storyboard/clips/cards) — used
+      // to edit the song without re-running the whole tail.
+      if (target < current && !opts?.preserve) {
         resetDownstream(STEPS[target].id);
       }
       setFurthestReached(f => Math.max(f, target));
