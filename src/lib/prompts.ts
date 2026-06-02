@@ -216,9 +216,21 @@ export function buildTributeCardPrompt(input: TributeCardPromptInput): string {
   // Step 3 — beat-specific scene (interior cards) or a memorial portrait.
   if (cardType === 'caption' && sceneHint) {
     lines.push(`Scene: ${petName} ${sceneHint}.`);
+  } else if (cardType === 'opening') {
+    // Opening = a warm "beginning": morning light, the pet present and engaged,
+    // facing the viewer in a close framing. Deliberately distinct in light, pose
+    // and framing from the closing card so the two never look alike.
+    lines.push(
+      `An opening title portrait of ${petName} — a warm welcome and the very first frame of the tribute. Soft golden morning light, ${petName} alert and full of life, gazing gently toward the viewer in a close, intimate framing.`
+    );
+  } else if (cardType === 'closing') {
+    // Closing = a peaceful "farewell": dusk/sunset light, the pet resting or
+    // gazing into the distance, wider framing — a clearly different mood.
+    lines.push(
+      `A closing farewell portrait of ${petName} — serene and at eternal peace, the final frame of the tribute. Soft amber sunset light at dusk, ${petName} resting calmly and gazing softly into the distance in a wider, contemplative framing. The mood, lighting and pose must be visibly different from the opening card.`
+    );
   } else {
-    const kind = cardType === 'opening' ? 'opening title' : cardType === 'closing' ? 'closing' : 'memory';
-    lines.push(`A tender memorial ${kind} portrait of ${petName}, calm and at peace.`);
+    lines.push(`A tender memorial portrait of ${petName}, calm and at peace.`);
   }
   if (theme) lines.push(`Environment and mood: ${theme}.`);
   if (format) lines.push(`Format context: ${format}.`);
