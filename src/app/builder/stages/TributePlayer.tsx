@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Loader2, RotateCw, Play } from 'lucide-react';
 import { PALETTE } from '../lib/palette';
 import { Sans, Serif } from '../lib/primitives';
@@ -56,6 +56,12 @@ export default function TributePlayer({
   const themeObj = themes.find((t) => t.id === state.theme);
   const themeGradient = themeObj?.gradient ?? PALETTE.brass;
 
+  // If the <video> source fails to load (e.g. an expired/forbidden URL), show a
+  // recovery CTA instead of a black/broken frame. Tracked by URL so a re-mix
+  // (fresh, durable S3 URL) automatically clears the failed state — no effect.
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const videoFailed = !!assembledUrl && failedUrl === assembledUrl;
+
   return (
     <div
       style={{
@@ -91,18 +97,32 @@ export default function TributePlayer({
               {phase || 'Assembling your tribute…'}
             </Sans>
           </div>
-        ) : assembledUrl ? (
+        ) : assembledUrl && !videoFailed ? (
           /* 2) The real merged MP4 — native controls, single source, no blanks.
                 key={assembledUrl} forces a fresh <video> when a re-mix produces a
-                new URL so the element reloads the new file. */
+                new URL so the element reloads the new file. onError catches an
+                expired/forbidden source and flips to the recovery CTA below. */
           <video
             key={assembledUrl}
             src={assembledUrl}
             controls
             playsInline
             preload="metadata"
+            onError={() => setFailedUrl(assembledUrl ?? null)}
             style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', background: '#000' }}
           />
+        ) : videoFailed ? (
+          /* 2b) The source couldn't load (expired/forbidden) — offer a rebuild. */
+          <div style={centerCol}>
+            <Serif italic style={{ fontSize: 17, color: 'white', textAlign: 'center', maxWidth: 300, lineHeight: 1.4 }}>
+              This video link expired. Re-mix to rebuild it.
+            </Serif>
+            {onRemix && (
+              <button onClick={onRemix} style={ctaButtonStyle}>
+                <RotateCw size={14} /> Re-mix
+              </button>
+            )}
+          </div>
         ) : error ? (
           /* 3) Compose failed */
           <div style={centerCol}>

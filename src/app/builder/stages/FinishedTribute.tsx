@@ -408,12 +408,28 @@ export default function FinishedTribute({ onBack, goToStep }: StageProps) {
     try {
       // Download the exact file the player is showing; only compose if none
       // exists yet (e.g. download clicked before the auto-assemble finished).
-      const videoUrl =
+      let videoUrl =
         state.assembledVideoUrl ?? (await composeVideo((phase) => setDownloadPhase(phase)));
       stopProgressRamp();
       setDownloadPhase('Downloading…');
       setDownloadProgress(95);
-      const videoBlob = await fetch(videoUrl).then((r) => r.blob());
+      // Self-heal the "Forbidden" case: a cached URL may be a fal link that has
+      // expired (HTTP 403) or gone. Re-assemble once — compose re-hosts the
+      // output to durable S3 — then retry before surfacing an error.
+      let res = await fetch(videoUrl);
+      if (!res.ok) {
+        setDownloadProgress(0);
+        startProgressRamp();
+        setDownloadPhase('Your saved link expired — rebuilding the video…');
+        videoUrl = await composeVideo((phase) => setDownloadPhase(phase));
+        stopProgressRamp();
+        setDownloadProgress(95);
+        res = await fetch(videoUrl);
+        if (!res.ok) {
+          throw new Error(`Could not fetch the video (HTTP ${res.status}). Please try again.`);
+        }
+      }
+      const videoBlob = await res.blob();
       setDownloadProgress(100);
       const objectUrl = URL.createObjectURL(videoBlob);
       const a = document.createElement('a');
