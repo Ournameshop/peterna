@@ -14,6 +14,7 @@ import path from "path";
 import fs from "fs";
 import { spawn } from "child_process";
 import { fal } from "@/lib/fal";
+import { store } from "@/lib/server/storage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -126,7 +127,8 @@ export async function POST(req: Request) {
 
       const videoData = fs.readFileSync(outPath);
       const blob = new Blob([videoData], { type: "video/mp4" });
-      const burnedVideoUrl = await fal.storage.upload(blob);
+      const burnedVideoUrl =
+        (await store(videoData, "video/mp4", "burned", "mp4")) ?? (await fal.storage.upload(blob));
       results.push({ index: beat.index, burnedVideoUrl });
     } catch (err) {
       const message = err instanceof Error ? err.message : "burn failed";

@@ -41,6 +41,7 @@ import path from "path";
 import fs from "fs";
 import { spawn } from "child_process";
 import { fal } from "@/lib/fal";
+import { store } from "@/lib/server/storage";
 import { buildSubtitleCues, buildAssFile, escapeFilterPath } from "@/lib/peternal-subtitles";
 import type { NarrationWord } from "@/lib/peternal-subtitles";
 
@@ -456,7 +457,8 @@ export async function POST(req: Request) {
 
     const videoData = fs.readFileSync(outPath);
     const blob = new Blob([videoData], { type: "video/mp4" });
-    const url = await fal.storage.upload(blob);
+    // Prefer durable S3; fall back to fal.storage when S3 isn't configured.
+    const url = (await store(videoData, "video/mp4", "master", "mp4")) ?? (await fal.storage.upload(blob));
 
     // eslint-disable-next-line no-console
     console.log(`[COMPOSE-OUTPUT] url=${url}`);

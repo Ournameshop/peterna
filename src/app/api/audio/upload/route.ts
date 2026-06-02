@@ -8,6 +8,7 @@ import path from "path";
 import fs from "fs";
 import { spawn } from "child_process";
 import { fal } from "@/lib/fal";
+import { store } from "@/lib/server/storage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -79,6 +80,9 @@ export async function POST(req: Request) {
     try { fs.unlinkSync(tmpPath); } catch { /* already gone */ }
   }
 
-  const url = await fal.storage.upload(file);
+  const uploadExt = (file.name.split(".").pop() || "mp3").toLowerCase();
+  const url =
+    (await store(Buffer.from(await file.arrayBuffer()), file.type || "audio/mpeg", "upload", uploadExt)) ??
+    (await fal.storage.upload(file));
   return NextResponse.json({ url, durationMs, provider: "upload", title: file.name });
 }

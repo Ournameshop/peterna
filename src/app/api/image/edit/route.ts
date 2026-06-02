@@ -5,6 +5,7 @@
 
 import { NextResponse } from "next/server";
 import { fal } from "@/lib/fal";
+import { rehost } from "@/lib/server/storage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -90,7 +91,8 @@ export async function POST(req: Request) {
         { status: 502 }
       );
     }
-    return NextResponse.json({ url });
+    const hostedUrl = await rehost(url, "image", body.outputFormat || "png");
+    return NextResponse.json({ url: hostedUrl });
   } catch (err) {
     const message = err instanceof Error ? err.message : "unknown error";
     return NextResponse.json({ error: message }, { status: 502 });

@@ -20,6 +20,7 @@
 
 import { NextResponse } from "next/server";
 import { fal } from "@/lib/fal";
+import { rehost } from "@/lib/server/storage";
 import { buildBeatPrompt } from "@/lib/prompts";
 
 export const runtime = "nodejs";
@@ -130,7 +131,8 @@ export async function POST(req: Request) {
       const beatIdx = body.beatIndex ?? body.beat?.archetype ?? "?";
       // eslint-disable-next-line no-console
       console.log(`[GEN-BEAT] index=${beatIdx} url=${url}`);
-      return NextResponse.json({ url, prompt });
+      const hostedUrl = await rehost(url, "beat", "mp4");
+      return NextResponse.json({ url: hostedUrl, prompt });
     }
 
     const submit = await fal.queue.submit(endpoint, {

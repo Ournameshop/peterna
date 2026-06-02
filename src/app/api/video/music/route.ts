@@ -8,6 +8,7 @@
 
 import { NextResponse } from "next/server";
 import { fal } from "@/lib/fal";
+import { store, rehost } from "@/lib/server/storage";
 import { sunoGenerateTrack } from "@/lib/suno";
 
 export const runtime = "nodejs";
@@ -38,7 +39,9 @@ async function persistGeneratedAudio(url: string): Promise<{ url: string; stored
 
     const contentType = audioRes.headers.get("content-type") || "audio/mpeg";
     const bytes = await audioRes.arrayBuffer();
-    const storedUrl = await fal.storage.upload(new Blob([bytes], { type: contentType }));
+    const storedUrl =
+      (await store(Buffer.from(bytes), contentType, "music", "mp3")) ??
+      (await fal.storage.upload(new Blob([bytes], { type: contentType })));
     return { url: storedUrl, stored: true };
   } catch (err) {
     console.warn("[music] failed to persist generated audio; using provider url:", err);
@@ -141,7 +144,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "no audio url in fal response" }, { status: 502 });
     }
     console.log(`[GEN-MUSIC] url=${url}`);
-    return NextResponse.json({ url, durationMs: music_length_ms, provider: "fal" });
+    const hostedUrl = await rehost(url, "music", "mp3");
+    return NextResponse.json({ url: hostedUrl, durationMs: music_length_ms, provider: "fal" });
   } catch (err) {
     const message = err instanceof Error ? err.message : "unknown error";
     return NextResponse.json({ error: message }, { status: 502 });

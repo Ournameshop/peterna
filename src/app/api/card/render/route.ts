@@ -12,6 +12,7 @@ import { Resvg, initWasm } from "@resvg/resvg-wasm";
 import { renderCardSvg, FRAME_DIMS } from "@/lib/peternal-card-spec";
 import type { ContainerId, ArtStyleId } from "@/lib/peternal-card-spec";
 import { fal } from "@/lib/fal";
+import { store } from "@/lib/server/storage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -119,7 +120,9 @@ export async function POST(req: Request) {
 
     const pngData = resvg.render().asPng();
     const pngArrayBuffer = pngData.buffer.slice(pngData.byteOffset, pngData.byteOffset + pngData.byteLength) as ArrayBuffer;
-    const url = await fal.storage.upload(new Blob([pngArrayBuffer], { type: "image/png" }));
+    const url =
+      (await store(Buffer.from(pngArrayBuffer), "image/png", "card", "png")) ??
+      (await fal.storage.upload(new Blob([pngArrayBuffer], { type: "image/png" })));
 
     return NextResponse.json({ url });
   } catch (err) {
