@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Check, Loader2, Play, RefreshCw, Upload } from 'lucide-react';
+import { Check, Loader2, Play, RefreshCw, Sparkles, Upload } from 'lucide-react';
 import { PALETTE } from '../lib/palette';
 import {
   StageShell,
@@ -34,6 +34,7 @@ import {
 import { resolveArchetype, resolveText, musicTracksFor, captionVoiceFor } from '@/lib/peternal-resolvers';
 import { buildInstrumentalPrompt } from '@/lib/music-prompts';
 import { computeTributeAudioSeconds } from '../lib/tribute-duration';
+import { generateText } from '../lib/generation';
 
 const NARRATION_QUESTIONS = narrationQuestions;
 const PREVIEW_AUDIO_URL =
@@ -122,6 +123,35 @@ function lyricTargetWords(state: BuilderState): { min: number; max: number } {
   }
 }
 
+// The max video length the system can actually render: each Seedance clip is
+// capped at 15s, so beatCount*15 + cards is the ceiling. The song must not run
+// longer than this, or the video would freeze-pad / the song would get cut off.
+function maxVideoSeconds(state: BuilderState): number {
+  const captionCardCount = state.words.captions.length;
+  const cardsSeconds = 6 + captionCardCount * 2.5;
+  return Math.round(state.beatCount * 15 + cardsSeconds);
+}
+
+// Hard cap on sung words, derived from the max video length (~1.4 words/sec),
+// so the generated lyrics — and therefore the song — can't exceed the video.
+function lyricMaxWords(state: BuilderState): number {
+  return Math.round(maxVideoSeconds(state) * 1.4);
+}
+
+// Truncate lyric text to a word cap, keeping whole lines (preserves structure).
+function capLyricWords(text: string, maxWords: number): string {
+  if (text.split(/\s+/).filter(Boolean).length <= maxWords) return text;
+  const kept: string[] = [];
+  let words = 0;
+  for (const line of text.split('\n')) {
+    const lw = line.split(/\s+/).filter(Boolean).length;
+    if (words + lw > maxWords && words > 0) break;
+    kept.push(line);
+    words += lw;
+  }
+  return kept.join('\n').trimEnd();
+}
+
 function lyricCleanLine(value: string, maxWords = 12): string {
   const clean = cleanSongText(value)
     .replace(/[“”]/g, '"')
@@ -194,13 +224,13 @@ function buildSongBrief(state: BuilderState): string {
   return [
     `Tribute song for ${petName}.`,
     `Video length: ${songDurationLabel(state)} (${state.beatCount} planned beats).`,
-    `Lyric target: ${wordTarget.min}-${wordTarget.max} sung words.`,
+    `Lyric length: aim for ${wordTarget.min}-${lyricMaxWords(state)} sung words. HARD MAX ${lyricMaxWords(state)} words — never exceed it.`,
     formatObj ? `Format: ${formatObj.name} - ${formatObj.desc}` : null,
     themeObj ? `Theme: ${themeObj.name} - ${themeObj.desc}` : null,
     styleObj ? `Visual style: ${styleObj.name}.` : null,
     relEntry ? `Relationship: ${relEntry.narrationPhrase}; tone ${relEntry.narrationTone.replace(/_/g, ' ')}.` : null,
     `Beat-card source lines: ${beatLines.join(' / ')}.`,
-    `Do not add extra verses beyond the provided lyrics. End cleanly within ${songDurationLabel(state)}.`,
+    `Do not add extra verses beyond the provided lyrics. The finished song MUST end within ${songDurationLabel(state)} and must NOT run longer than the video.`,
   ].filter(Boolean).join(' ');
 }
 
@@ -270,7 +300,55 @@ function buildLyricDraft(state: BuilderState, openingText: string, closingText: 
         section('Final Chorus', outro),
       ];
 
-  return sections.join('\n\n');
+  return capLyricWords(sections.join('\n\n'), lyricMaxWords(state));
+}
+
+function buildLyricLLMPrompt(state: BuilderState): string {
+  const petName = state.petName || 'this beloved pet';
+  const maxSec = maxVideoSeconds(state);
+  const maxWords = lyricMaxWords(state);
+  const beatCount = state.beatSheet.length || state.beatCount;
+  const captionCardCount = state.words.captions.length;
+  const cardsSeconds = 6 + captionCardCount * 2.5;
+  const perBeatSec = Math.round(Math.min(15, Math.max(4, (maxSec - cardsSeconds) / Math.max(1, beatCount))));
+
+  const relEntry = relationships.find((r) => r.id === state.relationship);
+  const relPhrase = relEntry?.narrationPhrase ?? 'my beloved companion';
+  const traitLabels = labelFromIds(state.traits, personalityTraits);
+  const favoriteLabels = labelFromIds(state.favorites, favoriteThings);
+  const species = state.petProfile?.species ?? 'pet';
+
+  const beatList = (
+    state.beatSheet.length
+      ? state.beatSheet
+      : Array.from({ length: beatCount }, (_, i) => ({ index: i, name: `Scene ${i + 1}`, visual: '', caption: '', spokenOrTitle: '' }))
+  )
+    .map((beat, i) => {
+      const desc = beat.visual || beat.caption || beat.spokenOrTitle || beat.name;
+      return `${i + 1}. ${beat.name} (~${perBeatSec}s): ${desc}`;
+    })
+    .join('\n');
+
+  const lines: string[] = [
+    `You are writing complete, singable memorial song lyrics for a tribute to ${petName}, a ${species}.`,
+    '',
+    `LENGTH: Write COMPLETE, natural song lyrics for a song that runs about ${maxSec} seconds — about ${maxWords} sung words total. Natural and complete, NOT cut off. Do not exceed the word budget.`,
+    '',
+    `PET CONTEXT:`,
+    `- Name: ${petName}`,
+    `- Species: ${species}`,
+    relEntry ? `- Relationship to owner: ${relPhrase}` : '',
+    traitLabels.length ? `- Personality: ${traitLabels.join(', ')}` : '',
+    favoriteLabels.length ? `- Loved: ${listText(favoriteLabels)}` : '',
+    state.memoryPromptAnswer ? `- A treasured memory: ${state.memoryPromptAnswer}` : '',
+    '',
+    `SCENES (follow in this order — one short lyric section per scene or per pair of scenes, so the words match what is on screen at that moment):`,
+    beatList,
+    '',
+    `TONE: Warm, gentle, memorial. Singable and natural. No mention of death, illness, last day, gravestones, or illness. Output ONLY the lyrics with at most [Verse], [Chorus], [Bridge] section markers. No commentary, no stage directions, no word counts.`,
+  ].filter((l) => l !== null && l !== undefined);
+
+  return lines.join('\n');
 }
 
 function modeLabel(mode: MusicMode): string {
@@ -297,6 +375,8 @@ export default function TheWords({ onNext, onBack }: StageProps) {
       ? state.words.narrationLetter
       : Array(narrationQuestions.length).fill(''),
   );
+  const [isWritingLyrics, setIsWritingLyrics] = useState(false);
+  const [lyricWriteError, setLyricWriteError] = useState('');
 
   useEffect(() => {
     function syncSubFromHash() {
@@ -539,10 +619,38 @@ export default function TheWords({ onNext, onBack }: StageProps) {
   }
 
   function updateMusicField(field: 'musicPrompt' | 'musicStyle' | 'musicTitle' | 'musicLyrics', value: string) {
+    // Enforce the hard lyric cap on user edits/paste so the song can't exceed
+    // the max video length.
+    const capped = field === 'musicLyrics' ? capLyricWords(value, lyricMaxWords(state)) : value;
     update({
       words: {
         ...state.words,
-        [field]: value,
+        [field]: capped,
+        musicApproved: false,
+        musicGenerationStatus: state.words.musicGenerationStatus === 'ready' ? 'idle' : state.words.musicGenerationStatus,
+        musicGenerationError: '',
+      },
+      musicBedUrl: null,
+      musicBedDurationMs: null,
+      assembledVideoUrl: null,
+    });
+  }
+
+  async function generateLyricsWithAI() {
+    if (previewMode) return;
+    setIsWritingLyrics(true);
+    setLyricWriteError('');
+    const result = await generateText(buildLyricLLMPrompt(state));
+    setIsWritingLyrics(false);
+    if (!result) {
+      setLyricWriteError('Could not generate lyrics — please try again or edit the draft below.');
+      return;
+    }
+    const capped = capLyricWords(result.trim(), lyricMaxWords(state));
+    update({
+      words: {
+        ...state.words,
+        musicLyrics: capped,
         musicApproved: false,
         musicGenerationStatus: state.words.musicGenerationStatus === 'ready' ? 'idle' : state.words.musicGenerationStatus,
         musicGenerationError: '',
@@ -657,7 +765,12 @@ export default function TheWords({ onNext, onBack }: StageProps) {
         },
         musicBedUrl: json.url,
         musicBedDurationMs: json.durationMs ?? null,
-        lockedDurationSeconds: shouldLock ? Math.ceil((json.durationMs as number) / 1000) : state.lockedDurationSeconds,
+        // Lock the video to the song length, but never beyond the max video
+        // length (beatCount*15 + cards) — so an over-long song trims/fades
+        // instead of stretching the video into a freeze-frame.
+        lockedDurationSeconds: shouldLock
+          ? Math.min(Math.ceil((json.durationMs as number) / 1000), maxVideoSeconds(state))
+          : state.lockedDurationSeconds,
         assembledVideoUrl: null,
       });
     } catch (err) {
@@ -1363,6 +1476,39 @@ export default function TheWords({ onNext, onBack }: StageProps) {
                 </button>
               }
             >
+              <div style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <button
+                  onClick={() => void generateLyricsWithAI()}
+                  disabled={isWritingLyrics}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 7,
+                    padding: '9px 16px',
+                    border: `1px solid ${PALETTE.brass}`,
+                    background: isWritingLyrics ? PALETTE.parchmentLight : PALETTE.boneSoft,
+                    color: isWritingLyrics ? PALETTE.mute : PALETTE.brassDeep,
+                    borderRadius: 3,
+                    cursor: isWritingLyrics ? 'not-allowed' : 'pointer',
+                    fontFamily: 'Inter, sans-serif',
+                    fontSize: 13,
+                    transition: 'all 180ms ease',
+                  }}
+                >
+                  {isWritingLyrics
+                    ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />
+                    : <Sparkles size={14} />}
+                  {isWritingLyrics ? 'Writing…' : 'Write lyrics for me'}
+                </button>
+                <Sans style={{ fontSize: 12, color: PALETTE.mute, fontStyle: 'italic' }}>
+                  Lyrics are sized to your video length (~{lyricMaxWords(state)} words) so the song matches the scenes.
+                </Sans>
+              </div>
+              {lyricWriteError && (
+                <Sans style={{ fontSize: 12, color: '#B91C1C', marginBottom: 8, lineHeight: 1.5 }}>
+                  {lyricWriteError}
+                </Sans>
+              )}
               <textarea
                 value={state.words.musicLyrics || buildLyricDraft(state, musicOpeningLabel, musicClosingLabel)}
                 onChange={(e) => updateMusicField('musicLyrics', e.target.value)}
