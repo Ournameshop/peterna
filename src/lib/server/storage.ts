@@ -90,11 +90,31 @@ function assetKey(kind: string, ext: string): string {
   return `assets/${kind}/${randomUUID()}.${ext}`;
 }
 
+// SSRF guard: rehost() must only ever fetch asset URLs returned by fal — never
+// an arbitrary or internal host (e.g. the EC2 metadata endpoint 169.254.169.254).
+// Every caller passes a fal output URL, so we hard-restrict to fal.media over
+// HTTPS; anything else is skipped (the caller keeps the source URL). `null` =
+// not allowed.
+function assertFalAssetUrl(sourceUrl: string): URL | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(sourceUrl);
+  } catch {
+    return null;
+  }
+  if (parsed.protocol !== 'https:') return null;
+  const host = parsed.hostname.toLowerCase();
+  if (host !== 'fal.media' && !host.endsWith('.fal.media')) return null;
+  return parsed;
+}
+
 async function fetchWithTimeout(sourceUrl: string): Promise<Response> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    return await fetch(sourceUrl, { signal: controller.signal });
+    // redirect: 'manual' so a 3xx can't bounce the fetch to an internal host;
+    // rehost() treats any non-2xx (incl. opaqueredirect) as "skip re-hosting".
+    return await fetch(sourceUrl, { signal: controller.signal, redirect: 'manual' });
   } finally {
     clearTimeout(timeout);
   }
@@ -142,6 +162,8 @@ export async function store(
 export async function rehost(sourceUrl: string, kind: string, ext: string): Promise<string> {
   if (!sourceUrl || !isS3Mode()) return sourceUrl;
   if (sourceUrl.startsWith('data:')) return sourceUrl;
+  // SSRF guard — only re-host fal asset URLs; never fetch arbitrary/internal hosts.
+  if (!assertFalAssetUrl(sourceUrl)) return sourceUrl;
   try {
     const res = await fetchWithTimeout(sourceUrl);
     if (!res.ok) return sourceUrl;
