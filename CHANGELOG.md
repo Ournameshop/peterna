@@ -6,6 +6,18 @@ Working branch: `Adding-skill-in-webflow`
 
 ## 2026-06-02
 
+### Durable assets — S3 re-hosting at every asset route (Workstream B)
+fal generation/storage URLs expire ~24h, so resumed drafts would have dead
+media. Ported builder.blck's `storage.ts` (S3-only, trimmed) as
+`src/lib/server/storage.ts` with two graceful helpers: `store(buffer,…)` (routes
+that hold bytes — uploads to S3, falls back to `fal.storage.upload` when S3 is
+absent) and `rehost(url,…)` (routes with only a fal URL — copies fal→S3, returns
+the source URL on absence/failure). Wired all 9 asset routes (compose,
+card/render, burn-captions, audio/upload, music, narration, beat, image/generate,
+image/edit). Random keys under `assets/{kind}/` (no build-id threading). **Dormant
+until `AWS_*` / `S3_BUCKET` / `S3_KEY_PREFIX` are set on the box — behaviour is
+identical without them.** Adds `@aws-sdk/client-s3`.
+
 ### Resumable drafts — Prisma `Build` table + `?id=` persistence (Workstream A)
 "Store everything like builder.blck" — additive, **no flow change**. Added
 Prisma 6 (matching builder.blck) with a single `Build` model that stores the
@@ -340,13 +352,15 @@ per-beat captions composited into the assembled video; A/V sync corrected.
   draft now persists to a Postgres `Build` row and resumes via `?id=`. To
   activate on staging: `prisma db push` against `peterna` DB (additive — leaves
   the `tributes` table untouched), then deploy.
-- **Durable assets (Workstream B) — BLOCKED on S3 creds.** Generated assets are
-  still ephemeral fal.media URLs (~24h), so resumed drafts older than a day will
-  have dead asset URLs. Fix = port builder.blck `storage.ts` + re-host fal
-  outputs to S3 at each asset route. **peterna-staging `.env` currently has NO
-  AWS keys** — needs `AWS_ACCESS_KEY_ID/SECRET`, `S3_BUCKET=peterna-tribute-assets-dev`,
-  `S3_KEY_PREFIX=peterna/` added before B can activate. `rehost()` is written to
-  fall back to the fal URL when S3 env is absent, so B is safe to ship dormant.
+- **Durable assets (Workstream B) — CODE DONE, dormant until creds.** S3
+  re-hosting is wired at all 9 asset routes but **peterna-staging `.env` has NO
+  AWS keys** so it currently no-ops (assets stay on fal, ~24h). To activate, add
+  `AWS_ACCESS_KEY_ID/SECRET`, `AWS_REGION=us-east-1`,
+  `S3_BUCKET=peterna-tribute-assets-dev`, `S3_KEY_PREFIX=peterna/` to the box and
+  confirm the bucket grants public-read on the `peterna/` prefix.
+- **All persistence work is on local branch `feat/builder-finished-step-persistence`
+  (not pushed).** To go live: `prisma db push` (creates `Build`), add the S3 env
+  vars, then deploy + verify on the box.
 - **Share link deferred.** "Get my memorial page link" (and "Add to family
   channel") remain no-op stubs. PostgreSQL is provisioned on the staging box
   (database `peterna`, `tributes` table) and `DATABASE_URL` is set in both
