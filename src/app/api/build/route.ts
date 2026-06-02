@@ -1,3 +1,4 @@
+// GET  /api/build — list saved drafts (newest first) for the "continue" picker.
 // POST /api/build — create a new builder draft, returns { id }.
 //
 // Persistence is additive: the entire BuilderState is stored as one JSON blob.
@@ -12,6 +13,25 @@ export const dynamic = 'force-dynamic';
 interface ReqBody {
   state?: Record<string, unknown>;
   stepIndex?: number;
+}
+
+export async function GET() {
+  if (!process.env.DATABASE_URL) {
+    return NextResponse.json({ error: 'DATABASE_URL not configured' }, { status: 500 });
+  }
+  try {
+    // Light list — no `state` blob (can be large with data URLs). `hasVideo`
+    // tells the picker whether a finished video exists without shipping it.
+    const rows = await prisma.build.findMany({
+      orderBy: { updatedAt: 'desc' },
+      take: 100,
+      select: { id: true, petName: true, stepIndex: true, updatedAt: true },
+    });
+    return NextResponse.json({ builds: rows });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'database error';
+    return NextResponse.json({ error: message }, { status: 502 });
+  }
 }
 
 export async function POST(req: Request) {
