@@ -7,8 +7,9 @@ declare global {
   var __prisma: PrismaClient | undefined;
 }
 
-export const prisma: PrismaClient = globalThis.__prisma ?? new PrismaClient();
-
-if (process.env.NODE_ENV !== 'production') {
-  globalThis.__prisma = prisma;
+// Always cache on globalThis so module-cache invalidation (dev HMR, or any
+// serverless re-import) reuses one client instead of leaking PG connections.
+if (!globalThis.__prisma) {
+  globalThis.__prisma = new PrismaClient();
 }
+export const prisma: PrismaClient = globalThis.__prisma;

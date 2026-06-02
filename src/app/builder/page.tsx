@@ -55,10 +55,17 @@ export default function BuilderPage() {
         try {
           const res = await fetch(`/api/build/${id}`, { cache: 'no-store' });
           if (res.ok) {
-            const data = (await res.json()) as { id: string; state: BuilderState; stepIndex: number };
+            const data = (await res.json()) as { id: string; state: unknown; stepIndex: number };
             if (!cancelled) {
+              // Only treat a plain object as a usable seed; anything else
+              // (null / corrupt) falls back to a fresh initialState in the
+              // provider, which also merges in any newer schema fields.
+              const seed =
+                data.state && typeof data.state === 'object' && !Array.isArray(data.state)
+                  ? (data.state as BuilderState)
+                  : undefined;
               setBuildId(data.id);
-              setResume({ seed: data.state, stepIndex: data.stepIndex ?? 0 });
+              setResume({ seed, stepIndex: typeof data.stepIndex === 'number' ? data.stepIndex : 0 });
             }
             return;
           }

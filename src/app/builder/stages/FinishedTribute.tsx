@@ -48,6 +48,21 @@ function composeEulogy(state: BuilderState): string {
   return body;
 }
 
+// A preset music bed is generated asynchronously on the finished step (the
+// mount effect below). That is the ONLY music we should wait for before
+// assembling — upload / lyric / custom / ambient modes either already have
+// their bed or aren't generating one here. Composing while a preset bed is
+// still pending would silently produce a video with no music.
+function presetBedPending(state: BuilderState): boolean {
+  return (
+    state.words.music !== 'silence' &&
+    state.musicIntent !== 'lyric' &&
+    state.words.musicMode === 'preset' &&
+    state.words.musicApproved &&
+    !state.musicBedUrl
+  );
+}
+
 type DownloadStatus = 'idle' | 'preparing' | 'done' | 'error';
 type ShareStatus = 'idle' | 'preparing' | 'done' | 'error';
 
@@ -170,6 +185,11 @@ export default function FinishedTribute({ onBack, goToStep }: StageProps) {
     }
     if (state.words.narration !== 'off' && !state.cardPreviewImages.opening) {
       throw new Error('Card images are still being generated — please wait a moment and try again.');
+    }
+    // Re-mix bypasses the composeReady gate, so guard here too: never assemble a
+    // silent video while the chosen music bed is still being generated.
+    if (presetBedPending(state)) {
+      throw new Error('Your music is still being prepared — please wait a moment and try again.');
     }
 
     const musicUrl = state.musicBedUrl ?? null;
@@ -312,7 +332,9 @@ export default function FinishedTribute({ onBack, goToStep }: StageProps) {
     state.beatSheet.length > 0 && state.beatSheet.every((b) => !!state.beatVideos[b.index]);
   const narrationReady = state.words.narration === 'off' || !!state.narrationUrl;
   const cardsReady = state.words.narration === 'off' || !!state.cardPreviewImages.opening;
-  const musicReady = state.words.music === 'silence' || !!state.musicBedUrl;
+  // Ready unless a preset bed is still pending (upload/lyric/custom/ambient/
+  // silence don't block). Without this, those modes would never auto-compose.
+  const musicReady = !presetBedPending(state);
   const composeReady = beatsReady && narrationReady && cardsReady && musicReady;
 
   // Run the compose. force=true re-mixes even when a previous cut exists.

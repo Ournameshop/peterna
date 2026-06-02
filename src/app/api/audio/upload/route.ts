@@ -68,9 +68,12 @@ export async function POST(req: Request) {
   const ext = path.extname(file.name) || ".audio";
   const tmpPath = path.join(os.tmpdir(), `peterna-upload-${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`);
 
+  // Read the upload ONCE — a File from formData() can be single-shot in some
+  // runtimes; reuse the buffer for both the probe and the S3 store.
+  const bytes = await file.arrayBuffer();
+
   let durationMs = 0;
   try {
-    const bytes = await file.arrayBuffer();
     fs.writeFileSync(tmpPath, Buffer.from(bytes));
     durationMs = await probeDurationMs(tmpPath);
   } catch (err) {
@@ -82,7 +85,7 @@ export async function POST(req: Request) {
 
   const uploadExt = (file.name.split(".").pop() || "mp3").toLowerCase();
   const url =
-    (await store(Buffer.from(await file.arrayBuffer()), file.type || "audio/mpeg", "upload", uploadExt)) ??
+    (await store(Buffer.from(bytes), file.type || "audio/mpeg", "upload", uploadExt)) ??
     (await fal.storage.upload(file));
   return NextResponse.json({ url, durationMs, provider: "upload", title: file.name });
 }

@@ -385,7 +385,12 @@ export function BuilderProvider({
   // resumed draft can hydrate state WITHOUT entering preview mode.
   isPreview?: boolean;
 }) {
-  const [state, setState] = useState<BuilderState>(seed ?? initialState);
+  // Merge the seed OVER initialState so a resumed draft saved before a field
+  // existed still gets that field's default (avoids undefined-field crashes on
+  // resume after the schema grows). Shallow merge — covers top-level additions.
+  const [state, setState] = useState<BuilderState>(
+    seed ? { ...initialState, ...seed } : initialState,
+  );
 
   const update = (patch: Partial<BuilderState>) => setState(s => ({ ...s, ...patch }));
 

@@ -58,6 +58,16 @@ export function usePersistBuild(buildId: string | null): void {
     };
   }, [buildId]);
 
+  // When a freshly-created build's id arrives (null → id), flush the current
+  // state immediately. This closes the window where progress made during the
+  // create round-trip would otherwise be dropped (saves no-op while id is null).
+  const flushedRef = useRef(false);
+  useEffect(() => {
+    if (!buildId || flushedRef.current) return;
+    flushedRef.current = true;
+    save.current();
+  }, [buildId]);
+
   // Save on step change (primary trigger). Skip the mount run.
   const firstStep = useRef(true);
   useEffect(() => {
