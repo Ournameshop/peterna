@@ -19,7 +19,7 @@
 // }
 
 import { NextResponse } from "next/server";
-import { fal } from "@/lib/fal";
+import { fal, describeFalError } from "@/lib/fal";
 import { buildBeatPrompt } from "@/lib/prompts";
 
 export const runtime = "nodejs";
@@ -139,7 +139,7 @@ export async function POST(req: Request) {
       prompt,
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "unknown error";
-    return NextResponse.json({ error: message }, { status: 502 });
+    const { message, status } = describeFalError(err);
+    return NextResponse.json({ error: message }, { status });
   }
 }

@@ -2,7 +2,7 @@
 // Text-to-image via fal.ai openai/gpt-image-2.
 
 import { NextResponse } from "next/server";
-import { fal } from "@/lib/fal";
+import { fal, describeFalError } from "@/lib/fal";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -53,7 +53,7 @@ export async function POST(req: Request) {
     if (!url) return NextResponse.json({ error: "no image url" }, { status: 502 });
     return NextResponse.json({ url });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "unknown error";
-    return NextResponse.json({ error: msg }, { status: 502 });
+    const { message, status } = describeFalError(err);
+    return NextResponse.json({ error: message }, { status });
   }
 }
