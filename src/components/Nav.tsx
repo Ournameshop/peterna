@@ -20,6 +20,10 @@ export default function Nav() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
+  // The builder is a focused, full-screen wizard with its own sticky TopBar.
+  // The marketing nav would overlap that chrome (and its back button), so hide it.
+  if (pathname?.startsWith('/builder')) return null;
+
   return (
     <header
       style={{

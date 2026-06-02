@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { C, FONT_DISPLAY, FONT_SANS, sectionMaxStyle } from "@/lib/peterna-tokens";
 
 type Item = { label: string; route: string };
@@ -53,6 +56,9 @@ function Col({ title, items }: { title: string; items: Item[] }) {
 }
 
 export default function Footer() {
+  const pathname = usePathname();
+  // Hide the marketing footer inside the focused builder wizard.
+  if (pathname?.startsWith('/builder')) return null;
   return (
     <footer style={{ background: C.cream, borderTop: `1px solid ${C.line}` }}>
       <div style={{ ...sectionMaxStyle, padding: "64px 40px" }}>
