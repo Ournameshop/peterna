@@ -1,0 +1,30 @@
+// Peterna tribute builder — persistence.
+//
+// We store the ENTIRE BuilderState as a single Json blob keyed by a cuid. The
+// wizard reads/writes BuilderState as one cohesive object; there are no
+// cross-build queries against inner fields, so normalizing would only add a
+// mapping layer that must track every change to src/app/builder/state.ts.
+// Adding a field to BuilderState requires NO schema change here.
+//
+// Coexists with the raw-`pg` `tributes` table (src/lib/db.ts), which is NOT
+// modeled here — `prisma db push` is additive and leaves it untouched.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Build {
+  id        String   @id @default(cuid())
+  petName   String? // denormalized from state.petName for a future "my builds" list
+  stepIndex Int      @default(0) // feeds WizardProvider.initialStepIndex on resume
+  state     Json // the entire BuilderState
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([updatedAt])
+}

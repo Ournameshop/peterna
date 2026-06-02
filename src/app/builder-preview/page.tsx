@@ -127,7 +127,7 @@ const mockState = buildMockState();
 
 export default function BuilderPreviewPage() {
   return (
-    <BuilderProvider seed={mockState}>
+    <BuilderProvider seed={mockState} isPreview>
       <WizardProvider>
         <div style={{ minHeight: '100vh', background: PALETTE.bone, color: PALETTE.espresso }}>
           {/* Banner */}

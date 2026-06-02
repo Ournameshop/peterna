@@ -374,9 +374,18 @@ interface BuilderContextValue {
 
 export const BuilderContext = createContext<BuilderContextValue | null>(null);
 
-export function BuilderProvider({ children, seed }: { children: React.ReactNode; seed?: BuilderState }) {
+export function BuilderProvider({
+  children,
+  seed,
+  isPreview = false,
+}: {
+  children: React.ReactNode;
+  seed?: BuilderState;
+  // Preview mode (gates generation) is now EXPLICIT — decoupled from `seed` so a
+  // resumed draft can hydrate state WITHOUT entering preview mode.
+  isPreview?: boolean;
+}) {
   const [state, setState] = useState<BuilderState>(seed ?? initialState);
-  const isPreview = seed !== undefined;
 
   const update = (patch: Partial<BuilderState>) => setState(s => ({ ...s, ...patch }));
 
