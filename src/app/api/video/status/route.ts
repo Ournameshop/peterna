@@ -3,6 +3,7 @@
 
 import { NextResponse } from "next/server";
 import { fal } from "@/lib/fal";
+import { rehost } from "@/lib/server/storage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,11 +26,15 @@ export async function GET(req: Request) {
     const status = await fal.queue.status(endpoint, { requestId, logs: false });
     if (status.status === "COMPLETED") {
       const result = await fal.queue.result(endpoint, { requestId });
-      const videoUrl = result?.data?.video?.url || null;
+      let videoUrl = result?.data?.video?.url || null;
       if (videoUrl) {
         const beatIndex = url.searchParams.get("beatIndex") ?? requestId;
         // eslint-disable-next-line no-console
         console.log(`[GEN-BEAT] index=${beatIndex} url=${videoUrl}`);
+        // Re-host the finished clip to durable S3 so each cut is saved and
+        // doesn't vanish when the fal URL expires (~24h). Graceful: returns the
+        // fal URL unchanged if S3 isn't configured.
+        videoUrl = await rehost(videoUrl, "beat", "mp4");
       }
       return NextResponse.json({
         status: "COMPLETED",
