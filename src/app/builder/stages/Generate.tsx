@@ -413,8 +413,8 @@ export default function Generate({ onNext, onBack }: StageProps) {
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
-          gap: 10,
+          gridTemplateColumns: 'repeat(4, 1fr)',
+          gap: 16,
           marginTop: 32,
         }}
       >
@@ -426,14 +426,15 @@ export default function Generate({ onNext, onBack }: StageProps) {
 
           if (videoUrl || isCompleted) {
             const frame = state.storyboardImages[i];
-            const beatName = state.beatSheet[i]?.name ?? `Clip ${i + 1}`;
+            const beatName = state.beatSheet[i]?.name ?? `Beat ${i + 1}`;
             return (
               <div
                 key={i}
                 style={{
-                  borderRadius: 4,
+                  borderRadius: 6,
                   overflow: 'hidden',
                   border: `1px solid ${PALETTE.parchmentLight}`,
+                  background: PALETTE.boneSoft,
                   transition: 'all 400ms ease',
                   display: 'flex',
                   flexDirection: 'column',
@@ -441,28 +442,13 @@ export default function Generate({ onNext, onBack }: StageProps) {
               >
                 {/* Media area — clickable to zoom */}
                 <div
-                  style={{ position: 'relative', cursor: 'pointer' }}
+                  style={{ position: 'relative', cursor: cs.regenerating ? 'default' : 'pointer' }}
                   onClick={() => !cs.regenerating && setZoomedIndex(i)}
                 >
-                  {cs.regenerating ? (
-                    <div
-                      style={{
-                        aspectRatio,
-                        background: PALETTE.boneSoft,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                    >
-                      <Loader2
-                        size={18}
-                        color={PALETTE.brass}
-                        style={{ animation: 'spin 1.2s linear infinite' }}
-                      />
-                    </div>
-                  ) : videoUrl ? (
+                  {videoUrl ? (
                     <video
                       src={videoUrl}
+                      autoPlay
                       loop
                       muted
                       playsInline
@@ -483,117 +469,142 @@ export default function Generate({ onNext, onBack }: StageProps) {
                       species="dog"
                     />
                   )}
+
+                  {/* Beat label caption overlay */}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      padding: '14px 8px 6px',
+                      background:
+                        'linear-gradient(to top, rgba(42,33,27,0.72), rgba(42,33,27,0))',
+                      pointerEvents: 'none',
+                    }}
+                  >
+                    <Sans
+                      style={{
+                        fontSize: 11,
+                        color: PALETTE.bone,
+                        lineHeight: 1.2,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {beatName}
+                    </Sans>
+                  </div>
+
                   {/* Zoom icon overlay (not shown while regenerating) */}
                   {!cs.regenerating && (
                     <div
                       style={{
                         position: 'absolute',
-                        top: 4,
-                        right: 4,
+                        top: 6,
+                        right: 6,
                         background: 'rgba(42,33,27,0.55)',
-                        borderRadius: 3,
-                        padding: '3px 4px',
+                        borderRadius: 4,
+                        padding: '4px 5px',
                         display: 'flex',
                         alignItems: 'center',
                       }}
                     >
-                      <Maximize2 size={11} color={PALETTE.bone} />
+                      <Maximize2 size={12} color={PALETTE.bone} />
+                    </div>
+                  )}
+
+                  {/* Regenerating spinner overlay */}
+                  {cs.regenerating && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+                        background: 'rgba(251,246,236,0.82)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <Loader2
+                        size={20}
+                        color={PALETTE.brass}
+                        style={{ animation: 'spin 1.2s linear infinite' }}
+                      />
                     </div>
                   )}
                 </div>
 
-                {/* Regenerate controls */}
-                {!cs.regenerating && (
-                  <div
+                {/* Inline regenerate footer — compact note input + icon button */}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '7px 8px',
+                    borderTop: `1px solid ${PALETTE.parchmentLight}`,
+                    background: PALETTE.boneSoft,
+                  }}
+                >
+                  <input
+                    type="text"
+                    value={cs.note}
+                    disabled={cs.regenerating}
+                    onChange={(e) => setClipField(i, 'note', e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !cs.regenerating) {
+                        e.preventDefault();
+                        regenerateClip(i);
+                      }
+                    }}
+                    placeholder="What to change?"
+                    aria-label={`What to change for ${beatName}`}
                     style={{
+                      flex: 1,
+                      minWidth: 0,
+                      fontFamily: 'Inter, sans-serif',
+                      fontSize: 12,
                       padding: '6px 8px',
-                      borderTop: `1px solid ${PALETTE.parchmentLight}`,
-                      background: PALETTE.boneSoft,
+                      border: `1px solid ${PALETTE.parchmentLight}`,
+                      borderRadius: 4,
+                      background: cs.regenerating ? PALETTE.boneSoft : 'white',
+                      color: PALETTE.espresso,
+                      boxSizing: 'border-box',
+                      outline: 'none',
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => regenerateClip(i)}
+                    disabled={cs.regenerating}
+                    aria-label={`Regenerate ${beatName}`}
+                    title="Regenerate this clip"
+                    style={{
+                      flexShrink: 0,
+                      width: 30,
+                      height: 30,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      background: PALETTE.espresso,
+                      color: PALETTE.bone,
+                      border: 'none',
+                      borderRadius: 4,
+                      cursor: cs.regenerating ? 'default' : 'pointer',
+                      opacity: cs.regenerating ? 0.5 : 1,
                     }}
                   >
-                    {cs.showNoteInput ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                        <textarea
-                          value={cs.note}
-                          onChange={(e) => setClipField(i, 'note', e.target.value)}
-                          placeholder="What should change?"
-                          rows={2}
-                          style={{
-                            width: '100%',
-                            fontFamily: 'Inter, sans-serif',
-                            fontSize: 11,
-                            padding: '6px 8px',
-                            border: `1px solid ${PALETTE.parchmentLight}`,
-                            borderRadius: 3,
-                            background: 'white',
-                            color: PALETTE.espresso,
-                            resize: 'vertical',
-                            boxSizing: 'border-box',
-                            outline: 'none',
-                          }}
-                        />
-                        <div style={{ display: 'flex', gap: 4 }}>
-                          <button
-                            onClick={() => regenerateClip(i)}
-                            style={{
-                              flex: 1,
-                              fontFamily: 'Inter, sans-serif',
-                              fontSize: 11,
-                              padding: '5px 8px',
-                              background: PALETTE.espresso,
-                              color: PALETTE.bone,
-                              border: 'none',
-                              borderRadius: 3,
-                              cursor: 'pointer',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              gap: 4,
-                            }}
-                          >
-                            <RefreshCw size={10} /> Regenerate
-                          </button>
-                          <button
-                            onClick={() => setClipField(i, 'showNoteInput', false)}
-                            style={{
-                              fontFamily: 'Inter, sans-serif',
-                              fontSize: 11,
-                              padding: '5px 8px',
-                              background: 'transparent',
-                              color: PALETTE.mute,
-                              border: `1px solid ${PALETTE.parchmentLight}`,
-                              borderRadius: 3,
-                              cursor: 'pointer',
-                            }}
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => setClipField(i, 'showNoteInput', true)}
-                        style={{
-                          width: '100%',
-                          fontFamily: 'Inter, sans-serif',
-                          fontSize: 11,
-                          padding: '4px 6px',
-                          background: 'transparent',
-                          color: PALETTE.mute,
-                          border: `1px solid ${PALETTE.parchmentLight}`,
-                          borderRadius: 3,
-                          cursor: 'pointer',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: 4,
-                        }}
-                      >
-                        <RefreshCw size={10} /> Regenerate
-                      </button>
-                    )}
-                  </div>
-                )}
+                    <RefreshCw
+                      size={13}
+                      style={
+                        cs.regenerating
+                          ? { animation: 'spin 1.2s linear infinite' }
+                          : undefined
+                      }
+                    />
+                  </button>
+                </div>
               </div>
             );
           }
