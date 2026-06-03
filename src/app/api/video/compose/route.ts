@@ -69,6 +69,13 @@ const NARR_POST =
 // Music duck level — -18 dB ≈ 0.126 linear
 const MUSIC_DUCK_VOLUME = 0.126;
 
+// Serialize compositions. ffmpeg encodes are CPU-heavy; several running at once
+// on a small box starve each other and fail with a generic exit 255. Allow only
+// one at a time — extra requests are rejected (429) so they can't stack into a
+// contention death-spiral. Module-level: shared across requests in this process.
+let activeComposes = 0;
+const MAX_CONCURRENT_COMPOSES = 1;
+
 interface BeatEntry {
   index: number;
   videoUrl?: string;
@@ -255,6 +262,16 @@ export async function POST(req: Request) {
     aspectRatio,
     perBeatMs: body.perBeatMs ?? null,
   })}`);
+
+  // Reject if a composition is already running — prevents concurrent ffmpeg
+  // encodes from stacking and failing each other (exit 255).
+  if (activeComposes >= MAX_CONCURRENT_COMPOSES) {
+    return NextResponse.json(
+      { error: "A video is already being assembled — please wait a moment and try again." },
+      { status: 429 },
+    );
+  }
+  activeComposes++;
 
   const now = Date.now();
   const tmpFiles: string[] = [];
@@ -481,6 +498,7 @@ export async function POST(req: Request) {
     const status = 502;
     return NextResponse.json({ error: message }, { status });
   } finally {
+    activeComposes = Math.max(0, activeComposes - 1);
     for (const p of tmpFiles) {
       try { fs.unlinkSync(p); } catch { /* best-effort cleanup */ }
     }
