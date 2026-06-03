@@ -138,9 +138,11 @@ export const StageShell = ({ eyebrow, title, lede, children, onNext, onBack, can
   const footerEl = useContext(WizardFooterContext);
 
   // The action bar's inner row — Back on the left, secondary + Continue on the
-  // right — capped to the content width so it lines up with the step body.
+  // right — capped to the content width so it lines up with the step body. A
+  // fixed minHeight keeps the bar the SAME height on every step, whether or not
+  // it has a Continue button (matches the PrimaryButton's ~46px box height).
   const barInner = (
-    <div style={{ maxWidth: 980, margin: '0 auto', padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+    <div style={{ maxWidth: 980, margin: '0 auto', padding: '16px 24px', minHeight: 46, boxSizing: 'content-box', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
       <button onClick={onBack}
         style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'transparent', border: 'none', color: PALETTE.mute, fontFamily: 'Inter, sans-serif', fontSize: 13, cursor: 'pointer', padding: 0 }}>
         <ArrowLeft size={14}/> Back
