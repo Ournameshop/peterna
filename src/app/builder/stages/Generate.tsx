@@ -413,8 +413,8 @@ export default function Generate({ onNext, onBack }: StageProps) {
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(4, 1fr)',
-          gap: 16,
+          gridTemplateColumns: 'repeat(3, 1fr)',
+          gap: 18,
           marginTop: 32,
         }}
       >
@@ -497,22 +497,48 @@ export default function Generate({ onNext, onBack }: StageProps) {
                     </Sans>
                   </div>
 
-                  {/* Zoom icon overlay (not shown while regenerating) */}
+                  {/* On-video controls (hidden while regenerating): regenerate
+                      (left) + zoom (right). Bigger, cleaner — no text field. */}
                   {!cs.regenerating && (
-                    <div
-                      style={{
-                        position: 'absolute',
-                        top: 6,
-                        right: 6,
-                        background: 'rgba(42,33,27,0.55)',
-                        borderRadius: 4,
-                        padding: '4px 5px',
-                        display: 'flex',
-                        alignItems: 'center',
-                      }}
-                    >
-                      <Maximize2 size={12} color={PALETTE.bone} />
-                    </div>
+                    <>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); regenerateClip(i); }}
+                        aria-label={`Regenerate ${beatName}`}
+                        title="Regenerate this clip"
+                        style={{
+                          position: 'absolute',
+                          top: 8,
+                          left: 8,
+                          width: 34,
+                          height: 34,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          background: 'rgba(42,33,27,0.62)',
+                          color: PALETTE.bone,
+                          border: 'none',
+                          borderRadius: 8,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <RefreshCw size={16} />
+                      </button>
+                      <div
+                        style={{
+                          position: 'absolute',
+                          top: 8,
+                          right: 8,
+                          background: 'rgba(42,33,27,0.62)',
+                          borderRadius: 8,
+                          padding: '6px 7px',
+                          display: 'flex',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <Maximize2 size={15} color={PALETTE.bone} />
+                      </div>
+                    </>
                   )}
 
                   {/* Regenerating spinner overlay */}
@@ -528,82 +554,12 @@ export default function Generate({ onNext, onBack }: StageProps) {
                       }}
                     >
                       <Loader2
-                        size={20}
+                        size={24}
                         color={PALETTE.brass}
                         style={{ animation: 'spin 1.2s linear infinite' }}
                       />
                     </div>
                   )}
-                </div>
-
-                {/* Inline regenerate footer — compact note input + icon button */}
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    padding: '7px 8px',
-                    borderTop: `1px solid ${PALETTE.parchmentLight}`,
-                    background: PALETTE.boneSoft,
-                  }}
-                >
-                  <input
-                    type="text"
-                    value={cs.note}
-                    disabled={cs.regenerating}
-                    onChange={(e) => setClipField(i, 'note', e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !cs.regenerating) {
-                        e.preventDefault();
-                        regenerateClip(i);
-                      }
-                    }}
-                    placeholder="What to change?"
-                    aria-label={`What to change for ${beatName}`}
-                    style={{
-                      flex: 1,
-                      minWidth: 0,
-                      fontFamily: 'Inter, sans-serif',
-                      fontSize: 12,
-                      padding: '6px 8px',
-                      border: `1px solid ${PALETTE.parchmentLight}`,
-                      borderRadius: 4,
-                      background: cs.regenerating ? PALETTE.boneSoft : 'white',
-                      color: PALETTE.espresso,
-                      boxSizing: 'border-box',
-                      outline: 'none',
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => regenerateClip(i)}
-                    disabled={cs.regenerating}
-                    aria-label={`Regenerate ${beatName}`}
-                    title="Regenerate this clip"
-                    style={{
-                      flexShrink: 0,
-                      width: 30,
-                      height: 30,
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      background: PALETTE.espresso,
-                      color: PALETTE.bone,
-                      border: 'none',
-                      borderRadius: 4,
-                      cursor: cs.regenerating ? 'default' : 'pointer',
-                      opacity: cs.regenerating ? 0.5 : 1,
-                    }}
-                  >
-                    <RefreshCw
-                      size={13}
-                      style={
-                        cs.regenerating
-                          ? { animation: 'spin 1.2s linear infinite' }
-                          : undefined
-                      }
-                    />
-                  </button>
                 </div>
               </div>
             );
