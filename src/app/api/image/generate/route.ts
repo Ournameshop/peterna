@@ -4,6 +4,7 @@
 import { NextResponse } from "next/server";
 import { fal } from "@/lib/fal";
 import { rehost } from "@/lib/server/storage";
+import { serviceErrorResponse } from "@/lib/server/api-error";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -51,11 +52,10 @@ export async function POST(req: Request) {
       logs: false,
     });
     const url = result?.data?.images?.[0]?.url;
-    if (!url) return NextResponse.json({ error: "no image url" }, { status: 502 });
+    if (!url) return NextResponse.json({ error: "fal returned no image url", service: "fal" }, { status: 502 });
     const hostedUrl = await rehost(url, "image", body.outputFormat || "png");
     return NextResponse.json({ url: hostedUrl });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "unknown error";
-    return NextResponse.json({ error: msg }, { status: 502 });
+    return serviceErrorResponse("fal", err);
   }
 }

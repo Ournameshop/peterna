@@ -21,6 +21,7 @@
 import { NextResponse } from "next/server";
 import { fal } from "@/lib/fal";
 import { rehost } from "@/lib/server/storage";
+import { serviceErrorResponse } from "@/lib/server/api-error";
 import { buildBeatPrompt } from "@/lib/prompts";
 
 export const runtime = "nodejs";
@@ -124,7 +125,7 @@ export async function POST(req: Request) {
       const url = result?.data?.video?.url;
       if (!url) {
         return NextResponse.json(
-          { error: "no video url in fal response" },
+          { error: "fal returned no video url", service: "fal" },
           { status: 502 }
         );
       }
@@ -145,7 +146,6 @@ export async function POST(req: Request) {
       prompt,
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "unknown error";
-    return NextResponse.json({ error: message }, { status: 502 });
+    return serviceErrorResponse("fal", err);
   }
 }

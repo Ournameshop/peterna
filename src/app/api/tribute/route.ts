@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { query } from '@/lib/db';
+import { serviceErrorResponse } from '@/lib/server/api-error';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -47,7 +48,6 @@ export async function POST(req: Request) {
     );
     return NextResponse.json({ id: result.rows[0].id });
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'database error';
-    return NextResponse.json({ error: message }, { status: 502 });
+    return serviceErrorResponse('database', err);
   }
 }

@@ -11,6 +11,7 @@ import fs from "fs";
 import { spawn } from "child_process";
 import { fal } from "@/lib/fal";
 import { rehost } from "@/lib/server/storage";
+import { serviceErrorResponse } from "@/lib/server/api-error";
 import { normalizeTimestamps } from "@/lib/peternal-subtitles";
 import type { NarrationWord } from "@/lib/peternal-subtitles";
 
@@ -91,7 +92,7 @@ export async function POST(req: Request) {
     const url = data?.audio?.url;
     if (!url) {
       console.error("narration: missing audio.url in fal response:", JSON.stringify(result?.data));
-      return NextResponse.json({ error: "no audio url in fal response" }, { status: 502 });
+      return NextResponse.json({ error: "fal returned no audio url", service: "fal" }, { status: 502 });
     }
 
     const timestamps: NarrationWord[] | null = normalizeTimestamps(data?.timestamps);
@@ -116,7 +117,6 @@ export async function POST(req: Request) {
     const hostedUrl = await rehost(url, "narration", "mp3");
     return NextResponse.json({ url: hostedUrl, durationMs, timestamps });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "unknown error";
-    return NextResponse.json({ error: message }, { status: 502 });
+    return serviceErrorResponse("fal", err);
   }
 }

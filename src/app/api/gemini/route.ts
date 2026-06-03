@@ -8,6 +8,7 @@
 // `medias[]` reference workflow requires; plain text-to-image cannot do it.
 import { NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
+import { serviceErrorResponse } from '@/lib/server/api-error';
 
 const TEXT_MODEL = 'gemini-2.5-flash';
 const IMAGE_MODEL = 'gemini-2.5-flash-image';
@@ -80,7 +81,7 @@ export async function POST(req: Request) {
       const imgPart = out.find((p) => p.inlineData?.data);
       if (!imgPart?.inlineData?.data) {
         return NextResponse.json(
-          { error: 'Model returned no image', text: response.text ?? '' },
+          { error: 'Gemini returned no image', service: 'gemini', text: response.text ?? '' },
           { status: 502 },
         );
       }
@@ -116,7 +117,6 @@ export async function POST(req: Request) {
     const response = await ai.models.generateContent({ model: TEXT_MODEL, contents: prompt });
     return NextResponse.json({ text: response.text ?? '' });
   } catch (err) {
-    console.error('[api/gemini]', err);
-    return NextResponse.json({ error: String(err) }, { status: 502 });
+    return serviceErrorResponse('gemini', err);
   }
 }

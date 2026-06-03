@@ -10,6 +10,7 @@ import { NextResponse } from "next/server";
 import { fal } from "@/lib/fal";
 import { store, rehost } from "@/lib/server/storage";
 import { sunoGenerateTrack, sunoGetTimestampedLyrics } from "@/lib/suno";
+import { describeError, serviceErrorResponse } from "@/lib/server/api-error";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -93,6 +94,7 @@ export async function POST(req: Request) {
   const model = (process.env.SUNO_MODEL ?? "V5") as "V4" | "V4_5" | "V4_5ALL" | "V5" | "V5_5";
 
   // PRIMARY: Suno
+  let sunoError: unknown = null;
   if (process.env.SUNO_API_KEY) {
     try {
       const result = await sunoGenerateTrack({
@@ -130,13 +132,28 @@ export async function POST(req: Request) {
         vocalEndSec,
       });
     } catch (err) {
-      console.error("[music] Suno failed, falling back to fal:", err);
+      sunoError = err;
+      console.error(`[suno] music generation failed, falling back to fal: ${describeError(err)}`, err);
     }
   }
 
+  // Lyric vocals can ONLY come from Suno — the fal fallback is instrumental-only.
+  // Tell the user what actually went wrong instead of always blaming the key.
   if (mode === "lyrics") {
+    if (sunoError) {
+      return NextResponse.json(
+        {
+          error: `Music generation failed: ${describeError(sunoError)}. Lyric vocals require Suno; the instrumental fallback can't sing words. Please try again.`,
+          service: "suno",
+        },
+        { status: 502 },
+      );
+    }
     return NextResponse.json(
-      { error: "Lyric music requires SUNO_API_KEY; fallback provider only supports instrumental tracks" },
+      {
+        error: "Lyric music requires Suno, which isn't configured (SUNO_API_KEY missing). The fallback provider only makes instrumental tracks.",
+        service: "suno",
+      },
       { status: 500 },
     );
   }
@@ -164,13 +181,12 @@ export async function POST(req: Request) {
     });
     const url = (result?.data as unknown as MusicOutput)?.audio?.url;
     if (!url) {
-      return NextResponse.json({ error: "no audio url in fal response" }, { status: 502 });
+      return NextResponse.json({ error: "fal returned no audio url", service: "fal" }, { status: 502 });
     }
     console.log(`[GEN-MUSIC] url=${url}`);
     const hostedUrl = await rehost(url, "music", "mp3");
     return NextResponse.json({ url: hostedUrl, durationMs: music_length_ms, provider: "fal" });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "unknown error";
-    return NextResponse.json({ error: message }, { status: 502 });
+    return serviceErrorResponse("fal", err);
   }
 }

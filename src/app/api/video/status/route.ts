@@ -4,6 +4,7 @@
 import { NextResponse } from "next/server";
 import { fal } from "@/lib/fal";
 import { rehost } from "@/lib/server/storage";
+import { serviceErrorResponse } from "@/lib/server/api-error";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -43,7 +44,6 @@ export async function GET(req: Request) {
     }
     return NextResponse.json({ status: status.status });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "unknown error";
-    return NextResponse.json({ error: message }, { status: 502 });
+    return serviceErrorResponse("fal", err);
   }
 }

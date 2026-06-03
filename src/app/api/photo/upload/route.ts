@@ -10,6 +10,7 @@
 import { NextResponse } from "next/server";
 import { fal } from "@/lib/fal";
 import { store } from "@/lib/server/storage";
+import { serviceErrorResponse } from "@/lib/server/api-error";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -48,7 +49,6 @@ export async function POST(req: Request) {
       (await fal.storage.upload(file));
     return NextResponse.json({ url });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "upload failed";
-    return NextResponse.json({ error: message }, { status: 502 });
+    return serviceErrorResponse("fal", err);
   }
 }

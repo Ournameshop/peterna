@@ -9,6 +9,7 @@ import fs from "fs";
 import { spawn } from "child_process";
 import { fal } from "@/lib/fal";
 import { store } from "@/lib/server/storage";
+import { serviceErrorResponse } from "@/lib/server/api-error";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -84,8 +85,12 @@ export async function POST(req: Request) {
   }
 
   const uploadExt = (file.name.split(".").pop() || "mp3").toLowerCase();
-  const url =
-    (await store(Buffer.from(bytes), file.type || "audio/mpeg", "upload", uploadExt)) ??
-    (await fal.storage.upload(file));
-  return NextResponse.json({ url, durationMs, provider: "upload", title: file.name });
+  try {
+    const url =
+      (await store(Buffer.from(bytes), file.type || "audio/mpeg", "upload", uploadExt)) ??
+      (await fal.storage.upload(file));
+    return NextResponse.json({ url, durationMs, provider: "upload", title: file.name });
+  } catch (err) {
+    return serviceErrorResponse("fal", err);
+  }
 }
