@@ -515,35 +515,19 @@ export default function TheWords({ onNext, onBack, enteredViaBack }: StageProps)
   const beatCount = state.beatCount;
   const beatIndices = Array.from({ length: beatCount }, (_, i) => i);
 
+  // Text edits are NON-DESTRUCTIVE: they update the words only. They must NOT
+  // wipe the storyboard frames or the song — those are paid assets, and the
+  // final video is built from the rendered clips, not this text. If the user
+  // wants frames/song to reflect new wording, they regenerate them explicitly.
   function setOpening(id: string) {
     update({
-      words: {
-        ...state.words,
-        opening: id,
-        openingCustom: [customLine1, customLine2],
-        musicVariants: [],
-        musicApproved: false,
-      },
-      storyboardImages: {},
-      storyboardApproved: false,
-      musicBedUrl: null,
-      musicBedDurationMs: null,
+      words: { ...state.words, opening: id, openingCustom: [customLine1, customLine2] },
     });
   }
 
   function setClosing(id: string) {
     update({
-      words: {
-        ...state.words,
-        closing: id,
-        closingCustom: customClosing,
-        musicVariants: [],
-        musicApproved: false,
-      },
-      storyboardImages: {},
-      storyboardApproved: false,
-      musicBedUrl: null,
-      musicBedDurationMs: null,
+      words: { ...state.words, closing: id, closingCustom: customClosing },
     });
   }
 
@@ -553,18 +537,7 @@ export default function TheWords({ onNext, onBack, enteredViaBack }: StageProps)
     if (!existing) {
       if (next.length < 3) next = [...next, { beatIndex, text }];
     }
-    update({
-      words: {
-        ...state.words,
-        captions: next,
-        musicVariants: [],
-        musicApproved: false,
-      },
-      storyboardImages: {},
-      storyboardApproved: false,
-      musicBedUrl: null,
-      musicBedDurationMs: null,
-    });
+    update({ words: { ...state.words, captions: next } });
   }
 
   function setMusic(id: string) {
@@ -1238,13 +1211,9 @@ export default function TheWords({ onNext, onBack, enteredViaBack }: StageProps)
                       const next = state.words.captions.map((c) =>
                         c.beatIndex === cap.beatIndex ? { ...c, text: e.target.value } : c,
                       );
-                      update({
-                        words: { ...state.words, captions: next, musicVariants: [], musicApproved: false, musicVocalEndSec: null },
-                        storyboardImages: {},
-                        storyboardApproved: false,
-                        musicBedUrl: null,
-                        musicBedDurationMs: null,
-                      });
+                      // Non-destructive: edit caption text only. Never wipe the
+                      // paid storyboard frames or the song on a keystroke.
+                      update({ words: { ...state.words, captions: next } });
                     }}
                     style={{
                       flex: 1,
@@ -1276,13 +1245,9 @@ export default function TheWords({ onNext, onBack, enteredViaBack }: StageProps)
                   );
                   if (firstUnused === undefined || state.words.captions.length >= 3) return;
                   const next = [...state.words.captions, { beatIndex: firstUnused, text: s.text }];
-                  update({
-                    words: { ...state.words, captions: next, musicVariants: [], musicApproved: false, musicVocalEndSec: null },
-                    storyboardImages: {},
-                    storyboardApproved: false,
-                    musicBedUrl: null,
-                    musicBedDurationMs: null,
-                  });
+                  // Non-destructive: add the caption only. Never wipe paid
+                  // storyboard frames or the song.
+                  update({ words: { ...state.words, captions: next } });
                 }}
                 style={{
                   padding: '8px 14px',
