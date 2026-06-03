@@ -1,9 +1,11 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useContext } from 'react';
+import { createPortal } from 'react-dom';
 import { Download, ChevronLeft, RotateCw, Pencil, Music } from 'lucide-react';
 import { PALETTE } from '../lib/palette';
 import { Serif, Sans, Eyebrow, PrimaryButton } from '../lib/primitives';
+import { WizardFooterContext } from '../shell/footerSlot';
 import { useBuilder, usePreviewMode } from '../state';
 import { initialState } from '../state';
 import type { StageProps } from './types';
@@ -512,14 +514,33 @@ export default function FinishedTribute({ onBack, goToStep }: StageProps) {
     padding: 0,
   };
 
-  return (
-    <section style={{ paddingTop: 16 }}>
-      {/* Back navigation — return to earlier steps to refine, then re-mix.
-          Going back is non-destructive: rendered clips are preserved. */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginBottom: 18 }}>
-        <button onClick={onBack} style={navLinkStyle}>
+  // Pinned bottom navbar — the finished step's primary actions live here.
+  const footerEl = useContext(WizardFooterContext);
+  const footerBar = (
+    <div style={{ background: PALETTE.bone, borderTop: `1px solid ${PALETTE.parchmentLight}`, boxShadow: '0 -10px 28px rgba(42,33,27,0.06)' }}>
+      <div style={{ maxWidth: 980, margin: '0 auto', padding: '12px 24px', minHeight: 46, boxSizing: 'content-box', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+        <button onClick={onBack} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'transparent', border: 'none', color: PALETTE.mute, fontFamily: 'Inter, sans-serif', fontSize: 13, cursor: 'pointer', padding: 0 }}>
           <ChevronLeft size={15} /> Back
         </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <PrimaryButton onClick={handleRemix} disabled={composeStatus === 'composing'} secondary small>
+            <RotateCw size={13} /> {composeStatus === 'composing' ? 'Re-mixing…' : 'Re-mix'}
+          </PrimaryButton>
+          <PrimaryButton onClick={handleDownload} disabled={downloadStatus === 'preparing'}>
+            <Download size={15} /> {downloadStatus === 'preparing' ? 'Preparing…' : 'Download'}
+          </PrimaryButton>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <section style={{ paddingTop: 16 }}>
+      {footerEl ? createPortal(footerBar, footerEl) : null}
+      {/* Back navigation — return to earlier steps to refine, then re-mix.
+          Going back is non-destructive: rendered clips are preserved. */}
+      {/* Back lives on the pinned bottom navbar; these are the edit shortcuts. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginBottom: 18 }}>
         <button onClick={() => goToStep('storyboard')} style={{ ...navLinkStyle, textDecoration: 'underline', textUnderlineOffset: 4 }}>
           <Pencil size={13} /> Edit the storyboard
         </button>
@@ -565,14 +586,10 @@ export default function FinishedTribute({ onBack, goToStep }: StageProps) {
         />
       </div>
 
-      {/* Re-mix — re-assemble the existing clips (e.g. after editing a scene or
-          the storyboard, or to pick up a freshly-generated music bed). */}
-      <div style={{ marginTop: 14, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-        <PrimaryButton onClick={handleRemix} disabled={composeStatus === 'composing'} secondary small>
-          <RotateCw size={13} /> {composeStatus === 'composing' ? 'Re-mixing…' : 'Re-mix the video'}
-        </PrimaryButton>
+      {/* Re-mix + Download live on the pinned bottom navbar. */}
+      <div style={{ marginTop: 14 }}>
         <Sans style={{ fontSize: 12, color: PALETTE.mute, lineHeight: 1.4 }}>
-          Edited a scene or the storyboard? Re-mix to refresh your video.
+          Edited a scene or the storyboard? Use <strong>Re-mix</strong> below to refresh your video, then <strong>Download</strong>.
         </Sans>
       </div>
 
@@ -592,11 +609,8 @@ export default function FinishedTribute({ onBack, goToStep }: StageProps) {
         </div>
       ) : null}
 
-      {/* Action buttons */}
-      <div style={{ marginTop: 32, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-        <PrimaryButton onClick={handleDownload} disabled={downloadStatus === 'preparing'}>
-          <Download size={15} /> {downloadStatus === 'preparing' ? 'Preparing your tribute…' : 'Download tribute'}
-        </PrimaryButton>
+      {/* Download lives on the pinned bottom navbar; errors surface here. */}
+      <div style={{ marginTop: 24, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
         {downloadError && (
           <div
             style={{
