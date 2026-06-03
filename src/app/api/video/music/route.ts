@@ -13,7 +13,7 @@ import { sunoGenerateTrack, sunoGetTimestampedLyrics } from "@/lib/suno";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 300; // Suno polling can take up to ~3 min
+export const maxDuration = 400; // Suno polling can take up to 6 min (V5 + one retry)
 
 interface ReqBody {
   mode?: "instrumental" | "lyrics";
@@ -90,7 +90,7 @@ export async function POST(req: Request) {
   const prompt = rawPrompt ? rawPrompt.slice(0, 480) : undefined;
 
   const durationSeconds = body.durationSeconds ?? 180;
-  const model = (process.env.SUNO_MODEL ?? "V4_5") as "V4" | "V4_5" | "V4_5ALL" | "V5" | "V5_5";
+  const model = (process.env.SUNO_MODEL ?? "V5") as "V4" | "V4_5" | "V4_5ALL" | "V5" | "V5_5";
 
   // PRIMARY: Suno
   if (process.env.SUNO_API_KEY) {

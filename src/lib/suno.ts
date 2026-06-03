@@ -4,7 +4,11 @@
 
 const SUNO_BASE = "https://api.sunoapi.org";
 const POLL_INTERVAL_MS = 5000;
-const POLL_TIMEOUT_MS = 270000; // 4.5 min — stays under the route's maxDuration
+const POLL_TIMEOUT_MS = 360000; // 6 min — V5 is slower than V4_5; stays under the route's maxDuration
+// Suno's models intermittently return a server-side 500 (status GENERATE_AUDIO_FAILED,
+// errorMessage "Internal Error"). It's transient — re-submitting usually succeeds — so we
+// retry the whole submit+poll a couple of times before giving up and letting the caller fall back.
+const MAX_GENERATE_ATTEMPTS = 3;
 
 interface SunoGenerateResponse {
   code: number;
@@ -25,8 +29,17 @@ interface SunoRecordResponse {
   data: {
     status: string;
     response: { sunoData: SunoTrack[] };
+    errorCode?: number | string;
+    errorMessage?: string;
   };
 }
+
+// Statuses that are worth re-submitting: a fresh job often succeeds. SENSITIVE_WORD_ERROR
+// is deterministic (content) and CREATE_TASK_FAILED is a request-shape problem — neither
+// is retried.
+const TRANSIENT_FAIL_STATUSES = new Set(["GENERATE_AUDIO_FAILED"]);
+
+class SunoTransientError extends Error {}
 
 export interface SunoGenerateTrackOptions {
   prompt: string;
@@ -63,7 +76,7 @@ export async function sunoGenerateInstrumental(
     prompt,
     instrumental: true,
     customMode: false,
-    model: (process.env.SUNO_MODEL ?? "V4_5") as "V4" | "V4_5" | "V4_5ALL" | "V5" | "V5_5",
+    model: (process.env.SUNO_MODEL ?? "V5") as "V4" | "V4_5" | "V4_5ALL" | "V5" | "V5_5",
   });
 }
 
@@ -81,7 +94,7 @@ export async function sunoGenerateTrack(
     prompt,
     instrumental: opts.instrumental,
     customMode,
-    model: opts.model ?? process.env.SUNO_MODEL ?? "V4_5",
+    model: opts.model ?? process.env.SUNO_MODEL ?? "V5",
     // callBackUrl is required by the API but we poll record-info instead of using webhooks.
     callBackUrl: "https://placeholder.invalid/noop",
   };
@@ -98,6 +111,28 @@ export async function sunoGenerateTrack(
     if (opts.title?.trim()) payload.title = opts.title.trim();
   }
 
+  // Suno's models intermittently 500 mid-generation. Re-submit a fresh job on transient
+  // failures; bail straight away on deterministic ones (bad request / sensitive content).
+  let lastErr: Error = new Error("Suno generation failed");
+  for (let attempt = 1; attempt <= MAX_GENERATE_ATTEMPTS; attempt++) {
+    try {
+      return await submitAndPoll(key, payload);
+    } catch (err) {
+      lastErr = err instanceof Error ? err : new Error(String(err));
+      if (!(err instanceof SunoTransientError) || attempt === MAX_GENERATE_ATTEMPTS) throw lastErr;
+      console.warn(`[suno] attempt ${attempt}/${MAX_GENERATE_ATTEMPTS} failed (${lastErr.message}); re-submitting`);
+    }
+  }
+  throw lastErr;
+}
+
+// One submit + poll cycle. Throws SunoTransientError for failures worth re-submitting
+// (server-side GENERATE_AUDIO_FAILED, repeated poll errors, timeout) and a plain Error
+// for deterministic failures the caller should not retry.
+async function submitAndPoll(
+  key: string,
+  payload: Record<string, unknown>
+): Promise<SunoGeneratedTrack> {
   // Submit generation job
   const genRes = await fetch(`${SUNO_BASE}/api/v1/generate`, {
     method: "POST",
@@ -142,10 +177,10 @@ export async function sunoGenerateTrack(
     }
 
     // Bad response / non-200 body code — count it; bail after a run of errors
-    // rather than burning the full 4.5-minute window on a hard failure.
+    // rather than burning the full window. Transient — a re-submit may recover.
     if (!pollData || pollData.code !== 200) {
       if (++consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
-        throw new Error("Suno status polling failed repeatedly");
+        throw new SunoTransientError("Suno status polling failed repeatedly");
       }
       continue;
     }
@@ -153,13 +188,19 @@ export async function sunoGenerateTrack(
 
     const status = pollData.data?.status;
 
-    // Hard failures — stop immediately.
+    // Hard failures — stop polling this job. GENERATE_AUDIO_FAILED is a server-side
+    // 500 that re-submitting usually clears, so mark it transient; the others are
+    // deterministic and should fail straight through to the fallback.
     if (
       status === "CREATE_TASK_FAILED" ||
       status === "GENERATE_AUDIO_FAILED" ||
       status === "SENSITIVE_WORD_ERROR"
     ) {
-      throw new Error(`Suno generation failed with status: ${status}`);
+      const detail = pollData.data?.errorMessage
+        ? ` (${pollData.data.errorCode ?? ""} ${pollData.data.errorMessage})`.trimEnd()
+        : "";
+      const msg = `Suno generation failed with status: ${status}${detail}`;
+      throw TRANSIENT_FAIL_STATUSES.has(status) ? new SunoTransientError(msg) : new Error(msg);
     }
 
     // Done. SUCCESS is the normal terminal state. CALLBACK_EXCEPTION means the
@@ -186,7 +227,7 @@ export async function sunoGenerateTrack(
     // PENDING / TEXT_SUCCESS / FIRST_SUCCESS — keep polling.
   }
 
-  throw new Error("Suno generation timed out after 4.5 minutes");
+  throw new SunoTransientError("Suno generation timed out");
 }
 
 interface SunoAlignedLyricsResponse {
