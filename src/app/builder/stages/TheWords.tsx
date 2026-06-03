@@ -132,10 +132,22 @@ function maxVideoSeconds(state: BuilderState): number {
   return Math.round(state.beatCount * 15 + cardsSeconds);
 }
 
-// Hard cap on sung words, derived from the max video length (~1.4 words/sec),
-// so the generated lyrics — and therefore the song — can't exceed the video.
+// We want the SINGING to finish a little BEFORE the clip ceiling so the moving
+// clips cover the whole song — no frozen closing-card tail — while keeping the
+// video near its full length. This margin is headroom for Suno's pacing variance.
+const VOCAL_END_MARGIN_SEC = 10;
+function targetSungSeconds(state: BuilderState): number {
+  return Math.max(40, maxVideoSeconds(state) - VOCAL_END_MARGIN_SEC);
+}
+
+// Hard cap on sung words. Calibrated from observed Suno output (~260 sung words
+// ⇒ vocals ended ~209s ≈ 1.24 words/sec of GROSS span, including the intro and
+// between-section gaps). Sizing at ~1.2 words/sec of the target sung length
+// makes the last word land ≈ targetSungSeconds — i.e. within the clip ceiling —
+// instead of overrunning it (which forced the closing card to freeze).
+const SUNG_WORDS_PER_SEC = 1.2;
 function lyricMaxWords(state: BuilderState): number {
-  return Math.round(maxVideoSeconds(state) * 1.4);
+  return Math.round(targetSungSeconds(state) * SUNG_WORDS_PER_SEC);
 }
 
 // Seconds of clean ring-out + fade we keep AFTER the last sung word, so the
@@ -327,7 +339,8 @@ function buildLyricDraft(state: BuilderState, openingText: string, closingText: 
 
 function buildLyricLLMPrompt(state: BuilderState): string {
   const petName = state.petName || 'this beloved pet';
-  const maxSec = maxVideoSeconds(state);
+  const maxSec = maxVideoSeconds(state);     // clip ceiling — used for scene pacing
+  const sungSec = targetSungSeconds(state);  // where the SINGING should finish
   const maxWords = lyricMaxWords(state);
   const beatCount = state.beatSheet.length || state.beatCount;
   const captionCardCount = state.words.captions.length;
@@ -354,8 +367,8 @@ function buildLyricLLMPrompt(state: BuilderState): string {
   const lines: string[] = [
     `You are writing complete, singable memorial song lyrics for a tribute to ${petName}, a ${species}.`,
     '',
-    `LENGTH: Write COMPLETE, natural song lyrics whose SINGING finishes within about ${maxSec} seconds — about ${maxWords} sung words total. Natural and complete, NOT cut off. Do not exceed the word budget.`,
-    `STRUCTURE: Use clear sections — [Verse], [Chorus], [Verse], [Chorus], optional [Bridge], then a SHORT [Outro] of 1-2 lines. Open straight into the first verse (no long instrumental intro) and end on the outro line (no long instrumental outro). The last sung line should land near the ${maxSec}-second mark.`,
+    `LENGTH: Write COMPLETE, natural song lyrics whose SINGING finishes within about ${sungSec} seconds — about ${maxWords} sung words total. Natural and complete, NOT cut off. Do not exceed the word budget. It is better to finish a few seconds EARLY than to run long.`,
+    `STRUCTURE: Use clear sections — [Verse], [Chorus], [Verse], [Chorus], optional [Bridge], then a SHORT [Outro] of 1-2 lines. Open straight into the first verse within the first ~4 seconds (no long instrumental intro), keep between-section gaps short, and end on the outro line (no long instrumental outro). The last sung line should land by about the ${sungSec}-second mark — comfortably before ${maxSec} seconds.`,
     '',
     `PET CONTEXT:`,
     `- Name: ${petName}`,
