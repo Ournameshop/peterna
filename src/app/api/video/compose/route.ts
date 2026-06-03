@@ -10,7 +10,9 @@
 // Flow:
 //   1. Build ordered segment list (openingCard → [captionCard → beatVideo]* → closingCard)
 //   2. Download all segment files + audio to os.tmpdir()
-//   3. Probe durations to compute exact targetLength = max(videoContentLength, narrationLength)
+//   3. Probe durations to compute exact targetLength = max(lockedSec | videoContentLength,
+//      narrationLength, vocalEndSec + tail) — so a lyric song always plays through
+//      its last sung word before any fade/trim (the video pads its tail instead)
 //   4. Build ONE ffmpeg command with a filter_complex that:
 //      - Scales/pads every input to the target canvas (W×H, 30fps, yuv420p)
 //      - Concatenates all visual inputs with concat filter
@@ -88,6 +90,7 @@ interface ReqBody {
   narrationScript?: string | null;
   narrationTimestamps?: NarrationWord[] | null;
   lockedDurationSeconds?: number | null;
+  vocalEndSec?: number | null; // when singing ends (lyric songs) — fade/trim never lands before this
 }
 
 interface Segment {
@@ -304,9 +307,16 @@ export async function POST(req: Request) {
       : 0;
     // When a lyric song locked the tribute length, use that as master timing.
     const lockedSec = (body.lockedDurationSeconds ?? 0) > 0 ? (body.lockedDurationSeconds as number) : 0;
-    const targetLength = lockedSec > 0
-      ? lockedSec
-      : Math.max(videoContentLength, narrationLength);
+    // The moment singing ends (lyric songs). The timeline must run at least until
+    // the last word + a short tail so no lyric is ever cut — even if that means
+    // the video pads its tail with the last frame.
+    const vocalEndSec = (body.vocalEndSec ?? 0) > 0 ? (body.vocalEndSec as number) : 0;
+    const SONG_TAIL_SEC = 2; // ring-out + fade room kept after the last sung word
+    const songFloor = vocalEndSec > 0 ? vocalEndSec + SONG_TAIL_SEC : 0;
+    const targetLength = Math.max(
+      lockedSec > 0 ? lockedSec : Math.max(videoContentLength, narrationLength),
+      songFloor,
+    );
     const videoDeficit = targetLength - videoContentLength;
 
     // Build subtitle ASS file if requested.
@@ -397,7 +407,12 @@ export async function POST(req: Request) {
     const tLen = targetLength.toFixed(3);
 
     const fadeDur = 1.5;
-    const fadeSt = targetLength - fadeDur;
+    let fadeSt = targetLength - fadeDur;
+    // Never begin the music fade before the last sung word — the final lyric
+    // must ring out clearly; the fade then lands in the instrumental tail.
+    if (vocalEndSec > 0 && fadeSt < vocalEndSec) {
+      fadeSt = Math.min(vocalEndSec, targetLength - 0.2);
+    }
     const musicFade = fadeSt > 0 ? `,afade=t=out:st=${fadeSt.toFixed(3)}:d=${fadeDur}` : '';
 
     if (narrationPath && musicPath) {

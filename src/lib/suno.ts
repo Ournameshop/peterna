@@ -13,6 +13,7 @@ interface SunoGenerateResponse {
 }
 
 interface SunoTrack {
+  id?: string;       // the audioId — required to fetch timestamped lyrics
   audioUrl: string;
   duration: number; // seconds
   title?: string;
@@ -40,6 +41,17 @@ export interface SunoGeneratedTrack {
   url: string;
   durationMs: number;
   title?: string;
+  taskId: string;        // generation task — needed to fetch timestamped lyrics
+  audioId: string;       // the specific track id — needed to fetch timestamped lyrics
+}
+
+// One word of a generated song, with precise sung timing (seconds).
+export interface SunoAlignedWord {
+  word: string;
+  success: boolean;
+  startS: number;
+  endS: number;
+  palign?: number;
 }
 
 export async function sunoGenerateInstrumental(
@@ -167,10 +179,64 @@ export async function sunoGenerateTrack(
         durationMs:
           Number.isFinite(durSec) && durSec > 0 ? Math.round(durSec * 1000) : 0,
         title: track.title,
+        taskId,
+        audioId: track.id ?? "",
       };
     }
     // PENDING / TEXT_SUCCESS / FIRST_SUCCESS — keep polling.
   }
 
   throw new Error("Suno generation timed out after 4.5 minutes");
+}
+
+interface SunoAlignedLyricsResponse {
+  code: number;
+  msg: string;
+  data?: {
+    alignedWords?: SunoAlignedWord[];
+  };
+}
+
+// Fetch word-level timing for a generated lyric track and derive the exact
+// moment singing ends (the largest endS over real, non-whitespace words).
+// Everything after vocalEndSec is instrumental — safe to fade/trim without
+// losing a single lyric. Throws on any API failure so the caller can fall
+// back to duration-based timing.
+export async function sunoGetTimestampedLyrics(
+  taskId: string,
+  audioId: string
+): Promise<{ vocalEndSec: number; words: SunoAlignedWord[] }> {
+  const key = process.env.SUNO_API_KEY;
+  if (!key) throw new Error("SUNO_API_KEY not configured");
+  if (!taskId || !audioId) throw new Error("taskId and audioId are required");
+
+  const res = await fetch(`${SUNO_BASE}/api/v1/generate/get-timestamped-lyrics`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ taskId, audioId }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Suno timestamped-lyrics failed: ${res.status} ${text}`);
+  }
+
+  const data = (await res.json()) as SunoAlignedLyricsResponse;
+  if (data.code !== 200 || !Array.isArray(data.data?.alignedWords)) {
+    throw new Error(`Suno timestamped-lyrics error: ${data.msg ?? "no aligned words"}`);
+  }
+
+  const words = data.data.alignedWords;
+  let vocalEndSec = 0;
+  for (const w of words) {
+    // Ignore whitespace-only tokens — they can carry trailing timing past the
+    // last real sung word and would falsely extend the vocal end.
+    if (w && typeof w.endS === "number" && Number.isFinite(w.endS) && w.word && w.word.trim().length > 0) {
+      if (w.endS > vocalEndSec) vocalEndSec = w.endS;
+    }
+  }
+  return { vocalEndSec, words };
 }

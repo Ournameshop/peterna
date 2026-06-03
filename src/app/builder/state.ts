@@ -79,6 +79,7 @@ export interface MusicVariant {
   url: string;
   durationMs: number;
   title?: string;
+  vocalEndSec?: number | null; // when singing ends (lyric songs) — for vocal-safe trim
 }
 
 export interface WordsState {
@@ -98,6 +99,7 @@ export interface WordsState {
   musicGenerationStatus: MusicGenerationStatus;
   musicGenerationError: string;
   musicVariants: MusicVariant[];
+  musicVocalEndSec: number | null; // active lyric song: when singing ends (seconds) — forwarded to compose for vocal-safe trimming
   narration: 'off' | string;
   narrationLetter: string[];
   subtitles: boolean;
@@ -229,6 +231,7 @@ export const initialState: BuilderState = {
     musicGenerationStatus: 'idle',
     musicGenerationError: '',
     musicVariants: [],
+    musicVocalEndSec: null,
     narration: 'off',
     narrationLetter: [],
     subtitles: true,

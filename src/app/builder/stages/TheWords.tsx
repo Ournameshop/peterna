@@ -138,6 +138,28 @@ function lyricMaxWords(state: BuilderState): number {
   return Math.round(maxVideoSeconds(state) * 1.4);
 }
 
+// Seconds of clean ring-out + fade we keep AFTER the last sung word, so the
+// final lyric is never clipped and the music can fade out in the instrumental.
+const SONG_TAIL_SEC = 2;
+
+// Decide the master timeline length for a generated song. When Suno gives us
+// word-level timing (vocalEndSec), the song is the master clock: we lock to the
+// moment singing ends + a short tail, and let the VIDEO pad its tail to match —
+// so no lyric is ever cut, even if the song runs slightly past the video. When
+// timing is unavailable (instrumental, or the aligned-lyrics call failed) we
+// fall back to the song's total length clamped to what the video can fill.
+function lockDurationForSong(
+  vocalEndSec: number | null | undefined,
+  durationMs: number | null | undefined,
+  state: BuilderState,
+): number {
+  if (vocalEndSec && vocalEndSec > 0) {
+    return Math.ceil(vocalEndSec) + SONG_TAIL_SEC;
+  }
+  const songSec = Math.ceil((durationMs ?? 0) / 1000);
+  return Math.min(songSec, maxVideoSeconds(state));
+}
+
 // Truncate lyric text to a word cap, keeping whole lines (preserves structure).
 function capLyricWords(text: string, maxWords: number): string {
   if (text.split(/\s+/).filter(Boolean).length <= maxWords) return text;
@@ -332,7 +354,8 @@ function buildLyricLLMPrompt(state: BuilderState): string {
   const lines: string[] = [
     `You are writing complete, singable memorial song lyrics for a tribute to ${petName}, a ${species}.`,
     '',
-    `LENGTH: Write COMPLETE, natural song lyrics for a song that runs about ${maxSec} seconds — about ${maxWords} sung words total. Natural and complete, NOT cut off. Do not exceed the word budget.`,
+    `LENGTH: Write COMPLETE, natural song lyrics whose SINGING finishes within about ${maxSec} seconds — about ${maxWords} sung words total. Natural and complete, NOT cut off. Do not exceed the word budget.`,
+    `STRUCTURE: Use clear sections — [Verse], [Chorus], [Verse], [Chorus], optional [Bridge], then a SHORT [Outro] of 1-2 lines. Open straight into the first verse (no long instrumental intro) and end on the outro line (no long instrumental outro). The last sung line should land near the ${maxSec}-second mark.`,
     '',
     `PET CONTEXT:`,
     `- Name: ${petName}`,
@@ -715,6 +738,7 @@ export default function TheWords({ onNext, onBack }: StageProps) {
           musicGenerationStatus: 'ready',
           musicGenerationError: '',
           musicVariants: [variant, ...state.words.musicVariants].slice(0, 3),
+          musicVocalEndSec: null,
         },
         musicBedUrl: PREVIEW_AUDIO_URL,
         musicBedDurationMs: variant.durationMs,
@@ -741,13 +765,17 @@ export default function TheWords({ onNext, onBack }: StageProps) {
         durationMs?: number;
         title?: string;
         provider?: MusicProvider;
+        vocalEndSec?: number | null;
         error?: string;
       };
       if (!res.ok || !json.url) throw new Error(json.error ?? 'Music generation failed');
+      // vocalEndSec (when singing ends) only applies to lyric songs.
+      const vocalEndSec = isLyrics && (json.vocalEndSec ?? 0) > 0 ? (json.vocalEndSec as number) : null;
       const variant: MusicVariant = {
         url: json.url,
         durationMs: json.durationMs ?? 0,
         title: json.title ?? title,
+        vocalEndSec,
       };
       const shouldLock = isLyrics && state.musicIntent === 'lyric' && (json.durationMs ?? 0) > 0;
       update({
@@ -762,14 +790,16 @@ export default function TheWords({ onNext, onBack }: StageProps) {
           musicGenerationStatus: 'ready',
           musicGenerationError: '',
           musicVariants: [variant, ...state.words.musicVariants].slice(0, 3),
+          musicVocalEndSec: vocalEndSec,
         },
         musicBedUrl: json.url,
         musicBedDurationMs: json.durationMs ?? null,
-        // Lock the video to the song length, but never beyond the max video
-        // length (beatCount*15 + cards) — so an over-long song trims/fades
-        // instead of stretching the video into a freeze-frame.
+        // Lock the timeline to the song. With word-level timing we lock to the
+        // moment singing ENDS (+ a short tail) so the full vocal always plays
+        // and the video pads its tail to match — no lyric is ever cut. Without
+        // timing we fall back to the song length clamped to the video ceiling.
         lockedDurationSeconds: shouldLock
-          ? Math.min(Math.ceil((json.durationMs as number) / 1000), maxVideoSeconds(state))
+          ? lockDurationForSong(vocalEndSec, json.durationMs, state)
           : state.lockedDurationSeconds,
         assembledVideoUrl: null,
       });
@@ -837,6 +867,7 @@ export default function TheWords({ onNext, onBack }: StageProps) {
           musicGenerationStatus: 'ready',
           musicGenerationError: '',
           musicVariants: [{ url: previewUrl, durationMs: 0, title: file.name }],
+          musicVocalEndSec: null,
         },
         musicBedUrl: previewUrl,
         musicBedDurationMs: null,
@@ -867,6 +898,7 @@ export default function TheWords({ onNext, onBack }: StageProps) {
           musicGenerationStatus: 'ready',
           musicGenerationError: '',
           musicVariants: [{ url: json.url, durationMs: json.durationMs ?? 0, title: json.title ?? file.name }],
+          musicVocalEndSec: null,
         },
         musicBedUrl: json.url,
         musicBedDurationMs: json.durationMs ?? null,
@@ -1183,7 +1215,7 @@ export default function TheWords({ onNext, onBack }: StageProps) {
                         c.beatIndex === cap.beatIndex ? { ...c, text: e.target.value } : c,
                       );
                       update({
-                        words: { ...state.words, captions: next, musicVariants: [], musicApproved: false },
+                        words: { ...state.words, captions: next, musicVariants: [], musicApproved: false, musicVocalEndSec: null },
                         storyboardImages: {},
                         storyboardApproved: false,
                         musicBedUrl: null,
@@ -1221,7 +1253,7 @@ export default function TheWords({ onNext, onBack }: StageProps) {
                   if (firstUnused === undefined || state.words.captions.length >= 3) return;
                   const next = [...state.words.captions, { beatIndex: firstUnused, text: s.text }];
                   update({
-                    words: { ...state.words, captions: next, musicVariants: [], musicApproved: false },
+                    words: { ...state.words, captions: next, musicVariants: [], musicApproved: false, musicVocalEndSec: null },
                     storyboardImages: {},
                     storyboardApproved: false,
                     musicBedUrl: null,

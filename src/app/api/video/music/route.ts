@@ -9,7 +9,7 @@
 import { NextResponse } from "next/server";
 import { fal } from "@/lib/fal";
 import { store, rehost } from "@/lib/server/storage";
-import { sunoGenerateTrack } from "@/lib/suno";
+import { sunoGenerateTrack, sunoGetTimestampedLyrics } from "@/lib/suno";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -104,8 +104,31 @@ export async function POST(req: Request) {
         model,
       });
       const persisted = await persistGeneratedAudio(result.url);
+
+      // For lyric songs, fetch word-level timing so the compositor knows exactly
+      // when singing ends. This lets us trim/fade only the instrumental tail —
+      // never a lyric. Best-effort: on any failure we omit vocalEndSec and the
+      // client falls back to duration-based timing.
+      let vocalEndSec: number | null = null;
+      if (mode === "lyrics" && result.taskId && result.audioId) {
+        try {
+          const aligned = await sunoGetTimestampedLyrics(result.taskId, result.audioId);
+          if (aligned.vocalEndSec > 0) vocalEndSec = aligned.vocalEndSec;
+          console.log(`[GEN-MUSIC] vocalEndSec=${vocalEndSec}`);
+        } catch (err) {
+          console.warn("[music] timestamped-lyrics fetch failed; using duration-based timing:", err);
+        }
+      }
+
       console.log(`[GEN-MUSIC] url=${persisted.url}`);
-      return NextResponse.json({ ...result, url: persisted.url, provider: "suno", stored: persisted.stored });
+      return NextResponse.json({
+        url: persisted.url,
+        durationMs: result.durationMs,
+        title: result.title,
+        provider: "suno",
+        stored: persisted.stored,
+        vocalEndSec,
+      });
     } catch (err) {
       console.error("[music] Suno failed, falling back to fal:", err);
     }
