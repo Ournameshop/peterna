@@ -142,7 +142,9 @@ export const StageShell = ({ eyebrow, title, lede, children, onNext, onBack, can
       {lede}
     </Serif>
     <div>{children}</div>
-    <div style={{ marginTop: 40, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: `1px solid ${PALETTE.parchmentLight}`, paddingTop: 24 }}>
+    {/* Sticky bottom navbar — stays in reach on long steps without scrolling.
+        Solid page-bg + a soft top shadow so content scrolls cleanly beneath it. */}
+    <div style={{ position: 'sticky', bottom: 0, zIndex: 5, marginTop: 40, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: `1px solid ${PALETTE.parchmentLight}`, paddingTop: 20, paddingBottom: 20, background: PALETTE.bone, boxShadow: `0 -10px 16px -10px rgba(42,33,27,0.12)` }}>
       <button onClick={onBack}
         style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'transparent', border: 'none', color: PALETTE.mute, fontFamily: 'Inter, sans-serif', fontSize: 13, cursor: 'pointer', padding: 0 }}>
         <ArrowLeft size={14}/> Back
