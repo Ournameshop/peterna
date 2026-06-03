@@ -5,17 +5,59 @@
 // set). Streaming it back through our own origin sidesteps CORS entirely and
 // lets us force a Content-Disposition: attachment so it downloads with a name.
 //
-// Not an open proxy: only our S3 bucket (*.amazonaws.com) and fal.media are
-// allowed, over https.
+// Not an open proxy: only OUR specific S3 bucket and fal.media are allowed, over
+// https — and every redirect hop is re-validated against the same allowlist so a
+// 3xx from an allowed host can't bounce the fetch onto an internal address.
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
+const MAX_HOPS = 4;
+
+// Bound to the exact bucket (not the whole amazonaws.com TLD). Region-flexible
+// only so an S3 region-correction redirect (still {bucket}.s3.<region>.amazonaws.com)
+// is tolerated; the bucket name is always pinned.
 function allowedHost(host: string): boolean {
   const h = host.toLowerCase();
-  return h.endsWith(".amazonaws.com") || h === "fal.media" || h.endsWith(".fal.media");
+  const bucket = (process.env.S3_BUCKET || "").toLowerCase();
+  if (bucket) {
+    if (h === `${bucket}.s3.amazonaws.com`) return true;
+    if (h.startsWith(`${bucket}.s3.`) && h.endsWith(".amazonaws.com")) return true;
+  }
+  if (h === "fal.media" || h.endsWith(".fal.media")) return true;
+  return false;
+}
+
+function assertAllowed(raw: string): URL {
+  let u: URL;
+  try {
+    u = new URL(raw);
+  } catch {
+    throw new Error("invalid url");
+  }
+  if (u.protocol !== "https:") throw new Error("only https is allowed");
+  if (!allowedHost(u.hostname)) throw new Error("host not allowed");
+  return u;
+}
+
+// Manual-redirect fetch: re-validates every hop so an allowed origin can't
+// redirect us onto an internal/unlisted host (SSRF).
+async function fetchAllowed(startUrl: string): Promise<Response> {
+  let current = startUrl;
+  for (let hop = 0; hop < MAX_HOPS; hop++) {
+    assertAllowed(current);
+    const res = await fetch(current, { redirect: "manual" });
+    if (res.status >= 300 && res.status < 400) {
+      const loc = res.headers.get("location");
+      if (!loc) throw new Error("redirect without location");
+      current = new URL(loc, current).toString();
+      continue;
+    }
+    return res;
+  }
+  throw new Error("too many redirects");
 }
 
 export async function GET(req: Request) {
@@ -27,19 +69,16 @@ export async function GET(req: Request) {
   if (!target) {
     return NextResponse.json({ error: "url is required" }, { status: 400 });
   }
-  let parsed: URL;
   try {
-    parsed = new URL(target);
-  } catch {
-    return NextResponse.json({ error: "invalid url" }, { status: 400 });
-  }
-  if (parsed.protocol !== "https:" || !allowedHost(parsed.hostname)) {
-    return NextResponse.json({ error: "host not allowed" }, { status: 400 });
+    assertAllowed(target);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "invalid url";
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 
   let upstream: Response;
   try {
-    upstream = await fetch(parsed.toString());
+    upstream = await fetchAllowed(target);
   } catch (err) {
     const message = err instanceof Error ? err.message : "fetch failed";
     return NextResponse.json({ error: message }, { status: 502 });
