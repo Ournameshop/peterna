@@ -414,10 +414,16 @@ export default function FinishedTribute({ onBack, goToStep }: StageProps) {
       stopProgressRamp();
       setDownloadPhase('Downloading…');
       setDownloadProgress(95);
+      // Fetch via our same-origin /api/download proxy, NOT the S3 URL directly:
+      // the bucket has no CORS, so a cross-origin fetch()->blob() throws
+      // "Failed to fetch" (the player works because <video> doesn't need CORS).
+      // The proxy streams the bytes from our origin and forces a filename.
+      const dl = (src: string) =>
+        `/api/download?url=${encodeURIComponent(src)}&name=${encodeURIComponent(`${petName}-tribute`)}`;
       // Self-heal the "Forbidden" case: a cached URL may be a fal link that has
-      // expired (HTTP 403) or gone. Re-assemble once — compose re-hosts the
-      // output to durable S3 — then retry before surfacing an error.
-      let res = await fetch(videoUrl);
+      // expired (the proxy returns 502) or gone. Re-assemble once — compose
+      // re-hosts the output to durable S3 — then retry before surfacing an error.
+      let res = await fetch(dl(videoUrl));
       if (!res.ok) {
         setDownloadProgress(0);
         startProgressRamp();
@@ -425,7 +431,7 @@ export default function FinishedTribute({ onBack, goToStep }: StageProps) {
         videoUrl = await composeVideo((phase) => setDownloadPhase(phase));
         stopProgressRamp();
         setDownloadProgress(95);
-        res = await fetch(videoUrl);
+        res = await fetch(dl(videoUrl));
         if (!res.ok) {
           throw new Error(`Could not fetch the video (HTTP ${res.status}). Please try again.`);
         }
