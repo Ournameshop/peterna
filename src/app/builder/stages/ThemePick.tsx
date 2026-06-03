@@ -28,14 +28,15 @@ const THEMES_WITH_THUMBNAILS = new Set<ThemeId>([
 
 export default function ThemePick({ onNext, onBack }: StageProps) {
   const { state, update } = useBuilder();
-  // The category that contains the already-chosen theme (if any).
+  // The category that contains the already-chosen theme (if any) — used so the
+  // category screen highlights the right one even if themeCategory is stale.
   const selectedThemeCat = state.theme
     ? (themeCategories.find(c => c.themeIds.includes(state.theme as ThemeId))?.id ?? null)
     : null;
-  // If a theme is already selected (re-entry / back-nav / resume), open straight
-  // to its category's grid so the pick is visible and shows its selected border —
-  // instead of the category list, where the selection can't be seen.
-  const [subStep, setSubStep] = useState<0 | 1>(() => (state.theme ? 1 : 0));
+  // Always land on the category screen ("What feeling should carry it?"). The
+  // user's category is highlighted there; drilling in shows the selected theme's
+  // border. (No surprise jump straight to the grid.)
+  const [subStep, setSubStep] = useState<0 | 1>(0);
   const [selectedCategory, setSelectedCategory] = useState<ThemeCategoryId | null>(
     selectedThemeCat ?? state.themeCategory ?? null,
   );
@@ -130,7 +131,7 @@ export default function ThemePick({ onNext, onBack }: StageProps) {
             emoji={cat.emoji}
             title={cat.name}
             desc={cat.desc}
-            active={state.themeCategory === cat.id}
+            active={(selectedThemeCat ?? state.themeCategory) === cat.id}
             onClick={() => handleCategorySelect(cat.id)}
           />
         ))}

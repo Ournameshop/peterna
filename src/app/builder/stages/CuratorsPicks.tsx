@@ -7,7 +7,7 @@ import { PALETTE } from '../lib/palette';
 import { StageShell, PathCard, Tag, Serif, Sans, SelectedBadge, SELECTED_BORDER, SELECTED_RING } from '../lib/primitives';
 import { useBuilder } from '../state';
 import type { StageProps } from '../state';
-import { formats, themes, artStyles } from '@/lib/peternal-library';
+import { formats, themes, artStyles, themeCategories } from '@/lib/peternal-library';
 import { orderCuratorsPicks, defaultThemeCategoryFor, defaultStyleFor } from '@/lib/peternal-resolvers';
 
 export default function CuratorsPicks({ onNext, onBack, goToStep }: StageProps) {
@@ -35,11 +35,16 @@ export default function CuratorsPicks({ onNext, onBack, goToStep }: StageProps) 
   function handlePickSelect(pickId: typeof ordered[number]['id']) {
     const pick = ordered.find(p => p.id === pickId);
     if (!pick) return;
+    // Keep themeCategory in sync with the chosen theme — otherwise the Theme
+    // step (3.3) highlights a category that doesn't contain the picked theme,
+    // making the preselection look wrong/changed.
+    const themeCat = themeCategories.find(c => c.themeIds.includes(pick.theme))?.id ?? null;
     update({
       pickType: 'curated',
       curatorsPick: pick.id,
       format: pick.format,
       theme: pick.theme,
+      themeCategory: themeCat,
       style: pick.style,
     });
     goToStep('style_confirm');
