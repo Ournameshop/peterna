@@ -29,6 +29,10 @@ export interface PetPhoto {
   file?: File;
   preview?: string;
   url?: string;
+  // Session-only upload state (stripped by serializeState). 'error' means the
+  // photo isn't durably saved yet — the user must retry or remove it.
+  status?: 'uploading' | 'ready' | 'error';
+  source?: string; // original pasted link, kept so an import can be retried
 }
 
 export interface PetProfile {
@@ -123,7 +127,7 @@ export interface BuilderState {
   yearsIncluded: boolean;
   characterSheetApproved: boolean;
   characterSheetRefinements: string[];
-  characterSheetUrl: string | null;           // the locked 2x2 likeness reference (skill Stage 2) — data URL
+  characterSheetUrl: string | null;           // the locked 2x2 likeness reference (skill Stage 2) — durable S3/fal http URL (via /api/image/edit → rehost), not a data URL
   musicIntent: 'lyric' | 'standard' | null;
   lockedDurationSeconds: number | null;
   beatCount: 8 | 12 | 16;
