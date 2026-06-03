@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, createContext, useContext, useCallback } from 'react';
 import { useBuilder } from '../state';
+import { WizardFooterContext } from './footerSlot';
 import { STEPS } from '../steps';
 import type { StepId } from '../steps';
 import type { StageProps } from '../state';
@@ -118,44 +119,61 @@ export default function Wizard() {
   const props: StageProps = { onNext: next, onBack: back, goToStep, enteredViaBack };
   const currentId = STEPS[stepIndex].id;
 
-  // On every step change, jump the page back to the top — otherwise the user
-  // lands mid-scroll on the next step and has to scroll up manually.
+  // Single internal scroll region (the page itself never scrolls in the locked
+  // shell). Reset it to the top on every step change so the user lands at the
+  // top of the next step. The footer slot is a callback-ref into state so
+  // StageShell can portal its action bar into the locked row below the scroll.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [footerEl, setFooterEl] = useState<HTMLDivElement | null>(null);
   useEffect(() => {
-    window.scrollTo(0, 0);
+    if (scrollRef.current) scrollRef.current.scrollTop = 0;
   }, [stepIndex]);
 
   return (
-    <main style={{ maxWidth: 980, margin: '0 auto', padding: '32px 24px 96px' }}>
-      {(() => {
-        switch (currentId) {
-          case 'welcome':           return <Welcome {...props} />;
-          case 'returning':         return <ReturningUser {...props} />;
-          case 'photos':            return <Photos {...props} />;
-          case 'name_gender':       return <NameGender {...props} />;
-          case 'vision':            return <VisionConfirm {...props} />;
-          case 'memory_rel':        return <MemoryRelationship {...props} />;
-          case 'traits_fav':        return <TraitsFavorites {...props} />;
-          case 'creator_years':     return <CreatorYears {...props} />;
-          case 'character':         return <CharacterSheet {...props} />;
-          case 'music_intent':      return <MusicIntent {...props} />;
-          case 'length_aspect':     return <LengthAspect {...props} />;
-          case 'curators':          return <CuratorsPicks {...props} />;
-          case 'style_confirm':     return <StyleConfirm {...props} />;
-          case 'format':            return <FormatPick {...props} />;
-          case 'theme':             return <ThemePick {...props} />;
-          case 'style':             return <StylePick {...props} />;
-          case 'combo_preview':     return <CombinationPreview {...props} />;
-          case 'beatsheet':         return <BeatSheet {...props} />;
-          case 'caption_container': return <CaptionContainer {...props} />;
-          case 'storyboard':        return <Storyboard {...props} />;
-          case 'words':             return <TheWords {...props} />;
-          case 'card_preview':      return <CardPreview {...props} />;
-          case 'cinematography':    return <Cinematography {...props} />;
-          case 'generate':          return <Generate {...props} />;
-          case 'finished':          return <FinishedTribute {...props} />;
-          default:                  return null;
-        }
-      })()}
-    </main>
+    <WizardFooterContext.Provider value={footerEl}>
+      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', width: '100%' }}>
+        <div
+          ref={scrollRef}
+          className="builder-scroll"
+          style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto', width: '100%' }}
+        >
+          <main style={{ maxWidth: 980, margin: '0 auto', padding: '32px 24px 48px' }}>
+            {(() => {
+              switch (currentId) {
+                case 'welcome':           return <Welcome {...props} />;
+                case 'returning':         return <ReturningUser {...props} />;
+                case 'photos':            return <Photos {...props} />;
+                case 'name_gender':       return <NameGender {...props} />;
+                case 'vision':            return <VisionConfirm {...props} />;
+                case 'memory_rel':        return <MemoryRelationship {...props} />;
+                case 'traits_fav':        return <TraitsFavorites {...props} />;
+                case 'creator_years':     return <CreatorYears {...props} />;
+                case 'character':         return <CharacterSheet {...props} />;
+                case 'music_intent':      return <MusicIntent {...props} />;
+                case 'length_aspect':     return <LengthAspect {...props} />;
+                case 'curators':          return <CuratorsPicks {...props} />;
+                case 'style_confirm':     return <StyleConfirm {...props} />;
+                case 'format':            return <FormatPick {...props} />;
+                case 'theme':             return <ThemePick {...props} />;
+                case 'style':             return <StylePick {...props} />;
+                case 'combo_preview':     return <CombinationPreview {...props} />;
+                case 'beatsheet':         return <BeatSheet {...props} />;
+                case 'caption_container': return <CaptionContainer {...props} />;
+                case 'storyboard':        return <Storyboard {...props} />;
+                case 'words':             return <TheWords {...props} />;
+                case 'card_preview':      return <CardPreview {...props} />;
+                case 'cinematography':    return <Cinematography {...props} />;
+                case 'generate':          return <Generate {...props} />;
+                case 'finished':          return <FinishedTribute {...props} />;
+                default:                  return null;
+              }
+            })()}
+          </main>
+        </div>
+        {/* Locked bottom row — StageShell portals its Back/Continue bar here so
+            it stays pinned at the viewport bottom while content scrolls above. */}
+        <div ref={setFooterEl} style={{ flex: '0 0 auto' }} />
+      </div>
+    </WizardFooterContext.Provider>
   );
 }

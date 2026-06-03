@@ -72,7 +72,19 @@ export default function BuilderPage() {
     <BuilderProvider seed={resume.seed}>
       <WizardProvider initialStepIndex={resume.stepIndex}>
         <PersistGate buildId={buildId}>
-          <div style={{ minHeight: '100vh', background: PALETTE.bone, color: PALETTE.espresso }}>
+          {/* Locked app-shell: the builder fills the viewport and never
+              body-scrolls — the header stays on top, the bottom action bar stays
+              pinned, and only the step content scrolls (inside Wizard). */}
+          <div
+            style={{
+              height: '100dvh',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+              background: PALETTE.bone,
+              color: PALETTE.espresso,
+            }}
+          >
             <TopBar />
             <Wizard />
           </div>

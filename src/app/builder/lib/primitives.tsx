@@ -1,9 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React from 'react';
+import React, { useContext } from 'react';
+import { createPortal } from 'react-dom';
 import { ArrowLeft, ArrowRight, Check, ChevronRight, Pencil } from 'lucide-react';
 import { PALETTE } from './palette';
+import { WizardFooterContext } from '../shell/footerSlot';
 
 // Shared "selected" treatment so every picker reads consistently:
 // a 2px brass border + a soft brass ring/glow, and (for image cards) a
@@ -132,19 +134,13 @@ export interface StageShellProps {
   hideNext?: boolean;
   secondaryAction?: React.ReactNode;
 }
-export const StageShell = ({ eyebrow, title, lede, children, onNext, onBack, canNext, nextLabel = 'Continue', hideNext, secondaryAction }: StageShellProps) => (
-  <section style={{ paddingTop: 16 }}>
-    <Eyebrow>{eyebrow}</Eyebrow>
-    <Serif as="h2" italic style={{ fontSize: 'clamp(34px, 4.5vw, 52px)', lineHeight: 1.05, marginTop: 14, marginBottom: 12, letterSpacing: '-0.01em' }}>
-      {title}
-    </Serif>
-    <Serif style={{ fontSize: 18, color: PALETTE.mute, lineHeight: 1.5, maxWidth: 620, marginBottom: 36 }}>
-      {lede}
-    </Serif>
-    <div>{children}</div>
-    {/* Sticky bottom navbar — stays in reach on long steps without scrolling.
-        Solid page-bg + a soft top shadow so content scrolls cleanly beneath it. */}
-    <div style={{ position: 'sticky', bottom: 0, zIndex: 5, marginTop: 40, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: `1px solid ${PALETTE.parchmentLight}`, paddingTop: 20, paddingBottom: 20, background: PALETTE.bone, boxShadow: `0 -10px 16px -10px rgba(42,33,27,0.12)` }}>
+export const StageShell = ({ eyebrow, title, lede, children, onNext, onBack, canNext, nextLabel = 'Continue', hideNext, secondaryAction }: StageShellProps) => {
+  const footerEl = useContext(WizardFooterContext);
+
+  // The action bar's inner row — Back on the left, secondary + Continue on the
+  // right — capped to the content width so it lines up with the step body.
+  const barInner = (
+    <div style={{ maxWidth: 980, margin: '0 auto', padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
       <button onClick={onBack}
         style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'transparent', border: 'none', color: PALETTE.mute, fontFamily: 'Inter, sans-serif', fontSize: 13, cursor: 'pointer', padding: 0 }}>
         <ArrowLeft size={14}/> Back
@@ -158,8 +154,33 @@ export const StageShell = ({ eyebrow, title, lede, children, onNext, onBack, can
         )}
       </div>
     </div>
-  </section>
-);
+  );
+
+  // Full-bleed bar surface — solid page bg, top border + soft upward shadow.
+  const bar = (
+    <div style={{ background: PALETTE.bone, borderTop: `1px solid ${PALETTE.parchmentLight}`, boxShadow: '0 -10px 28px rgba(42,33,27,0.06)' }}>
+      {barInner}
+    </div>
+  );
+
+  return (
+    <section style={{ paddingTop: 16 }}>
+      <Eyebrow>{eyebrow}</Eyebrow>
+      <Serif as="h2" italic style={{ fontSize: 'clamp(34px, 4.5vw, 52px)', lineHeight: 1.05, marginTop: 14, marginBottom: 12, letterSpacing: '-0.01em' }}>
+        {title}
+      </Serif>
+      <Serif style={{ fontSize: 18, color: PALETTE.mute, lineHeight: 1.5, maxWidth: 620, marginBottom: 36 }}>
+        {lede}
+      </Serif>
+      <div>{children}</div>
+      {/* Pin the action bar to the locked footer slot below the scroll region.
+          Fallback to an inline bar when used outside the wizard shell. */}
+      {footerEl
+        ? createPortal(bar, footerEl)
+        : <div style={{ marginTop: 40 }}>{bar}</div>}
+    </section>
+  );
+};
 
 export interface FieldGroupProps {
   label?: React.ReactNode;

@@ -14,10 +14,8 @@ export default function TopBar() {
       style={{
         borderBottom: `1px solid ${PALETTE.parchmentLight}`,
         background: PALETTE.bone,
-        position: 'sticky',
-        top: 0,
+        flex: '0 0 auto',
         zIndex: 10,
-        backdropFilter: 'blur(6px)',
       }}
     >
       <div
