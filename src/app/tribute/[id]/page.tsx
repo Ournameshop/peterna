@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { query } from '@/lib/db';
+import TributeVideo from './TributeVideo';
 
 interface TributeRow {
   id: string;
@@ -115,24 +116,8 @@ export default async function TributePage({
           </p>
         )}
 
-        {/* Video */}
-        <div
-          style={{
-            borderRadius: 4,
-            overflow: 'hidden',
-            background: PALETTE.espressoSoft,
-            marginBottom: 36,
-            aspectRatio: '9/16',
-            maxWidth: 380,
-          }}
-        >
-          <video
-            controls
-            playsInline
-            src={tribute.video_url}
-            style={{ width: '100%', height: '100%', display: 'block', objectFit: 'cover' }}
-          />
-        </div>
+        {/* Video — sized to its own aspect ratio (16:9 / 9:16 / 1:1), no crop. */}
+        <TributeVideo src={tribute.video_url} bg={PALETTE.espressoSoft} />
 
         {/* Closing text */}
         {tribute.closing_text && (

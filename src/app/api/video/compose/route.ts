@@ -10,9 +10,9 @@
 // Flow:
 //   1. Build ordered segment list (openingCard → [captionCard → beatVideo]* → closingCard)
 //   2. Download all segment files + audio to os.tmpdir()
-//   3. Probe durations to compute exact targetLength = max(lockedSec | videoContentLength,
-//      narrationLength, vocalEndSec + tail) — so a lyric song always plays through
-//      its last sung word before any fade/trim (the video pads its tail instead)
+//   3. targetLength = max(videoContentLength, narrationLength) — the video never
+//      exceeds the moving-clip content (no frozen closing card); a song longer
+//      than the clips is faded out gracefully at the end instead of extending
 //   4. Build ONE ffmpeg command with a filter_complex that:
 //      - Scales/pads every input to the target canvas (W×H, 30fps, yuv420p)
 //      - Concatenates all visual inputs with concat filter
@@ -305,19 +305,16 @@ export async function POST(req: Request) {
     const narrationLength = narrationPath
       ? (bodyNarrationSec > 0 ? bodyNarrationSec : await probeDurationSec(narrationPath))
       : 0;
-    // When a lyric song locked the tribute length, use that as master timing.
-    const lockedSec = (body.lockedDurationSeconds ?? 0) > 0 ? (body.lockedDurationSeconds as number) : 0;
-    // The moment singing ends (lyric songs). The timeline must run at least until
-    // the last word + a short tail so no lyric is ever cut — even if that means
-    // the video pads its tail with the last frame.
+    // The video NEVER exceeds the moving-clip content (each clip caps at 15s, so
+    // videoContentLength is the most footage we have) — the closing card never
+    // freezes. videoContentLength already reflects the song length via perBeatMs
+    // (clips are sized to the locked length, capped at 15s). When the song is
+    // longer than the clips can cover, the music simply FADES OUT at the end of
+    // the video instead of holding on a frozen card. Narration, if longer, still
+    // extends the timeline (its own pad branch below).
     const vocalEndSec = (body.vocalEndSec ?? 0) > 0 ? (body.vocalEndSec as number) : 0;
-    const SONG_TAIL_SEC = 2; // ring-out + fade room kept after the last sung word
-    const songFloor = vocalEndSec > 0 ? vocalEndSec + SONG_TAIL_SEC : 0;
-    const targetLength = Math.max(
-      lockedSec > 0 ? lockedSec : Math.max(videoContentLength, narrationLength),
-      songFloor,
-    );
-    const videoDeficit = targetLength - videoContentLength;
+    const targetLength = Math.max(videoContentLength, narrationLength);
+    const videoDeficit = targetLength - videoContentLength; // >0 only when narration outlasts the clips
 
     // Build subtitle ASS file if requested.
     let assPath: string | null = null;
@@ -406,11 +403,12 @@ export async function POST(req: Request) {
     const hasAudio = narrationPath !== null || musicPath !== null;
     const tLen = targetLength.toFixed(3);
 
-    const fadeDur = 1.5;
+    const fadeDur = 2.5; // graceful musical fade-out at the end of the video
     let fadeSt = targetLength - fadeDur;
-    // Never begin the music fade before the last sung word — the final lyric
-    // must ring out clearly; the fade then lands in the instrumental tail.
-    if (vocalEndSec > 0 && fadeSt < vocalEndSec) {
+    // If the vocals FIT inside the video, don't start the fade before the last
+    // word (let it ring out). If the song is longer than the video (trimmed to
+    // fit the clips), just fade out gracefully at the end.
+    if (vocalEndSec > 0 && vocalEndSec < targetLength && fadeSt < vocalEndSec) {
       fadeSt = Math.min(vocalEndSec, targetLength - 0.2);
     }
     const musicFade = fadeSt > 0 ? `,afade=t=out:st=${fadeSt.toFixed(3)}:d=${fadeDur}` : '';

@@ -232,75 +232,66 @@ export default function CardPreview({ onNext, onBack, goToStep }: StageProps) {
       onCorrectionChange={(v) => update({ gateNotes: { ...state.gateNotes, cardPreview: v } })}
       onBack={onBack}
     >
-      <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'flex-start', marginBottom: 32 }}>
-        {cards.map((card, idx) => (
-          <div key={card.type} style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center' }}>
-            <div
-              onClick={() => { if (!generating) setZoomed(idx); }}
-              style={{ border: `1px solid ${PALETTE.parchmentLight}`, borderRadius: 4, overflow: 'hidden', position: 'relative', cursor: generating ? 'default' : 'pointer' }}
-            >
-              {generating ? (
-                <div style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 10,
-                  width: 200,
-                  height: aspectRatio === '16:9' ? 113 : aspectRatio === '1:1' ? 200 : 356,
-                  background: PALETTE.boneSoft,
-                }}>
-                  <Loader2 size={20} color={PALETTE.brass} style={{ animation: 'spin 1.2s linear infinite' }} />
-                  <Sans style={{ fontSize: 11, color: PALETTE.mute, letterSpacing: '0.1em', textTransform: 'uppercase' }}>rendering…</Sans>
-                </div>
-              ) : card.url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={card.url}
-                  alt={card.label}
-                  style={{
-                    display: 'block',
-                    width: 200,
-                    height: aspectRatio === '16:9' ? 113 : aspectRatio === '1:1' ? 200 : 356,
-                    objectFit: 'cover',
-                  }}
-                />
-              ) : (
-                <CardArt
-                  containerId={containerId}
-                  text={card.text}
-                  aspectRatio={aspectRatio}
-                  artStyle={artStyle}
-                  cardType={card.type}
-                />
-              )}
-              {!generating && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: 6,
-                    right: 6,
-                    background: 'rgba(42,33,27,0.55)',
-                    borderRadius: 3,
-                    padding: '3px 4px',
-                    display: 'flex',
-                    alignItems: 'center',
-                  }}
-                >
-                  <Maximize2 size={12} color={PALETTE.bone} />
-                </div>
-              )}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 18, alignItems: 'start', marginBottom: 32 }}>
+        {cards.map((card, idx) => {
+          const cssAspect = aspectRatio === '16:9' ? '16 / 9' : aspectRatio === '1:1' ? '1 / 1' : '9 / 16';
+          return (
+            <div key={card.type} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div
+                onClick={() => { if (!generating) setZoomed(idx); }}
+                style={{ border: `1px solid ${PALETTE.parchmentLight}`, borderRadius: 6, overflow: 'hidden', position: 'relative', cursor: generating ? 'default' : 'pointer', width: '100%', aspectRatio: cssAspect, background: PALETTE.boneSoft }}
+              >
+                {generating ? (
+                  <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+                    <Loader2 size={22} color={PALETTE.brass} style={{ animation: 'spin 1.2s linear infinite' }} />
+                    <Sans style={{ fontSize: 11, color: PALETTE.mute, letterSpacing: '0.1em', textTransform: 'uppercase' }}>rendering…</Sans>
+                  </div>
+                ) : card.url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={card.url}
+                    alt={card.label}
+                    style={{ display: 'block', width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                ) : (
+                  <div style={{ position: 'absolute', inset: 0 }}>
+                    <CardArt
+                      containerId={containerId}
+                      text={card.text}
+                      aspectRatio={aspectRatio}
+                      artStyle={artStyle}
+                      cardType={card.type}
+                    />
+                  </div>
+                )}
+                {!generating && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: 8,
+                      right: 8,
+                      background: 'rgba(42,33,27,0.55)',
+                      borderRadius: 4,
+                      padding: '5px 6px',
+                      display: 'flex',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Maximize2 size={14} color={PALETTE.bone} />
+                  </div>
+                )}
+              </div>
+              <div>
+                <Sans style={{ fontSize: 11, color: PALETTE.mute, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                  {card.label}
+                </Sans>
+                <Serif italic style={{ fontSize: 15, color: PALETTE.espresso, marginTop: 3, lineHeight: 1.4 }}>
+                  {card.text}
+                </Serif>
+              </div>
             </div>
-            <div style={{ textAlign: 'center' }}>
-              <Sans style={{ fontSize: 11, color: PALETTE.mute, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-                {card.label}
-              </Sans>
-              <Serif italic style={{ fontSize: 13, color: PALETTE.espresso, marginTop: 2, maxWidth: 200 }}>
-                {card.text}
-              </Serif>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <div style={{ background: PALETTE.boneSoft, border: `1px solid ${PALETTE.parchmentLight}`, borderRadius: 4, padding: '14px 18px', marginBottom: 8 }}>
