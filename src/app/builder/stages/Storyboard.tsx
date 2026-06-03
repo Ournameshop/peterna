@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from 'react';
+import { RefreshCw } from 'lucide-react';
 import { PALETTE } from '../lib/palette';
 import { Serif, Sans, GateReview } from '../lib/primitives';
 import { generateStoryboardFrame } from '../lib/generation';
@@ -215,6 +216,24 @@ export default function Storyboard({ onNext, onBack }: StageProps) {
                       aspect={state.aspectRatio === 'all_three' ? '1:1' : state.aspectRatio}
                       species={state.petProfile?.species ?? 'dog'}
                     />
+                  )}
+                  {/* Always-on regenerate icon — re-render this single frame
+                      directly (like the video clips), no need to pick a mode first. */}
+                  {!isRerolling && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); void spinFrame(beat.index); }}
+                      aria-label={`Regenerate ${beat.name}`}
+                      title="Regenerate this frame"
+                      style={{
+                        position: 'absolute', top: 8, left: 8, width: 34, height: 34,
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        background: 'rgba(42,33,27,0.62)', color: PALETTE.bone,
+                        border: 'none', borderRadius: 8, cursor: 'pointer', zIndex: 2,
+                      }}
+                    >
+                      <RefreshCw size={16} />
+                    </button>
                   )}
                   {(rerollTarget === 'single' || rerollTarget === 'multi') && (
                     <button

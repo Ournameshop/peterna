@@ -343,20 +343,40 @@ export const GateReview = ({
   correctionLabel = 'Notes or corrections',
   correctionValue, onCorrectionChange,
   onBack,
-}: GateReviewProps) => (
-  <section style={{ paddingTop: 16 }}>
-    <Eyebrow>{eyebrow}</Eyebrow>
-    <Serif as="h2" italic style={{ fontSize: 'clamp(34px, 4.5vw, 52px)', lineHeight: 1.05, marginTop: 14, marginBottom: 12, letterSpacing: '-0.01em' }}>
-      {title}
-    </Serif>
-    <Serif style={{ fontSize: 18, color: PALETTE.mute, lineHeight: 1.5, maxWidth: 620, marginBottom: 36 }}>
-      {lede}
-    </Serif>
-    <div>{children}</div>
-    <div style={{ marginTop: 40, borderTop: `1px solid ${PALETTE.parchmentLight}`, paddingTop: 28, display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <ApprovalPills options={options} onSelect={onSelect} selected={selected} />
+}: GateReviewProps) => {
+  const footerEl = useContext(WizardFooterContext);
+  // Primary ("continue") option sits on the far right of the bar; the rest to
+  // its left, with Back on the far left — matching every other step's footer.
+  const orderedOptions = [...options].sort(
+    (a, b) => (a.tone === 'primary' ? 1 : 0) - (b.tone === 'primary' ? 1 : 0),
+  );
+  const bar = (
+    <div style={{ background: PALETTE.bone, borderTop: `1px solid ${PALETTE.parchmentLight}`, boxShadow: '0 -10px 28px rgba(42,33,27,0.06)' }}>
+      <div style={{ maxWidth: 980, margin: '0 auto', padding: '12px 24px', minHeight: 46, boxSizing: 'content-box', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+        {onBack ? (
+          <button onClick={onBack}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'transparent', border: 'none', color: PALETTE.mute, fontFamily: 'Inter, sans-serif', fontSize: 13, cursor: 'pointer', padding: 0 }}>
+            <ArrowLeft size={14}/> Back
+          </button>
+        ) : <span />}
+        <ApprovalPills options={orderedOptions} onSelect={onSelect} selected={selected} />
+      </div>
+    </div>
+  );
+
+  return (
+    <section style={{ paddingTop: 16 }}>
+      <Eyebrow>{eyebrow}</Eyebrow>
+      <Serif as="h2" italic style={{ fontSize: 'clamp(34px, 4.5vw, 52px)', lineHeight: 1.05, marginTop: 14, marginBottom: 12, letterSpacing: '-0.01em' }}>
+        {title}
+      </Serif>
+      <Serif style={{ fontSize: 18, color: PALETTE.mute, lineHeight: 1.5, maxWidth: 620, marginBottom: 36 }}>
+        {lede}
+      </Serif>
+      <div>{children}</div>
+      {/* Corrections note stays in the scroll body — it's input, not navigation. */}
       {onCorrectionChange && (
-        <div style={{ marginTop: 8 }}>
+        <div style={{ marginTop: 28, borderTop: `1px solid ${PALETTE.parchmentLight}`, paddingTop: 24 }}>
           <Sans style={{ fontSize: 12, color: PALETTE.mute, marginBottom: 8 }}>{correctionLabel}</Sans>
           <textarea
             value={correctionValue ?? ''}
@@ -379,15 +399,11 @@ export const GateReview = ({
           />
         </div>
       )}
-      {onBack && (
-        <button onClick={onBack}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'transparent', border: 'none', color: PALETTE.mute, fontFamily: 'Inter, sans-serif', fontSize: 13, cursor: 'pointer', padding: 0, alignSelf: 'flex-start' }}>
-          <ArrowLeft size={14}/> Back
-        </button>
-      )}
-    </div>
-  </section>
-);
+      {/* Back + options pinned on the bottom navbar (same slot as every step). */}
+      {footerEl ? createPortal(bar, footerEl) : <div style={{ marginTop: 40 }}>{bar}</div>}
+    </section>
+  );
+};
 
 export interface EditChipProps {
   label: string;

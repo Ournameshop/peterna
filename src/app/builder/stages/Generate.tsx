@@ -1,28 +1,16 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Loader2, Maximize2, X, RefreshCw, ChevronLeft } from 'lucide-react';
 import { PALETTE } from '../lib/palette';
 import { Serif, Sans, Eyebrow, PrimaryButton } from '../lib/primitives';
+import { WizardFooterContext } from '../shell/footerSlot';
 import { BeatScene } from '../art';
 import { useBuilder, usePreviewMode } from '../state';
 import type { StageProps } from './types';
 import { themes } from '@/lib/peternal-library';
 import { generateBeatVideo, pollBeatVideo } from '../lib/generation';
-
-const BACK_LINK_STYLE: React.CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 5,
-  background: 'transparent',
-  border: 'none',
-  color: PALETTE.mute,
-  fontFamily: 'Inter, sans-serif',
-  fontSize: 13,
-  cursor: 'pointer',
-  padding: 0,
-  marginBottom: 16,
-};
 
 const BATCH_SIZE = 3;
 const POLL_INTERVAL_MS = 5000;
@@ -290,7 +278,11 @@ export default function Generate({ onNext, onBack }: StageProps) {
             setBeatVideoUrls((prev) => ({ ...prev, [i]: result.url! }));
             // Spread the LATEST accumulator to avoid clobbering concurrent completions.
             videoAccumRef.current[i] = result.url!;
-            update({ beatVideos: { ...videoAccumRef.current } });
+            // A re-rendered clip invalidates the previously-composed master —
+            // clear it so the finished step rebuilds the final video from the
+            // UPDATED clips. Otherwise player/download/share/re-mix keep serving
+            // the old cut that still references the previous clip URL.
+            update({ beatVideos: { ...videoAccumRef.current }, assembledVideoUrl: null });
           }
           break;
         }
@@ -317,12 +309,28 @@ export default function Generate({ onNext, onBack }: StageProps) {
 
   const beats = state.beatSheet;
 
+  // Pinned bottom navbar (same slot StageShell uses) so this step has a
+  // consistent footer with Back — and Continue once rendering is done.
+  const footerEl = useContext(WizardFooterContext);
+  const footerBar = (
+    <div style={{ background: PALETTE.bone, borderTop: `1px solid ${PALETTE.parchmentLight}`, boxShadow: '0 -10px 28px rgba(42,33,27,0.06)' }}>
+      <div style={{ maxWidth: 980, margin: '0 auto', padding: '16px 24px', minHeight: 46, boxSizing: 'content-box', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <button onClick={onBack} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'transparent', border: 'none', color: PALETTE.mute, fontFamily: 'Inter, sans-serif', fontSize: 13, cursor: 'pointer', padding: 0 }}>
+          <ChevronLeft size={14} /> Back
+        </button>
+        {done && (
+          <PrimaryButton onClick={() => { update({ generationComplete: true }); onNext(); }}>
+            Continue to your tribute
+          </PrimaryButton>
+        )}
+      </div>
+    </div>
+  );
+  const footer = footerEl ? createPortal(footerBar, footerEl) : <div style={{ marginTop: 40 }}>{footerBar}</div>;
+
   if (!state.cinematographyApproved || state.cinematographyBriefs.length < beats.length) {
     return (
       <section style={{ paddingTop: 48 }}>
-        <button onClick={onBack} style={BACK_LINK_STYLE}>
-          <ChevronLeft size={15} /> Back
-        </button>
         <Eyebrow>Stage 6 · Rendering</Eyebrow>
         <Serif as="h2" italic style={{ fontSize: 'clamp(28px, 4vw, 44px)', lineHeight: 1.1, marginTop: 14, marginBottom: 16, color: PALETTE.espresso }}>
           One more step first.
@@ -330,15 +338,13 @@ export default function Generate({ onNext, onBack }: StageProps) {
         <Serif style={{ fontSize: 18, color: PALETTE.mute, lineHeight: 1.6, maxWidth: 520 }}>
           The cinematography brief isn&apos;t complete yet. Please return to the Cinematography stage and approve the briefs for all {beats.length} beats before generating.
         </Serif>
+        {footer}
       </section>
     );
   }
 
   return (
     <section style={{ paddingTop: 32 }}>
-      <button onClick={onBack} style={BACK_LINK_STYLE}>
-        <ChevronLeft size={15} /> Back
-      </button>
       <Eyebrow>Stage 6 · Rendering</Eyebrow>
       <Serif
         as="h2"
@@ -595,26 +601,8 @@ export default function Generate({ onNext, onBack }: StageProps) {
       </div>
 
       {/* Continue button — only shown when all beats are done */}
-      {done && (
-        <div
-          style={{
-            marginTop: 36,
-            paddingTop: 24,
-            borderTop: `1px solid ${PALETTE.parchmentLight}`,
-            display: 'flex',
-            justifyContent: 'flex-end',
-          }}
-        >
-          <PrimaryButton
-            onClick={() => {
-              update({ generationComplete: true });
-              onNext();
-            }}
-          >
-            Continue to your tribute
-          </PrimaryButton>
-        </div>
-      )}
+      {/* Back + Continue live on the pinned bottom navbar (footer slot). */}
+      {footer}
 
       {/* Fullscreen zoom modal */}
       {zoomedIndex !== null && (() => {

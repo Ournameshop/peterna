@@ -401,15 +401,16 @@ export default function TheWords({ onNext, onBack, enteredViaBack }: StageProps)
   const { state, update } = useBuilder();
   const previewMode = usePreviewMode();
   // Open at the right sub-step: a #words-* hash wins (e.g. "Edit the song" jumps
-  // to Music); otherwise start at the LAST sub-step when we arrived by going
-  // BACK (so the backward path doesn't skip Music / Narration / Review), and at
-  // the first sub-step when arriving forward.
+  // to Music); otherwise, when we arrived by going BACK, land on the MUSIC/song
+  // step — that's what users come back here to edit — instead of the first
+  // sub-step (Opening). Forward arrival starts at Opening.
   const [sub, setSub] = useState<number>(() => {
     if (typeof window !== 'undefined') {
       const fromHash = WORDS_HASH_TO_SUB[window.location.hash];
       if (fromHash !== undefined) return fromHash;
     }
-    return enteredViaBack ? SUB_STEPS.length - 1 : 0;
+    const musicSub = SUB_STEPS.indexOf('Music');
+    return enteredViaBack ? (musicSub >= 0 ? musicSub : SUB_STEPS.length - 1) : 0;
   });
   const [customLine1, setCustomLine1] = useState(state.words.openingCustom[0]);
   const [customLine2, setCustomLine2] = useState(state.words.openingCustom[1]);
