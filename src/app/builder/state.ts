@@ -326,4 +326,7 @@ export interface StageProps {
   onNext: () => void;
   onBack: () => void;
   goToStep: (id: StepId, opts?: { preserve?: boolean }) => void;
+  // True when this stage was reached by navigating BACK — lets a multi-sub-step
+  // stage open at its last sub-step instead of its first.
+  enteredViaBack?: boolean;
 }

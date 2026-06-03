@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, createContext, useContext, useCallback } from 'react';
+import React, { useState, useEffect, useRef, createContext, useContext, useCallback } from 'react';
 import { useBuilder } from '../state';
 import { STEPS } from '../steps';
 import type { StepId } from '../steps';
@@ -41,6 +41,11 @@ export interface WizardContextValue {
   // opts.preserve = jump without the downstream reset (e.g. to edit the song
   // without discarding the storyboard / clips / cards).
   goToStep: (id: StepId, opts?: { preserve?: boolean }) => void;
+  // True when the current step was reached by going BACK (or a backward jump).
+  // Lets a multi-sub-step stage (e.g. TheWords) open at its LAST sub-step on the
+  // backward path instead of its first — otherwise back-nav skips the tail
+  // sub-steps (music / narration / review).
+  enteredViaBack: boolean;
 }
 
 const WizardContext = createContext<WizardContextValue | null>(null);
@@ -56,7 +61,16 @@ export function WizardProvider({ children, initialStepIndex = 0 }: { children: R
   const [furthestReached, setFurthestReached] = useState(initialStepIndex);
   const { resetDownstream } = useBuilder();
 
+  // Track the last navigation direction so a stage can open at the right end on
+  // mount. It's state (not a ref) so it's safe to read during render and batches
+  // into the same re-render as setStepIndex. stepIndexRef mirrors stepIndex so
+  // goToStep can compare against the current step from inside a stable callback.
+  const [enteredViaBack, setEnteredViaBack] = useState(false);
+  const stepIndexRef = useRef(initialStepIndex);
+  useEffect(() => { stepIndexRef.current = stepIndex; }, [stepIndex]);
+
   const next = useCallback(() => {
+    setEnteredViaBack(false);
     setStepIndex(i => {
       const ni = Math.min(STEPS.length - 1, i + 1);
       setFurthestReached(f => Math.max(f, ni));
@@ -65,6 +79,7 @@ export function WizardProvider({ children, initialStepIndex = 0 }: { children: R
   }, []);
 
   const back = useCallback(() => {
+    setEnteredViaBack(true);
     setStepIndex(current => {
       const target = Math.max(0, current - 1);
       if (target < current) {
@@ -77,6 +92,7 @@ export function WizardProvider({ children, initialStepIndex = 0 }: { children: R
   const goToStep = useCallback((id: StepId, opts?: { preserve?: boolean }) => {
     const target = STEPS.findIndex(s => s.id === id);
     if (target < 0) return;
+    setEnteredViaBack(target < stepIndexRef.current);
     setStepIndex(current => {
       // preserve = a non-destructive jump (keeps storyboard/clips/cards) — used
       // to edit the song without re-running the whole tail.
@@ -89,15 +105,17 @@ export function WizardProvider({ children, initialStepIndex = 0 }: { children: R
   }, [resetDownstream]);
 
   return (
-    <WizardContext.Provider value={{ stepIndex, furthestReached, next, back, goToStep }}>
+    <WizardContext.Provider
+      value={{ stepIndex, furthestReached, next, back, goToStep, enteredViaBack }}
+    >
       {children}
     </WizardContext.Provider>
   );
 }
 
 export default function Wizard() {
-  const { stepIndex, next, back, goToStep } = useWizard();
-  const props: StageProps = { onNext: next, onBack: back, goToStep };
+  const { stepIndex, next, back, goToStep, enteredViaBack } = useWizard();
+  const props: StageProps = { onNext: next, onBack: back, goToStep, enteredViaBack };
   const currentId = STEPS[stepIndex].id;
 
   // On every step change, jump the page back to the top — otherwise the user

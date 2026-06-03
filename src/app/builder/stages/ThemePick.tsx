@@ -28,8 +28,17 @@ const THEMES_WITH_THUMBNAILS = new Set<ThemeId>([
 
 export default function ThemePick({ onNext, onBack }: StageProps) {
   const { state, update } = useBuilder();
-  const [subStep, setSubStep] = useState<0 | 1>(0);
-  const [selectedCategory, setSelectedCategory] = useState<ThemeCategoryId | null>(state.themeCategory ?? null);
+  // The category that contains the already-chosen theme (if any).
+  const selectedThemeCat = state.theme
+    ? (themeCategories.find(c => c.themeIds.includes(state.theme as ThemeId))?.id ?? null)
+    : null;
+  // If a theme is already selected (re-entry / back-nav / resume), open straight
+  // to its category's grid so the pick is visible and shows its selected border —
+  // instead of the category list, where the selection can't be seen.
+  const [subStep, setSubStep] = useState<0 | 1>(() => (state.theme ? 1 : 0));
+  const [selectedCategory, setSelectedCategory] = useState<ThemeCategoryId | null>(
+    selectedThemeCat ?? state.themeCategory ?? null,
+  );
 
   function handleCategorySelect(catId: ThemeCategoryId) {
     setSelectedCategory(catId);
