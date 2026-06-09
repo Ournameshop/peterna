@@ -27,6 +27,7 @@ function serializeState(state: BuilderState): Record<string, unknown> {
   return {
     ...state,
     petPhotos: (state.petPhotos ?? []).map((p) => ({ id: p.id, name: p.name, url: p.url })),
+    referenceSheetSources: (state.referenceSheetSources ?? []).map((p) => ({ id: p.id, name: p.name, url: p.url })),
   };
 }
 

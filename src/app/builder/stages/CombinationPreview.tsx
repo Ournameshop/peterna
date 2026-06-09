@@ -40,8 +40,11 @@ export default function CombinationPreview({ onNext, onBack, goToStep }: StagePr
       return;
     }
     (async () => {
+      const referenceSheet = state.useOwnReferenceSheet && state.userSheetUrl
+        ? state.userSheetUrl
+        : state.characterSheetUrl;
       const url = await generateCombinationPreview(
-        state.characterSheetUrl,
+        referenceSheet,
         petName,
         state.theme,
         state.style,

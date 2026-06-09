@@ -128,6 +128,9 @@ export interface BuilderState {
   characterSheetApproved: boolean;
   characterSheetRefinements: string[];
   characterSheetUrl: string | null;           // the locked 2x2 likeness reference (skill Stage 2) — durable S3/fal http URL (via /api/image/edit → rehost), not a data URL
+  useOwnReferenceSheet: boolean;
+  referenceSheetSources: PetPhoto[];
+  userSheetUrl: string | null;
   musicIntent: 'lyric' | 'standard' | null;
   lockedDurationSeconds: number | null;
   beatCount: 8 | 12 | 16;
@@ -189,6 +192,9 @@ export const initialState: BuilderState = {
   characterSheetApproved: false,
   characterSheetRefinements: [],
   characterSheetUrl: null,
+  useOwnReferenceSheet: false,
+  referenceSheetSources: [],
+  userSheetUrl: null,
   musicIntent: null,
   lockedDurationSeconds: null,
   beatCount: 12,

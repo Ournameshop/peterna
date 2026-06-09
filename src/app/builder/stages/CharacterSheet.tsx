@@ -8,6 +8,9 @@ import { PetSketch } from '../art';
 import { generateCharacterSheet } from '../lib/generation';
 import { useBuilder, usePreviewMode } from '../state';
 import type { StageProps } from '../state';
+import ReferenceSheetPicker from './ReferenceSheetPicker';
+
+const OWN_SHEET_ENABLED = process.env.NEXT_PUBLIC_OWN_REFERENCE_SHEET === '1';
 
 const REFINE_OPTIONS = [
   { id: 'ears', label: 'Ears' },
@@ -191,6 +194,8 @@ export default function CharacterSheet({ onNext, onBack, goToStep }: StageProps)
               <RotateCcw size={13} /> Render again
             </button>
           </div>
+
+          {OWN_SHEET_ENABLED && <ReferenceSheetPicker />}
 
           {selected === 'close' && (
             <div style={{ marginTop: 24, padding: '20px 22px', background: PALETTE.boneSoft, border: `1px solid ${PALETTE.parchmentLight}`, borderRadius: 4 }}>

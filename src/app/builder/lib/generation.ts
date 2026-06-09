@@ -285,6 +285,55 @@ It must be the same individual ${petName} in all four views, perfectly consisten
   return editImage({ prompt, imageUrls: urls, aspect: 'square_hd', quality: 'medium' });
 }
 
+// ---- Own-reference sheet (flag-gated) --------------------------------------
+// Removes the background from a single pet photo via GPT, returning the
+// rehosted URL (or null on failure). Used by buildUserReferenceSheet.
+async function removeBackground(photo: PetPhoto): Promise<string | null> {
+  const imageUrl = await photoToImageUrl(photo);
+  if (!imageUrl) return null;
+  return editImage({
+    prompt:
+      "Isolate the single pet in this photo on a clean, pure white background. Completely remove all background scenery, people, other animals, objects, text, and shadows. Keep the pet's exact appearance, markings, colours and proportions identical to the photo — do not restyle, recolour, or redraw it. Center the pet, full subject visible, no cropping of the head, ears, paws or tail.",
+    imageUrls: [imageUrl],
+    aspect: 'square_hd',
+    quality: 'medium',
+  });
+}
+
+// Builds a user-supplied 2×2 reference sheet from the given pet photos.
+// Returns the S3 URL of the grid PNG, or null on any failure (caller falls back
+// to characterSheetUrl). Only meaningful when the NEXT_PUBLIC_OWN_REFERENCE_SHEET
+// flag is set; callers must gate on that before calling.
+export async function buildUserReferenceSheet(sources: PetPhoto[]): Promise<string | null> {
+  const bgRemoved = await Promise.all(sources.map(removeBackground));
+  const valid = bgRemoved.filter((u): u is string => u !== null);
+  if (valid.length < 2) return null;
+
+  // Normalize to exactly 4 URLs.
+  let four: string[];
+  if (valid.length >= 4) {
+    four = valid.slice(0, 4);
+  } else if (valid.length === 3) {
+    four = [valid[0], valid[1], valid[2], valid[0]];
+  } else {
+    // 2
+    four = [valid[0], valid[1], valid[0], valid[1]];
+  }
+
+  try {
+    const res = await fetch('/api/image/grid', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ imageUrls: four }),
+    });
+    if (!res.ok) return null;
+    const json = (await res.json()) as { url?: string | null };
+    return typeof json.url === 'string' ? json.url : null;
+  } catch {
+    return null;
+  }
+}
+
 // ---- Storyboard frame (skill Stage 5.1) ------------------------------------
 // One frame per beat, conditioned on the character sheet so it's the SAME pet.
 

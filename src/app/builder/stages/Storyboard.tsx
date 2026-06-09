@@ -75,12 +75,15 @@ export default function Storyboard({ onNext, onBack }: StageProps) {
         ageRange: state.petProfile.ageRange,
         bodyType: state.petProfile.bodyType,
       } : undefined;
+      const referenceSheet = state.useOwnReferenceSheet && state.userSheetUrl
+        ? state.userSheetUrl
+        : state.characterSheetUrl;
       const entries = await Promise.all(
         beats.map(async (beat) => {
           const resolvedBeat = { ...beat, caption: finalBeatCaption(beat, state.words, resolveCtx) };
           const url = await generateStoryboardFrame(
             resolvedBeat,
-            state.characterSheetUrl,
+            referenceSheet,
             state.petName || 'your pet',
             state.theme,
             state.style,
@@ -134,9 +137,12 @@ export default function Storyboard({ onNext, onBack }: StageProps) {
         ageRange: state.petProfile.ageRange,
         bodyType: state.petProfile.bodyType,
       } : undefined;
+      const rerollReferenceSheet = state.useOwnReferenceSheet && state.userSheetUrl
+        ? state.userSheetUrl
+        : state.characterSheetUrl;
       const url = await generateStoryboardFrame(
         resolvedBeat,
-        state.characterSheetUrl,
+        rerollReferenceSheet,
         state.petName || 'your pet',
         state.theme,
         state.style,
