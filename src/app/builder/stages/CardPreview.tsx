@@ -53,18 +53,22 @@ export default function CardPreview({ onNext, onBack, goToStep }: StageProps) {
     // Per-beat caption cards: already capped at 3 by TheWords.tsx.
     const captionEntries = state.words.captions;
 
+    // Honor the user's own reference sheet when they built one (was a bug: cards
+    // always used the AI characterSheetUrl, ignoring the user's selection).
+    const referenceSheetUrl = activeReferenceSheet(state);
+
     // Background image priority per card type (reuses already-generated assets, no new AI calls).
     const lastBeatIndex = state.beatSheet.length > 0 ? state.beatSheet.length - 1 : 0;
     const openingBg: string | undefined =
-      state.storyboardImages[0] ?? state.combinationPreviewUrl ?? state.characterSheetUrl ?? undefined;
+      state.storyboardImages[0] ?? state.combinationPreviewUrl ?? referenceSheetUrl ?? undefined;
     const closingBg: string | undefined =
-      state.storyboardImages[lastBeatIndex] ?? state.combinationPreviewUrl ?? state.characterSheetUrl ?? undefined;
+      state.storyboardImages[lastBeatIndex] ?? state.combinationPreviewUrl ?? referenceSheetUrl ?? undefined;
     const memoryBeatIndex = state.beatSheet.findIndex(b => b.archetype === 'memory');
     const sampleCaptionBg: string | undefined =
       (memoryBeatIndex >= 0 ? state.storyboardImages[memoryBeatIndex] : null)
         ?? state.storyboardImages[1]
         ?? state.combinationPreviewUrl
-        ?? state.characterSheetUrl
+        ?? referenceSheetUrl
         ?? undefined;
 
     // Pet identity for the AI card prompt (skill variable-reference, Group A).
@@ -77,10 +81,6 @@ export default function CardPreview({ onNext, onBack, goToStep }: StageProps) {
       bodyType: state.petProfile?.bodyType,
     };
     const sampleCaptionHint = (memoryBeatIndex >= 0 ? state.beatSheet[memoryBeatIndex] : state.beatSheet[1])?.visual;
-
-    // Honor the user's own reference sheet when they built one (was a bug: cards
-    // always used the AI characterSheetUrl, ignoring the user's selection).
-    const referenceSheetUrl = activeReferenceSheet(state);
 
     const [opening, closing, caption, ...rest] = await Promise.all([
       generateCardImage({

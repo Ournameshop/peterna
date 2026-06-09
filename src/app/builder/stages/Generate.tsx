@@ -297,7 +297,7 @@ export default function Generate({ onNext, onBack }: StageProps) {
       }));
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [state.beatSheet, state.cinematographyBriefs, state.characterSheetUrl, state.storyboardImages, state.captionCardImages, state.petName, state.petProfile, state.traits, state.favorites, state.format, state.theme, state.style, state.aspectRatio, state.targetMinutes, state.beatCount, clipStates],
+    [state.beatSheet, state.cinematographyBriefs, state.characterSheetUrl, state.userSheetUrl, state.useOwnReferenceSheet, state.storyboardImages, state.captionCardImages, state.petName, state.petProfile, state.traits, state.favorites, state.format, state.theme, state.style, state.aspectRatio, state.targetMinutes, state.beatCount, clipStates],
   );
 
   // Close zoom modal on Escape.

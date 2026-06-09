@@ -5,7 +5,7 @@ import { RefreshCw } from 'lucide-react';
 import { PALETTE } from '../lib/palette';
 import { Serif, Sans, GateReview } from '../lib/primitives';
 import { generateStoryboardFrame } from '../lib/generation';
-import { useBuilder, usePreviewMode } from '../state';
+import { useBuilder, usePreviewMode, activeReferenceSheet } from '../state';
 import type { Beat, WordsState, Gender } from '../state';
 import { BeatScene } from '../art';
 import type { StageProps } from './types';
@@ -75,9 +75,7 @@ export default function Storyboard({ onNext, onBack }: StageProps) {
         ageRange: state.petProfile.ageRange,
         bodyType: state.petProfile.bodyType,
       } : undefined;
-      const referenceSheet = state.useOwnReferenceSheet && state.userSheetUrl
-        ? state.userSheetUrl
-        : state.characterSheetUrl;
+      const referenceSheet = activeReferenceSheet(state);
       const entries = await Promise.all(
         beats.map(async (beat) => {
           const resolvedBeat = { ...beat, caption: finalBeatCaption(beat, state.words, resolveCtx) };
@@ -137,9 +135,7 @@ export default function Storyboard({ onNext, onBack }: StageProps) {
         ageRange: state.petProfile.ageRange,
         bodyType: state.petProfile.bodyType,
       } : undefined;
-      const rerollReferenceSheet = state.useOwnReferenceSheet && state.userSheetUrl
-        ? state.userSheetUrl
-        : state.characterSheetUrl;
+      const rerollReferenceSheet = activeReferenceSheet(state);
       const url = await generateStoryboardFrame(
         resolvedBeat,
         rerollReferenceSheet,
