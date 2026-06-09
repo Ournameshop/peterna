@@ -7,7 +7,7 @@ import { PALETTE } from '../lib/palette';
 import { Serif, Sans, Eyebrow, PrimaryButton } from '../lib/primitives';
 import { WizardFooterContext } from '../shell/footerSlot';
 import { BeatScene } from '../art';
-import { useBuilder, usePreviewMode } from '../state';
+import { useBuilder, usePreviewMode, activeReferenceSheet } from '../state';
 import type { StageProps } from './types';
 import { themes } from '@/lib/peternal-library';
 import { generateBeatVideo, pollBeatVideo } from '../lib/generation';
@@ -76,7 +76,9 @@ export default function Generate({ onNext, onBack }: StageProps) {
 
     const beats = state.beatSheet;
     const briefs = state.cinematographyBriefs;
-    const characterSheetUrl = state.characterSheetUrl;
+    // Honor the user's own reference sheet when they built one (was a bug: this
+    // stage always used the AI characterSheetUrl, ignoring the user's selection).
+    const referenceSheetUrl = activeReferenceSheet(state);
 
     // Duration math: distribute time evenly across beats, clamped 4–15s.
     // cardsSeconds = 6 (opening + closing) + 2.5s per caption card that has an image.
@@ -97,7 +99,7 @@ export default function Generate({ onNext, onBack }: StageProps) {
         );
       }
 
-      const baseImageUrls: string[] = characterSheetUrl ? [characterSheetUrl] : [];
+      const baseImageUrls: string[] = referenceSheetUrl ? [referenceSheetUrl] : [];
 
       let completed = Object.keys(state.beatVideos).length;
 
@@ -219,7 +221,8 @@ export default function Generate({ onNext, onBack }: StageProps) {
       setClipField(i, 'regenerating', true);
       setClipField(i, 'showNoteInput', false);
 
-      const baseImageUrls: string[] = state.characterSheetUrl ? [state.characterSheetUrl] : [];
+      const referenceSheetUrl = activeReferenceSheet(state);
+      const baseImageUrls: string[] = referenceSheetUrl ? [referenceSheetUrl] : [];
       const storyboardFrame = state.storyboardImages[i];
       const imageUrls = [
         ...(storyboardFrame ? [storyboardFrame] : []),

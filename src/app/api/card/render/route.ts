@@ -8,7 +8,6 @@
 import { NextResponse } from "next/server";
 import path from "path";
 import fs from "fs";
-import { Resvg, initWasm } from "@resvg/resvg-wasm";
 import { renderCardSvg, FRAME_DIMS } from "@/lib/peternal-card-spec";
 import type { ContainerId, ArtStyleId } from "@/lib/peternal-card-spec";
 import { fal } from "@/lib/fal";
@@ -17,16 +16,27 @@ import { store } from "@/lib/server/storage";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Initialize WASM once per process — initWasm throws if called more than once.
-let wasmReady: Promise<void> | null = null;
-function ensureWasm(): Promise<void> {
-  if (!wasmReady) {
-    const wasm = fs.readFileSync(
-      path.join(process.cwd(), "node_modules/@resvg/resvg-wasm/index_bg.wasm"),
-    );
-    wasmReady = initWasm(wasm);
+// @resvg/resvg-wasm is a native/wasm package. A top-level static import gets
+// bundled + hash-mangled if the build ever runs under Turbopack (which ignores
+// serverExternalPackages) — producing a runtime `Cannot find package
+// @resvg/resvg-wasm-<hash>` that 502s every card render. A dynamic import() is
+// never bundled, so resolution is correct regardless of the build tool. Cache
+// the module load + one-time initWasm as a single promise (initWasm throws if
+// called more than once; one shared promise also makes concurrent calls safe).
+type ResvgCtor = typeof import("@resvg/resvg-wasm").Resvg;
+let resvgReady: Promise<ResvgCtor> | null = null;
+function ensureResvg(): Promise<ResvgCtor> {
+  if (!resvgReady) {
+    resvgReady = (async () => {
+      const mod = await import("@resvg/resvg-wasm");
+      const wasm = fs.readFileSync(
+        path.join(process.cwd(), "node_modules/@resvg/resvg-wasm/index_bg.wasm"),
+      );
+      await mod.initWasm(wasm);
+      return mod.Resvg;
+    })();
   }
-  return wasmReady;
+  return resvgReady;
 }
 
 // Read font files once at module scope as Buffers (WASM needs fontBuffers, not fontFiles).
@@ -100,7 +110,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    await ensureWasm();
+    const Resvg = await ensureResvg();
 
     const svg = renderCardSvg({
       cardType: cardType as "opening" | "closing" | "caption" | "caption_overlay",

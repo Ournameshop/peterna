@@ -9,7 +9,7 @@ import { beatStructures, favoriteThings, personalityTraits, themes, captionTempl
 import { resolveText } from '@/lib/peternal-resolvers';
 
 type GenerateInput = {
-  beatCount: 8 | 12 | 16;
+  beatCount: 3 | 8 | 12 | 16;
   format: FormatId;
   theme: ThemeId;
   gender: Gender;

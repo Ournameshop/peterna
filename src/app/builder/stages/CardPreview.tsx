@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Loader2, Maximize2, X } from 'lucide-react';
 import { PALETTE } from '../lib/palette';
 import { Serif, Sans, GateReview } from '../lib/primitives';
-import { useBuilder } from '../state';
+import { useBuilder, activeReferenceSheet } from '../state';
 import { CardArt } from '../art';
 import { generateCardImage, generateCaptionOverlay } from '../lib/generation';
 import { usePreviewMode } from '../state';
@@ -78,11 +78,15 @@ export default function CardPreview({ onNext, onBack, goToStep }: StageProps) {
     };
     const sampleCaptionHint = (memoryBeatIndex >= 0 ? state.beatSheet[memoryBeatIndex] : state.beatSheet[1])?.visual;
 
+    // Honor the user's own reference sheet when they built one (was a bug: cards
+    // always used the AI characterSheetUrl, ignoring the user's selection).
+    const referenceSheetUrl = activeReferenceSheet(state);
+
     const [opening, closing, caption, ...rest] = await Promise.all([
       generateCardImage({
         kind: 'opening',
         text: openingText,
-        characterSheet: state.characterSheetUrl,
+        characterSheet: referenceSheetUrl,
         containerId,
         themeId: state.theme,
         styleId: state.style,
@@ -95,7 +99,7 @@ export default function CardPreview({ onNext, onBack, goToStep }: StageProps) {
       generateCardImage({
         kind: 'closing',
         text: closingText,
-        characterSheet: state.characterSheetUrl,
+        characterSheet: referenceSheetUrl,
         containerId,
         themeId: state.theme,
         styleId: state.style,
@@ -108,7 +112,7 @@ export default function CardPreview({ onNext, onBack, goToStep }: StageProps) {
       generateCardImage({
         kind: 'caption',
         text: sampleCaption,
-        characterSheet: state.characterSheetUrl,
+        characterSheet: referenceSheetUrl,
         containerId,
         themeId: state.theme,
         styleId: state.style,
@@ -124,7 +128,7 @@ export default function CardPreview({ onNext, onBack, goToStep }: StageProps) {
         generateCardImage({
           kind: 'caption',
           text: entry.text,
-          characterSheet: state.characterSheetUrl,
+          characterSheet: referenceSheetUrl,
           containerId,
           themeId: state.theme,
           styleId: state.style,

@@ -22,7 +22,7 @@ export default function LengthAspect({ onNext, onBack }: StageProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLyric]);
 
-  function selectLength(beatCount: 8 | 12 | 16, targetMinutes: 1 | 2 | 3 | 4) {
+  function selectLength(beatCount: 3 | 8 | 12 | 16, targetMinutes: 1 | 2 | 3 | 4) {
     // 1- and 2-minute both use 8 beats, so the choice can change without
     // beatCount changing — check targetMinutes too.
     if (state.beatCount !== beatCount || state.targetMinutes !== targetMinutes) {
@@ -49,7 +49,7 @@ export default function LengthAspect({ onNext, onBack }: StageProps) {
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {lengths.map(len => {
-            const active = state.targetMinutes === len.targetMinutes;
+            const active = state.beatCount === len.beatCount && state.targetMinutes === len.targetMinutes;
             const recommended = len.beatCount === 12;
             return (
               <button
@@ -86,16 +86,20 @@ export default function LengthAspect({ onNext, onBack }: StageProps) {
                   </Sans>
                 )}
                 <Serif style={{ fontSize: 22, color: PALETTE.espresso }}>
-                  {len.targetMinutes === 1
-                    ? 'A brief tribute'
-                    : len.targetMinutes === 2
-                      ? 'A short keepsake'
-                      : len.targetMinutes === 3
-                        ? 'A full tribute'
-                        : 'An extended remembrance'}
+                  {len.beatCount === 3
+                    ? 'A quick tribute'
+                    : len.targetMinutes === 1
+                      ? 'A brief tribute'
+                      : len.targetMinutes === 2
+                        ? 'A short keepsake'
+                        : len.targetMinutes === 3
+                          ? 'A full tribute'
+                          : 'An extended remembrance'}
                 </Serif>
                 <Sans style={{ fontSize: 13, color: PALETTE.mute }}>
-                  {len.targetMinutes} minutes · {len.beatCount} beats
+                  {len.beatCount === 3
+                    ? '~45 seconds · 3 clips · fastest to create'
+                    : `${len.targetMinutes} minutes · ${len.beatCount} beats`}
                 </Sans>
               </button>
             );

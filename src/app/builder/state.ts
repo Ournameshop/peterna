@@ -133,7 +133,7 @@ export interface BuilderState {
   userSheetUrl: string | null;
   musicIntent: 'lyric' | 'standard' | null;
   lockedDurationSeconds: number | null;
-  beatCount: 8 | 12 | 16;
+  beatCount: 3 | 8 | 12 | 16;
   targetMinutes: 1 | 2 | 3 | 4;
   aspectRatio: AspectId;
   pickType: 'curated' | 'custom' | null;
@@ -259,6 +259,17 @@ export const initialState: BuilderState = {
   generationComplete: false,
   eulogyRequested: false,
 };
+
+// The active likeness reference for ALL generation stages (storyboard, beats,
+// cards). When the user built their own 2x2 reference sheet (flag-gated), that
+// takes precedence over the AI-generated character sheet — so their selection
+// is never silently ignored downstream. Read the reference through this single
+// selector everywhere so the stages can't drift apart again.
+export function activeReferenceSheet(state: BuilderState): string | null {
+  return state.useOwnReferenceSheet && state.userSheetUrl
+    ? state.userSheetUrl
+    : state.characterSheetUrl;
+}
 
 export function resetDownstream(state: BuilderState, fromStage: StepId): Partial<BuilderState> {
   // Non-destructive navigation. Going BACK (or jumping to an earlier step) must
