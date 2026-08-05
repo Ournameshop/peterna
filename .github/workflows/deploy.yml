@@ -52,6 +52,8 @@ jobs:
           if [ -d public ]; then cp -r public artifact/; fi
           cp package.json package-lock.json artifact/
           if ls next.config.* >/dev/null 2>&1; then cp next.config.* artifact/; fi
+          # postinstall runs `prisma generate` on the box — it needs the schema
+          if [ -d prisma ]; then cp -r prisma artifact/; fi
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -115,10 +117,14 @@ jobs:
           set -e
           export PATH="\$HOME/.nvm/versions/node/\$(ls \$HOME/.nvm/versions/node 2>/dev/null | tail -n1)/bin:\$PATH:/usr/local/bin:/usr/bin"
           cd "${APP_DIR}"
-          # Write .env from secrets injected by the runner — runs AFTER rsync so --delete cannot remove it
+          # Write .env from secrets injected by the runner — runs AFTER rsync so --delete cannot remove it.
+          # CI owns only these three keys; every other line the box added
+          # (DATABASE_URL, AWS_*/S3_* storage creds, …) must survive the rewrite.
+          keep=\$(grep -vE '^(SUNO_API_KEY|FAL_KEY|GEMINI_API_KEY)=' "${APP_DIR}/.env" 2>/dev/null || true)
           printf 'SUNO_API_KEY=%s\nFAL_KEY=%s\nGEMINI_API_KEY=%s\n' \
             "${SUNO_API_KEY}" "${FAL_KEY}" "${GEMINI_API_KEY}" \
             > "${APP_DIR}/.env"
+          if [ -n "\$keep" ]; then printf '%s\n' "\$keep" >> "${APP_DIR}/.env"; fi
           npm ci --omit=dev
           if pm2 describe "${APP_NAME}" >/dev/null 2>&1; then
             pm2 restart "${APP_NAME}" --update-env
