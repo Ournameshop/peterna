@@ -68,6 +68,17 @@ function presetBedPending(state: BuilderState): boolean {
 type DownloadStatus = 'idle' | 'preparing' | 'done' | 'error';
 type ShareStatus = 'idle' | 'preparing' | 'done' | 'error';
 
+// Friendly word for the music-under-narration level. -18dB (the default) reads
+// as "Balanced" — the range the compose API accepts is -36..-6.
+const MUSIC_MIX_DEFAULT_DB = -18;
+function mixLabel(db: number): string {
+  if (db >= -10) return 'Prominent';
+  if (db >= -15) return 'Present';
+  if (db >= -21) return 'Balanced';
+  if (db >= -28) return 'Soft';
+  return 'Faint';
+}
+
 export default function FinishedTribute({ onBack, goToStep }: StageProps) {
   const { state, update } = useBuilder();
   const previewMode = usePreviewMode();
@@ -88,6 +99,10 @@ export default function FinishedTribute({ onBack, goToStep }: StageProps) {
   const [composePhase, setComposePhase] = useState('');
   const [composeError, setComposeError] = useState<string | null>(null);
   const composeStartedRef = useRef(false);
+
+  // Mix control — true once the user moves the music slider after a video was
+  // already assembled, so we can prompt for a Re-mix to bake the new level in.
+  const [mixDirty, setMixDirty] = useState(false);
 
   // Single-fire ref guard — React StrictMode double-invokes effects.
   const musicStartedRef = useRef(false);
@@ -315,6 +330,7 @@ export default function FinishedTribute({ onBack, goToStep }: StageProps) {
         musicUrl: musicUrl || null,
         lockedDurationSeconds: state.lockedDurationSeconds ?? undefined,
         vocalEndSec: state.words.musicVocalEndSec ?? undefined,
+        musicVolumeDb: state.musicMixDb ?? undefined,
         subtitlesEnabled,
         narrationScript: subtitlesEnabled ? narrationScript : null,
         narrationTimestamps: subtitlesEnabled ? narrationTimestamps : null,
@@ -352,6 +368,7 @@ export default function FinishedTribute({ onBack, goToStep }: StageProps) {
     try {
       const url = await composeVideo((p) => setComposePhase(p));
       setComposeStatus('idle');
+      setMixDirty(false);
       return url;
     } catch (err) {
       setComposeError(err instanceof Error ? err.message : 'Could not assemble the video.');
@@ -592,6 +609,51 @@ export default function FinishedTribute({ onBack, goToStep }: StageProps) {
           Edited a scene or the storyboard? Use <strong>Re-mix</strong> below to refresh your video, then <strong>Download</strong>.
         </Sans>
       </div>
+
+      {/* Mix control — background-music level under the narration. Only shown
+          when there IS a voice to balance against; music-only tributes keep
+          the bed at full volume. */}
+      {state.words.narration !== 'off' && state.musicBedUrl && (
+        <div
+          style={{
+            marginTop: 24,
+            padding: '18px 20px',
+            background: PALETTE.boneSoft,
+            border: `1px solid ${PALETTE.parchmentLight}`,
+            borderRadius: 4,
+            maxWidth: 480,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
+            <Eyebrow>Background music</Eyebrow>
+            <Sans style={{ fontSize: 12, color: PALETTE.espressoSoft, whiteSpace: 'nowrap' }}>
+              {mixLabel(state.musicMixDb ?? MUSIC_MIX_DEFAULT_DB)} · {state.musicMixDb ?? MUSIC_MIX_DEFAULT_DB} dB
+            </Sans>
+          </div>
+          <input
+            type="range"
+            min={-36}
+            max={-6}
+            step={1}
+            value={state.musicMixDb ?? MUSIC_MIX_DEFAULT_DB}
+            onChange={(e) => {
+              update({ musicMixDb: Number(e.target.value) });
+              if (state.assembledVideoUrl) setMixDirty(true);
+            }}
+            aria-label="Background music volume beneath the narration"
+            style={{ width: '100%', marginTop: 12, accentColor: PALETTE.brass, cursor: 'pointer' }}
+          />
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+            <Sans style={{ fontSize: 11, color: PALETTE.mute }}>Quieter</Sans>
+            <Sans style={{ fontSize: 11, color: PALETTE.mute }}>Louder</Sans>
+          </div>
+          <Sans style={{ fontSize: 12, color: mixDirty ? PALETTE.espressoSoft : PALETTE.mute, lineHeight: 1.4, marginTop: 10 }}>
+            {mixDirty
+              ? 'New level set — press Re-mix below to hear it, then Download.'
+              : 'How loud the music sits beneath the voice. Applied when the video is mixed.'}
+          </Sans>
+        </div>
+      )}
 
       {/* Closing credit */}
       {(state.yearsIncluded && state.years) || state.creatorName ? (

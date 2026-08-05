@@ -66,8 +66,11 @@ export const maxDuration = 300;
 const NARR_POST =
   "volume=0.7,highpass=f=80,equalizer=f=200:t=q:w=1.0:g=1,equalizer=f=3200:t=q:w=2.0:g=-2.5,aecho=0.85:0.18:55:0.18,alimiter=limit=0.9";
 
-// Music duck level — -18 dB ≈ 0.126 linear
+// Music duck level — -18 dB ≈ 0.126 linear. Default when the user hasn't set
+// a level on the mix stage; user values arrive as body.musicVolumeDb.
 const MUSIC_DUCK_VOLUME = 0.126;
+const MUSIC_DB_MIN = -36; // quietest the mix control allows — below this the bed is inaudible
+const MUSIC_DB_MAX = -6;  // loudest — above this the bed fights the voice
 
 // Serialize compositions. ffmpeg encodes are CPU-heavy; several running at once
 // on a small box starve each other and fail with a generic exit 255. Allow only
@@ -98,6 +101,7 @@ interface ReqBody {
   narrationTimestamps?: NarrationWord[] | null;
   lockedDurationSeconds?: number | null;
   vocalEndSec?: number | null; // when singing ends (lyric songs) — fade/trim never lands before this
+  musicVolumeDb?: number | null; // user-set bed level under narration (dB, clamped) — absent = -18dB default
 }
 
 interface Segment {
@@ -251,6 +255,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "invalid music url" }, { status: 400 });
   }
 
+  // Music level under narration: user dB from the mix stage, clamped, else the
+  // -18dB default. Converted to linear for ffmpeg's volume filter.
+  const musicDuckVolume =
+    typeof body.musicVolumeDb === "number" && Number.isFinite(body.musicVolumeDb)
+      ? Math.pow(10, Math.min(MUSIC_DB_MAX, Math.max(MUSIC_DB_MIN, body.musicVolumeDb)) / 20)
+      : MUSIC_DUCK_VOLUME;
+
   // eslint-disable-next-line no-console
   console.log(`[COMPOSE-INPUTS] ${JSON.stringify({
     beats: beats.filter((b) => b.videoUrl).map((b) => ({ index: b.index, videoUrl: b.videoUrl })),
@@ -259,6 +270,7 @@ export async function POST(req: Request) {
     captionCards: Object.fromEntries(beats.filter((b) => b.captionCardUrl).map((b) => [b.index, b.captionCardUrl])),
     narrationUrl: body.narrationUrl ?? null,
     musicUrl: body.musicUrl ?? null,
+    musicVolumeDb: body.musicVolumeDb ?? null,
     aspectRatio,
     perBeatMs: body.perBeatMs ?? null,
   })}`);
@@ -434,7 +446,7 @@ export async function POST(req: Request) {
       // Case A: narration + music, music ducked
       filterParts.push(
         `[${narrationIndex}:a]${NARR_POST},apad=whole_dur=${tLen},atrim=0:${tLen},asetpts=N/SR/TB[na]`,
-        `[${musicIndex}:a]volume=${MUSIC_DUCK_VOLUME}${musicFade},atrim=0:${tLen},asetpts=N/SR/TB[ma]`,
+        `[${musicIndex}:a]volume=${musicDuckVolume.toFixed(4)}${musicFade},atrim=0:${tLen},asetpts=N/SR/TB[ma]`,
         `[na][ma]amix=inputs=2:duration=longest:dropout_transition=0:normalize=0[aout]`
       );
     } else if (narrationPath) {

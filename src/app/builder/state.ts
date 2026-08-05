@@ -156,6 +156,7 @@ export interface BuilderState {
   assembledVideoUrl: string | null;
   musicBedUrl: string | null;
   musicBedDurationMs: number | null;
+  musicMixDb: number | null;          // user-set bed level under narration (dB) from the mix control — null = -18dB default
   narrationUrl: string | null;        // generated TTS voiceover — previewed + reused at compose
   narrationDurationMs: number | null; // probed duration of narrationUrl — forwarded to compose
   narrationScript: string | null;     // the text sent to TTS — forwarded to compose for subtitles
@@ -220,6 +221,7 @@ export const initialState: BuilderState = {
   assembledVideoUrl: null,
   musicBedUrl: null,
   musicBedDurationMs: null,
+  musicMixDb: null,
   narrationUrl: null,
   narrationDurationMs: null,
   narrationScript: null,
