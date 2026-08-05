@@ -1,0 +1,74 @@
+# One-off recovery: run 41's .env rewrite dropped DATABASE_URL on the staging
+# box (the deploy workflow now preserves box-managed keys, but the value was
+# already gone). This restores it WITHOUT printing the secret to logs, then
+# restarts the app. Delete this workflow once staging is healthy again.
+name: Restore staging env
+
+on: workflow_dispatch
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Restore DATABASE_URL and restart
+        run: |
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no \
+            "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}" bash -s <<'EOF'
+          set -e
+          APP_DIR="$HOME/apps/peterna-staging"
+          cd "$APP_DIR"
+          if grep -q '^DATABASE_URL=' .env 2>/dev/null; then
+            echo "DATABASE_URL already present — nothing to restore"
+            exit 0
+          fi
+          hit=""
+          # 1) A surviving copy near the app (backups, sibling env files)?
+          for f in .env.bak* .env.local .env.production "$HOME"/apps/peterna-prod/.env; do
+            if [ -f "$f" ]; then
+              line=$(grep -m1 '^DATABASE_URL=' "$f" 2>/dev/null || true)
+              if [ -n "$line" ] && printf '%s' "$line" | grep -q 'peterna_staging'; then
+                hit="$line"; echo "found staging DATABASE_URL in: $f"; break
+              fi
+            fi
+          done
+          # 2) Shell history?
+          if [ -z "$hit" ]; then
+            line=$(grep -o 'DATABASE_URL=[^ "]*peterna_staging[^ "]*' "$HOME/.bash_history" 2>/dev/null | head -1 || true)
+            if [ -n "$line" ]; then hit="$line"; echo "found staging DATABASE_URL in: bash_history"; fi
+          fi
+          # 3) Last resort: reset the box-local staging DB user's password.
+          #    Postgres only listens on 127.0.0.1, and only this app uses the
+          #    peterna_staging role, so the reset cannot break anything else.
+          if [ -z "$hit" ] && sudo -n true 2>/dev/null; then
+            pw=$(openssl rand -hex 16)
+            sudo -u postgres psql -q -c "ALTER USER peterna_staging WITH PASSWORD '$pw'"
+            hit="DATABASE_URL=postgresql://peterna_staging:$pw@127.0.0.1:5432/peterna_staging?schema=public"
+            echo "reset peterna_staging postgres password"
+          fi
+          if [ -z "$hit" ]; then
+            echo "FAILED: could not recover DATABASE_URL (no copy found, no sudo)"
+            exit 1
+          fi
+          printf '%s\n' "$hit" >> .env
+          export PATH="$HOME/.nvm/versions/node/$(ls "$HOME/.nvm/versions/node" | tail -n1)/bin:$PATH:/usr/local/bin:/usr/bin"
+          pm2 restart peterna-staging
+          echo "restored + restarted"
+          EOF
+
+      - name: Health check
+        run: |
+          sleep 10
+          code=$(curl -s -o /dev/null -w "%{http_code}" "https://staging.peterna.com/api/build")
+          echo "GET /api/build -> $code"
+          test "$code" = "200"
+
+      - name: Cleanup SSH key
+        if: always()
+        run: rm -f ~/.ssh/id_ed25519
