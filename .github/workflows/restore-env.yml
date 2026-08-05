@@ -35,31 +35,38 @@ jobs:
             exit 0
           fi
           hit=""
-          # 1) A surviving copy near the app (backups, sibling env files)?
-          for f in .env.bak* .env.local .env.production "$HOME"/apps/peterna-prod/.env; do
-            if [ -f "$f" ]; then
-              line=$(grep -m1 '^DATABASE_URL=' "$f" 2>/dev/null || true)
-              if [ -n "$line" ] && printf '%s' "$line" | grep -q 'peterna_staging'; then
-                hit="$line"; echo "found staging DATABASE_URL in: $f"; break
-              fi
-            fi
+          # 1) Box-wide sweep of this user's files for the staging connection
+          #    string: pm2 dumps (incl. the .bak pm2 writes on every save),
+          #    ecosystem configs, env backups, shell history. Never print the
+          #    match itself — only which file held it.
+          found_file=$(grep -rls --exclude-dir=node_modules --exclude-dir=.next \
+            'peterna_staging' \
+            "$HOME/.pm2/dump.pm2" "$HOME/.pm2/dump.pm2.bak" \
+            "$HOME/apps" "$HOME/.bash_history" "$HOME"/*.env "$HOME"/*.json 2>/dev/null | head -5 || true)
+          echo "files mentioning peterna_staging:"; echo "$found_file"
+          for f in $found_file; do
+            line=$(grep -oh 'postgres[a-z]*://[^"'"'"' ]*peterna_staging[^"'"'"' \\]*' "$f" 2>/dev/null | head -1 || true)
+            if [ -n "$line" ]; then hit="DATABASE_URL=$line"; echo "recovered connection string from: $f"; break; fi
           done
-          # 2) Shell history?
+          # 2) Trust/peer auth? If local postgres lets us in without a password,
+          #    we can set a fresh one ourselves.
           if [ -z "$hit" ]; then
-            line=$(grep -o 'DATABASE_URL=[^ "]*peterna_staging[^ "]*' "$HOME/.bash_history" 2>/dev/null | head -1 || true)
-            if [ -n "$line" ]; then hit="$line"; echo "found staging DATABASE_URL in: bash_history"; fi
+            if psql "postgresql://peterna_staging@127.0.0.1:5432/peterna_staging" -q -c 'select 1' >/dev/null 2>&1; then
+              pw=$(openssl rand -hex 16)
+              psql "postgresql://peterna_staging@127.0.0.1:5432/peterna_staging" -q -c "ALTER USER peterna_staging WITH PASSWORD '$pw'"
+              hit="DATABASE_URL=postgresql://peterna_staging:$pw@127.0.0.1:5432/peterna_staging?schema=public"
+              echo "trust auth worked — set fresh password"
+            fi
           fi
-          # 3) Last resort: reset the box-local staging DB user's password.
-          #    Postgres only listens on 127.0.0.1, and only this app uses the
-          #    peterna_staging role, so the reset cannot break anything else.
+          # 3) Passwordless sudo (unlikely — documented for completeness)
           if [ -z "$hit" ] && sudo -n true 2>/dev/null; then
             pw=$(openssl rand -hex 16)
             sudo -u postgres psql -q -c "ALTER USER peterna_staging WITH PASSWORD '$pw'"
             hit="DATABASE_URL=postgresql://peterna_staging:$pw@127.0.0.1:5432/peterna_staging?schema=public"
-            echo "reset peterna_staging postgres password"
+            echo "reset peterna_staging postgres password via sudo"
           fi
           if [ -z "$hit" ]; then
-            echo "FAILED: could not recover DATABASE_URL (no copy found, no sudo)"
+            echo "FAILED: could not recover DATABASE_URL (no copy found, no trust auth, no sudo)"
             exit 1
           fi
           printf '%s\n' "$hit" >> .env
