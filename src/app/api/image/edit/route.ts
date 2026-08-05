@@ -4,7 +4,7 @@
 // `imageUrls[0]` is the primary reference (e.g. the user's pet photo).
 
 import { NextResponse } from "next/server";
-import { fal } from "@/lib/fal";
+import { fal, describeFalError } from "@/lib/fal";
 import { rehost } from "@/lib/server/storage";
 
 export const runtime = "nodejs";
@@ -64,8 +64,8 @@ export async function POST(req: Request) {
       }),
     );
   } catch (err) {
-    const message = err instanceof Error ? err.message : "reference upload failed";
-    return NextResponse.json({ error: message }, { status: 502 });
+    const { message, status } = describeFalError(err);
+    return NextResponse.json({ error: message }, { status });
   }
 
   try {
@@ -94,7 +94,7 @@ export async function POST(req: Request) {
     const hostedUrl = await rehost(url, "image", body.outputFormat || "png");
     return NextResponse.json({ url: hostedUrl });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "unknown error";
-    return NextResponse.json({ error: message }, { status: 502 });
+    const { message, status } = describeFalError(err);
+    return NextResponse.json({ error: message }, { status });
   }
 }

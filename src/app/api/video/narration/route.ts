@@ -9,7 +9,7 @@ import os from "os";
 import path from "path";
 import fs from "fs";
 import { spawn } from "child_process";
-import { fal } from "@/lib/fal";
+import { fal, describeFalError } from "@/lib/fal";
 import { rehost } from "@/lib/server/storage";
 import { normalizeTimestamps } from "@/lib/peternal-subtitles";
 import type { NarrationWord } from "@/lib/peternal-subtitles";
@@ -116,7 +116,7 @@ export async function POST(req: Request) {
     const hostedUrl = await rehost(url, "narration", "mp3");
     return NextResponse.json({ url: hostedUrl, durationMs, timestamps });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "unknown error";
-    return NextResponse.json({ error: message }, { status: 502 });
+    const { message, status } = describeFalError(err);
+    return NextResponse.json({ error: message }, { status });
   }
 }

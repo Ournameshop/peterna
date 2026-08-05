@@ -7,7 +7,7 @@
 // Response: { url: string, durationMs: number, provider: "suno"|"fal", title?: string, stored?: boolean }
 
 import { NextResponse } from "next/server";
-import { fal } from "@/lib/fal";
+import { fal, describeFalError } from "@/lib/fal";
 import { store, rehost } from "@/lib/server/storage";
 import { sunoGenerateTrack, sunoGetTimestampedLyrics } from "@/lib/suno";
 
@@ -170,7 +170,7 @@ export async function POST(req: Request) {
     const hostedUrl = await rehost(url, "music", "mp3");
     return NextResponse.json({ url: hostedUrl, durationMs: music_length_ms, provider: "fal" });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "unknown error";
-    return NextResponse.json({ error: message }, { status: 502 });
+    const { message, status } = describeFalError(err);
+    return NextResponse.json({ error: message }, { status });
   }
 }
