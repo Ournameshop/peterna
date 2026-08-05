@@ -4,7 +4,13 @@
 # restarts the app. Delete this workflow once staging is healthy again.
 name: Restore staging env
 
-on: workflow_dispatch
+# push-trigger scoped to this file: workflow_dispatch only registers from the
+# default branch, and pushing anything to main would fire a PROD deploy with
+# the pre-fix artifact recipe — absolutely not. Touch this file to re-run.
+on:
+  push:
+    branches: [staging]
+    paths: ['.github/workflows/restore-env.yml']
 
 jobs:
   restore:
