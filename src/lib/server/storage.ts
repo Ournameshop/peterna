@@ -14,6 +14,7 @@
 // keyed by build id, so no build id needs threading through the wizard.
 
 import { randomUUID } from 'crypto';
+import { promises as fs } from 'fs';
 
 const FETCH_TIMEOUT_MS = 60_000;
 
@@ -40,6 +41,28 @@ export function isS3Mode(): boolean {
     isRealEnv(process.env.AWS_SECRET_ACCESS_KEY) &&
     isRealEnv(process.env.S3_BUCKET)
   );
+}
+
+// Local-disk durability: assets are written under LOCAL_ASSET_DIR and served
+// by the web server at LOCAL_ASSET_BASE_URL. Used when S3 is unavailable —
+// without it, generated assets stay on fal URLs that expire in ~24h.
+// S3 wins when both are configured.
+export function isLocalMode(): boolean {
+  return (
+    !isS3Mode() &&
+    isRealEnv(process.env.LOCAL_ASSET_DIR) &&
+    isRealEnv(process.env.LOCAL_ASSET_BASE_URL)
+  );
+}
+
+async function writeToLocalDisk(buffer: Buffer, key: string, ext: string): Promise<string> {
+  const dir = process.env.LOCAL_ASSET_DIR!.replace(/\/+$/, '');
+  const base = process.env.LOCAL_ASSET_BASE_URL!.replace(/\/+$/, '');
+  const name = `${key.split('/').pop()!.replace(/\.[^.]*$/, '')}.${ext}`;
+  const kind = key.split('/').slice(-2, -1)[0] ?? 'misc';
+  await fs.mkdir(`${dir}/${kind}`, { recursive: true });
+  await fs.writeFile(`${dir}/${kind}/${name}`, buffer);
+  return `${base}/${kind}/${name}`;
 }
 
 function s3KeyPrefix(): string {
@@ -145,6 +168,14 @@ export async function store(
   kind: string,
   ext: string,
 ): Promise<string | null> {
+  if (isLocalMode()) {
+    try {
+      return await writeToLocalDisk(buffer, assetKey(kind, ext), ext);
+    } catch (err) {
+      console.warn(`[storage] local store failed (${kind}); falling back to source:`, err);
+      return null;
+    }
+  }
   if (!isS3Mode()) return null;
   try {
     return await uploadFromBuffer(buffer, assetKey(kind, ext), contentType);
@@ -160,7 +191,7 @@ export async function store(
  * fails, returns `sourceUrl` unchanged so the wizard never breaks.
  */
 export async function rehost(sourceUrl: string, kind: string, ext: string): Promise<string> {
-  if (!sourceUrl || !isS3Mode()) return sourceUrl;
+  if (!sourceUrl || (!isS3Mode() && !isLocalMode())) return sourceUrl;
   if (sourceUrl.startsWith('data:')) return sourceUrl;
   // SSRF guard — only re-host fal asset URLs; never fetch arbitrary/internal hosts.
   if (!assertFalAssetUrl(sourceUrl)) return sourceUrl;
@@ -169,7 +200,9 @@ export async function rehost(sourceUrl: string, kind: string, ext: string): Prom
     if (!res.ok) return sourceUrl;
     const contentType = res.headers.get('content-type') ?? EXT_CONTENT_TYPE[ext] ?? 'application/octet-stream';
     const buffer = Buffer.from(await res.arrayBuffer());
-    return await uploadFromBuffer(buffer, assetKey(kind, ext), contentType);
+    const key = assetKey(kind, ext);
+    if (isLocalMode()) return await writeToLocalDisk(buffer, key, ext);
+    return await uploadFromBuffer(buffer, key, contentType);
   } catch (err) {
     console.warn(`[storage] rehost failed (${kind}); using source url:`, err);
     return sourceUrl;
@@ -181,6 +214,10 @@ export async function rehost(sourceUrl: string, kind: string, ext: string): Prom
   if (isS3Mode()) {
     console.log(
       `[storage] init mode=s3 bucket=${process.env.S3_BUCKET} region=${process.env.AWS_REGION ?? 'us-east-1'} prefix=${s3KeyPrefix() || '(none)'}`,
+    );
+  } else if (isLocalMode()) {
+    console.log(
+      `[storage] init mode=local dir=${process.env.LOCAL_ASSET_DIR} baseUrl=${process.env.LOCAL_ASSET_BASE_URL}`,
     );
   } else {
     console.log('[storage] init mode=passthrough (no S3 creds — assets stay on fal, ~24h TTL)');
