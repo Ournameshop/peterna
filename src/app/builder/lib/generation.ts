@@ -692,7 +692,9 @@ export async function generateBeatVideo(opts: {
         imageUrls: opts.imageUrls,
         duration: opts.duration,
         aspectRatio: seedanceAspect(opts.aspectRatio),
-        mode: 'fast',
+        // Final renders use the full Seedance 2.0 model, not the /fast preview
+        // variant — the tribute is the deliverable, so quality wins over latency.
+        mode: 'standard',
         wait: false,
         userNote: opts.userNote,
         cinematographyBrief: {
