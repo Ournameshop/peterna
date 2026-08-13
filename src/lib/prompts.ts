@@ -80,6 +80,13 @@ export function buildBeatPrompt(input: BuildBeatPromptInput): string {
     `Replicate the exact likeness, markings, proportions, and distinguishing features of ${petName} from the reference image. Do not invent any other animal.`
   );
 
+  // 1b. Anatomy lock — video models drift toward breed-average anatomy in
+  // motion shots (e.g. adding a long tail to a docked-tail dog). State the
+  // constraint explicitly; the reference sheet alone is not enough.
+  lines.push(
+    `Anatomy lock: keep ${petName}'s body EXACTLY as the reference shows — same ear shape and carriage, same tail length and shape. If the reference shows a docked, short, or absent tail, ${petName} must NOT have a long tail in any frame. Never "correct" anatomy toward a typical breed look.`
+  );
+
   // 2. Motion mandate.
   lines.push(
     "This is a moving cinematic video clip — NOT a still image. The scene must have continuous, visible motion from the first frame to the last."

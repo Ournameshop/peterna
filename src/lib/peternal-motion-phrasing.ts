@@ -62,7 +62,7 @@ export function subjectMotionPhrase(
     breath_only:
       `${subject} rests calmly; the only motion is the soft, visible rise and fall of breathing and an occasional slow blink.`,
     loop_idle:
-      `${subject} is alive and present — shifting weight, an ear flick, a slow head turn, a tail stir, a glance toward the camera.`,
+      `${subject} is alive and present — shifting weight, an ear flick, a slow head turn, a glance toward the camera.`,
     loop_action:
       `${subject} is actively in motion — ${pickActionVerb(visual)} with natural, full-body movement throughout the clip.`,
     one_shot_action:
