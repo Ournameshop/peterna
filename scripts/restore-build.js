@@ -32,6 +32,8 @@ const beatVideos = {
   s.assembledVideoUrl = master;
   s.generationComplete = true;
   s.lockedDurationSeconds = null;
+  s.storyboardApproved = true;
+  s.cinematographyApproved = true;
   await prisma.build.update({ where: { id }, data: { state: s, stepIndex: FINISHED_STEP, petName: b.petName ?? null } });
   console.log('restored build', id);
   console.log('  beatVideos:', Object.keys(beatVideos).length);

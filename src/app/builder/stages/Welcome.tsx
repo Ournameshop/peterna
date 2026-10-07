@@ -2,10 +2,11 @@
 
 import React, { useState } from 'react';
 import { PALETTE } from '../lib/palette';
-import { Serif, Sans, Eyebrow, PrimaryButton } from '../lib/primitives';
+import { Serif, Sans, Eyebrow, PrimaryButton, Pill } from '../lib/primitives';
 import { ArrowRight, FolderClock } from 'lucide-react';
 import type { StageProps } from './types';
 import BuildsModal from '../shell/BuildsModal';
+import { useBuilder } from '../state';
 
 const lines = [
   "I'm so glad you're here. Let's make something beautiful together.",
@@ -14,8 +15,14 @@ const lines = [
   "Ready when you are.",
 ];
 
+// NEXT_PUBLIC_TOGETHER_FLOW — flag off means the subject selector never
+// renders, so the pet-only render stays byte-identical (precedent:
+// NEXT_PUBLIC_OWN_REFERENCE_SHEET in CharacterSheet.tsx).
+const TOGETHER_ENABLED = process.env.NEXT_PUBLIC_TOGETHER_FLOW === '1';
+
 export default function Welcome({ onNext }: StageProps) {
   const [showBuilds, setShowBuilds] = useState(false);
+  const { state, update } = useBuilder();
   return (
     <section style={{ paddingTop: 48 }}>
       {showBuilds && <BuildsModal onClose={() => setShowBuilds(false)} />}
@@ -31,6 +38,24 @@ export default function Welcome({ onNext }: StageProps) {
             </Serif>
           ))}
         </div>
+        {TOGETHER_ENABLED && (
+          <div style={{ marginTop: 32, animation: 'fadeUp 600ms ease 1050ms both' }}>
+            <Eyebrow>Who is this tribute about?</Eyebrow>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 12 }}>
+              <Pill active={state.tributeSubject === 'pet'} onClick={() => update({ tributeSubject: 'pet' })} large>
+                Just my pet
+              </Pill>
+              <Pill active={state.tributeSubject === 'owner_and_pet'} onClick={() => update({ tributeSubject: 'owner_and_pet' })} large>
+                Me and my pet, together
+              </Pill>
+            </div>
+            {state.tributeSubject === 'owner_and_pet' && (
+              <Sans style={{ fontSize: 13, color: PALETTE.mute, fontStyle: 'italic', marginTop: 10 }}>
+                You&apos;ll appear in the video beside them, reliving your shared memories
+              </Sans>
+            )}
+          </div>
+        )}
         <div style={{ marginTop: 40, animation: 'fadeUp 600ms ease 1200ms both' }}>
           <PrimaryButton onClick={onNext}>
             I&apos;m ready <ArrowRight size={16} />

@@ -407,6 +407,7 @@ const FORMAT_LENS_RANGES: Partial<Record<FormatId, Array<24 | 35 | 50 | 85 | 105
   music_video:     [35, 50, 85],
   letter:          [50, 85],
   postcards:       [24, 50],
+  together_memories: [35, 50, 85],
 };
 
 // Default fallback range used when format has no entry.

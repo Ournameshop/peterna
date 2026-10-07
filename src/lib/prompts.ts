@@ -45,6 +45,8 @@ export interface BuildBeatPromptInput {
   spokenOrTitle?: string;
   cinematographyBrief?: CinematographyBriefInput;
   userNote?: string;
+  // Together flow — undefined → byte-identical pet-only output.
+  together?: { ownerName: string };
 }
 
 export function buildBeatPrompt(input: BuildBeatPromptInput): string {
@@ -62,7 +64,10 @@ export function buildBeatPrompt(input: BuildBeatPromptInput): string {
     spokenOrTitle,
     cinematographyBrief,
     userNote,
+    together,
   } = input;
+
+  const owner = together ? (together.ownerName || 'their person') : null;
 
   const traitLine = traits.length ? ` Known traits: ${traits.join(", ")}.` : "";
   const favLine = favorites.length ? ` Loved: ${favorites.join(", ")}.` : "";
@@ -77,7 +82,9 @@ export function buildBeatPrompt(input: BuildBeatPromptInput): string {
 
   // 1. Likeness sentence — VERBATIM, skill hard rule.
   lines.push(
-    `Replicate the exact likeness, markings, proportions, and distinguishing features of ${petName} from the reference image. Do not invent any other animal.`
+    owner
+      ? `Replicate the exact likeness, markings, proportions, and distinguishing features of ${petName} from the pet reference sheet, AND the exact likeness — face, hair, build, skin tone — of ${owner}, the human companion, from the owner reference sheet. Do not invent any other animal or person, and never blend or swap their features.`
+      : `Replicate the exact likeness, markings, proportions, and distinguishing features of ${petName} from the reference image. Do not invent any other animal.`
   );
 
   // 1b. Anatomy lock — video models drift toward breed-average anatomy in
@@ -95,6 +102,13 @@ export function buildBeatPrompt(input: BuildBeatPromptInput): string {
   // 3. Archetype motion directive.
   lines.push(archetypeMotionDirective(archetype, petName, species));
 
+  // 3b. Together flow — owner physically present in scene.
+  if (owner) {
+    lines.push(
+      `${owner} is physically present WITH ${petName} in this scene — engaged, warm, natural human movement and body language. They share the frame as true companions.`
+    );
+  }
+
   // 4. Beat visual.
   lines.push(`Beat: ${archetype} — ${brief}`);
 
@@ -108,7 +122,11 @@ export function buildBeatPrompt(input: BuildBeatPromptInput): string {
   }
 
   // 6. Subject + traits/favorites.
-  lines.push(`Subject: ${petName}, a ${species} — same animal as in the reference images.${traitLine}${favLine}`);
+  lines.push(
+    owner
+      ? `Subjects: ${petName}, a ${species}, together with ${owner} — the same two individuals as in the reference images.${traitLine}${favLine}`
+      : `Subject: ${petName}, a ${species} — same animal as in the reference images.${traitLine}${favLine}`
+  );
 
   // 7. Theme/format/style context.
   const contextLine = `${formatLine}${themeLine}${styleLine}`.trim();
@@ -158,7 +176,10 @@ export function buildBeatPrompt(input: BuildBeatPromptInput): string {
 
   // 13. Safety constraints — ends with motion mandate.
   lines.push(
-    "No humans in frame. No imagery of illness, injury, or death. No gravestones, headstones, urns, or taxidermy. No text overlays, no watermarks. The clip must move — avoid a frozen or near-still result."
+    (owner
+      ? `The ONLY human in frame is ${owner}; the ONLY animal is ${petName} — no other people or animals.`
+      : "No humans in frame.")
+    + " No imagery of illness, injury, or death. No gravestones, headstones, urns, or taxidermy. No text overlays, no watermarks. The clip must move — avoid a frozen or near-still result."
   );
 
   return lines.filter(Boolean).join("\n");

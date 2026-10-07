@@ -220,18 +220,13 @@ function beatLyricLines(state: BuilderState): string[] {
         visual: '',
       }));
 
+  // Em-dash lines read as scene-direction style ("She runs — camera pans left")
+  // rather than sung lyrics — filter those out even when they fall back to
+  // beat.visual, so camera directions never end up in the song.
   return uniqueLines(beats.map((beat) => {
     const userCaption = state.words.captions.find((c) => c.beatIndex === beat.index)?.text;
     return userCaption || beat.spokenOrTitle || beat.caption || beat.name || beat.visual;
-  }));
-}
-
-function beatSceneLines(state: BuilderState): string[] {
-  return uniqueLines(
-    state.beatSheet
-      .map((beat) => beat.visual || beat.name || beat.caption)
-      .filter(Boolean),
-  ).slice(0, Math.max(2, Math.min(6, state.targetMinutes + 2)));
+  })).filter((line) => !line.includes('—'));
 }
 
 function splitForSong<T>(items: T[], parts: number): T[][] {
@@ -275,7 +270,6 @@ function buildLyricDraft(state: BuilderState, openingText: string, closingText: 
   const relEntry = relationships.find((r) => r.id === state.relationship);
   const relPhrase = relEntry?.narrationPhrase ?? 'my beloved friend';
   const beatLines = beatLyricLines(state);
-  const sceneLines = beatSceneLines(state);
   const [firstBeats, middleBeats, finalBeats] = splitForSong(beatLines, 3);
   const favoriteLine = favoriteLabels.length ? `You loved ${listText(favoriteLabels)}` : '';
   const traitLine = traitLabels.length ? `You were ${listText(traitLabels)}` : '';
@@ -306,11 +300,9 @@ function buildLyricDraft(state: BuilderState, openingText: string, closingText: 
     favoriteLine,
     `I still remember ${lyricCleanLine(memoryLine, 12)}`,
     ...middleBeats,
-    ...(state.targetMinutes >= 3 ? sceneLines.slice(0, 2) : []),
   ]);
   const bridge = uniqueLines([
     ...finalBeats,
-    ...(state.targetMinutes >= 3 ? sceneLines.slice(2, 5) : []),
     'No last day can take away',
     'The life you gave, the love that stays',
   ]);
@@ -424,6 +416,7 @@ export default function TheWords({ onNext, onBack, enteredViaBack }: StageProps)
   );
   const [isWritingLyrics, setIsWritingLyrics] = useState(false);
   const [lyricWriteError, setLyricWriteError] = useState('');
+  const [musicFitInfo, setMusicFitInfo] = useState<{ matchedLines: number; totalLines: number; trimSec: number } | null>(null);
 
   useEffect(() => {
     function syncSubFromHash() {
@@ -736,6 +729,8 @@ export default function TheWords({ onNext, onBack, enteredViaBack }: StageProps)
           musicGenerationError: '',
           musicVariants: [variant, ...state.words.musicVariants].slice(0, 3),
           musicVocalEndSec: null,
+          musicTrimSec: null,
+          musicCardExtraMs: null,
         },
         musicBedUrl: PREVIEW_AUDIO_URL,
         musicBedDurationMs: variant.durationMs,
@@ -745,6 +740,7 @@ export default function TheWords({ onNext, onBack, enteredViaBack }: StageProps)
     }
 
     try {
+      const lyricLines = lyrics.split('\n').map((l) => l.trim()).filter((l) => l && !/^\[.*\]$/.test(l));
       const res = await fetch('/api/video/music', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -755,6 +751,9 @@ export default function TheWords({ onNext, onBack, enteredViaBack }: StageProps)
           style: generationStyle,
           title,
           durationSeconds,
+          align: isLyrics
+            ? { videoSeconds: maxVideoSeconds(state), cardLeadSec: 3, lyricLines }
+            : undefined,
         }),
       });
       const json = (await res.json()) as {
@@ -763,6 +762,14 @@ export default function TheWords({ onNext, onBack, enteredViaBack }: StageProps)
         title?: string;
         provider?: MusicProvider;
         vocalEndSec?: number | null;
+        alignment?: {
+          trimSec: number;
+          cardExtraMs: number;
+          meanAbsErrorSec: number;
+          matchedLines: number;
+          totalLines: number;
+          tailClipped: boolean;
+        } | null;
         error?: string;
       };
       if (!res.ok || !json.url) throw new Error(json.error ?? 'Music generation failed');
@@ -775,6 +782,11 @@ export default function TheWords({ onNext, onBack, enteredViaBack }: StageProps)
         vocalEndSec,
       };
       const shouldLock = isLyrics && state.musicIntent === 'lyric' && (json.durationMs ?? 0) > 0;
+      setMusicFitInfo(
+        isLyrics && json.alignment
+          ? { matchedLines: json.alignment.matchedLines, totalLines: json.alignment.totalLines, trimSec: json.alignment.trimSec }
+          : null,
+      );
       update({
         words: {
           ...state.words,
@@ -788,6 +800,8 @@ export default function TheWords({ onNext, onBack, enteredViaBack }: StageProps)
           musicGenerationError: '',
           musicVariants: [variant, ...state.words.musicVariants].slice(0, 3),
           musicVocalEndSec: vocalEndSec,
+          musicTrimSec: json.alignment?.trimSec ?? null,
+          musicCardExtraMs: json.alignment?.cardExtraMs ?? null,
         },
         musicBedUrl: json.url,
         musicBedDurationMs: json.durationMs ?? null,
@@ -1682,6 +1696,12 @@ export default function TheWords({ onNext, onBack, enteredViaBack }: StageProps)
                     </Serif>
                   );
                 })()}
+                {mode === 'custom_lyrics' && musicFitInfo && (
+                  <Sans style={{ display: 'block', marginTop: 10, fontSize: 13, color: PALETTE.mute, fontStyle: 'italic' }}>
+                    Song fit: {musicFitInfo.matchedLines}/{musicFitInfo.totalLines} lines land on their scenes
+                    {musicFitInfo.trimSec > 0 ? `, intro trimmed ${musicFitInfo.trimSec}s` : ''}.
+                  </Sans>
+                )}
               </div>
             )}
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>

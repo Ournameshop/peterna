@@ -331,6 +331,8 @@ export default function FinishedTribute({ onBack, goToStep }: StageProps) {
         lockedDurationSeconds: state.lockedDurationSeconds ?? undefined,
         vocalEndSec: state.words.musicVocalEndSec ?? undefined,
         musicVolumeDb: state.musicMixDb ?? undefined,
+        musicStartOffsetSec: state.words.musicTrimSec ?? undefined,
+        cardMs: state.words.musicCardExtraMs ? 3000 + state.words.musicCardExtraMs : undefined,
         subtitlesEnabled,
         narrationScript: subtitlesEnabled ? narrationScript : null,
         narrationTimestamps: subtitlesEnabled ? narrationTimestamps : null,

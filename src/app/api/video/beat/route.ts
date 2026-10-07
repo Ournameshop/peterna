@@ -21,6 +21,7 @@
 import { NextResponse } from "next/server";
 import { fal, describeFalError } from "@/lib/fal";
 import { rehost } from "@/lib/server/storage";
+import { isAtlasEnabled, atlasUploadFromSource, startAtlasClip, atlasReferenceModel } from "@/lib/server/atlas";
 import { buildBeatPrompt } from "@/lib/prompts";
 
 export const runtime = "nodejs";
@@ -44,6 +45,7 @@ interface ReqBody {
   wait?: boolean;
   webhookUrl?: string;
   userNote?: string;
+  together?: { ownerName?: string };
   cinematographyBrief?: {
     lensMm?: number;
     lensCharacter?: string;
@@ -102,6 +104,7 @@ export async function POST(req: Request) {
     spokenOrTitle: body.beat?.spokenOrTitle,
     cinematographyBrief: body.cinematographyBrief,
     userNote: body.userNote,
+    together: body.together ? { ownerName: body.together.ownerName || '' } : undefined,
   });
 
   const endpoint = pickEndpoint(body);
@@ -117,6 +120,50 @@ export async function POST(req: Request) {
   if (body.imageUrls?.length) input.image_urls = body.imageUrls.slice(0, 9);
   if (body.videoUrls?.length) input.video_urls = body.videoUrls.slice(0, 3);
   if (body.audioUrls?.length) input.audio_urls = body.audioUrls.slice(0, 3);
+
+  // ATLAS BROKER: same Seedance 2.0 models, different transport. fal's edge
+  // declines photoreal HUMAN likeness (422/content) that Atlas passes — the
+  // together flow puts the owner in every frame, so when ATLAS_API_KEY is
+  // configured all clip generation routes through Atlas. The client is
+  // untouched: it echoes back whatever endpoint string we return, so the
+  // status route recognizes "atlas:<model>" and polls Atlas instead of fal.
+  if (isAtlasEnabled()) {
+    try {
+      const refSources = (body.imageUrls ?? []).slice(0, 9);
+      const referenceUrls: string[] = [];
+      for (let i = 0; i < refSources.length; i++) {
+        referenceUrls.push(await atlasUploadFromSource(refSources[i], `ref${i}`));
+      }
+      // Stable per-build seed (FNV-1a over the subject names): all of a
+      // tribute's clips share one seed so Seedance renders the same "look"
+      // across cuts — its only lever for cross-clip consistency besides refs.
+      const seedKey = `${body.pet?.name ?? ""}|${body.together?.ownerName ?? ""}`;
+      let seed = 0x811c9dc5;
+      for (let i = 0; i < seedKey.length; i++) {
+        seed ^= seedKey.charCodeAt(i);
+        seed = Math.imul(seed, 0x01000193) >>> 0;
+      }
+      const predictionId = await startAtlasClip({
+        prompt,
+        referenceUrls,
+        durationSec: parseInt(body.duration || "5", 10) || 5,
+        resolution: body.resolution || "720p",
+        aspect: body.aspectRatio || "16:9",
+        subjects: { petName: body.pet?.name, ownerName: body.together?.ownerName },
+        seed: seed % 2147483647,
+      });
+      // eslint-disable-next-line no-console
+      console.log(`[GEN-BEAT] index=${body.beatIndex ?? "?"} atlas prediction=${predictionId} refs=${referenceUrls.length}`);
+      return NextResponse.json({
+        requestId: predictionId,
+        endpoint: `atlas:${atlasReferenceModel()}`,
+        prompt,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "atlas generation failed";
+      return NextResponse.json({ error: message }, { status: 502 });
+    }
+  }
 
   try {
     if (body.wait) {

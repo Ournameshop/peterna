@@ -9,11 +9,20 @@
 import { NextResponse } from "next/server";
 import { fal, describeFalError } from "@/lib/fal";
 import { store, rehost } from "@/lib/server/storage";
-import { sunoGenerateTrack, sunoGetTimestampedLyrics } from "@/lib/suno";
+import { sunoGenerateTrack, sunoGenerateTrackAll, sunoGetTimestampedLyrics } from "@/lib/suno";
+import { planLyricFit, pickBestFit } from "@/lib/peternal-lyric-align";
+import type { AlignedWordLite, LyricFitReport } from "@/lib/peternal-lyric-align";
+import type { SunoGeneratedTrackItem } from "@/lib/suno";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300; // Suno polling can take up to ~3 min
+
+interface AlignRequest {
+  videoSeconds: number;
+  cardLeadSec: number;
+  lyricLines: string[];
+}
 
 interface ReqBody {
   mode?: "instrumental" | "lyrics";
@@ -22,6 +31,7 @@ interface ReqBody {
   style?: string;
   title?: string;
   durationSeconds?: number;
+  align?: AlignRequest;
 }
 
 interface MusicOutput {
@@ -95,30 +105,108 @@ export async function POST(req: Request) {
   // PRIMARY: Suno
   if (process.env.SUNO_API_KEY) {
     try {
+      if (mode === "lyrics") {
+        // Suno always returns 2 variants per generation — fetch both so we can
+        // pick whichever one actually lines up with the fixed beat grid.
+        const all = await sunoGenerateTrackAll({
+          prompt: lyrics!,
+          instrumental: false,
+          customMode: true,
+          style,
+          title,
+          model,
+        });
+        const candidates = all.tracks.slice(0, 2);
+
+        let chosen: SunoGeneratedTrackItem = candidates[0];
+        let chosenVocalEndSec: number | null = null;
+        let alignment: {
+          trimSec: number;
+          cardExtraMs: number;
+          meanAbsErrorSec: number;
+          matchedLines: number;
+          totalLines: number;
+          tailClipped: boolean;
+        } | null = null;
+
+        if (body.align) {
+          const fits: { track: SunoGeneratedTrackItem; fit: LyricFitReport; vocalEndSec: number }[] = [];
+          for (const track of candidates) {
+            if (!track.audioId) continue;
+            try {
+              const aligned = await sunoGetTimestampedLyrics(all.taskId, track.audioId);
+              const words: AlignedWordLite[] = aligned.words
+                .filter((w) => w.word && w.word.trim().length > 0)
+                .map((w) => ({ word: w.word, startS: w.startS, endS: w.endS }));
+              const fit = planLyricFit(words, body.align.lyricLines, {
+                videoSeconds: body.align.videoSeconds,
+                cardLeadSec: body.align.cardLeadSec,
+              });
+              fits.push({ track, fit, vocalEndSec: aligned.vocalEndSec });
+            } catch (err) {
+              console.warn("[music] timestamped-lyrics fetch failed for a variant; skipping:", err);
+            }
+          }
+          if (fits.length > 0) {
+            const bestIdx = pickBestFit(fits.map((f) => f.fit));
+            chosen = fits[bestIdx].track;
+            chosenVocalEndSec = fits[bestIdx].vocalEndSec;
+            alignment = {
+              trimSec: fits[bestIdx].fit.trimSec,
+              cardExtraMs: fits[bestIdx].fit.cardExtraMs,
+              meanAbsErrorSec: fits[bestIdx].fit.meanAbsErrorSec,
+              matchedLines: fits[bestIdx].fit.matchedLines,
+              totalLines: fits[bestIdx].fit.totalLines,
+              tailClipped: fits[bestIdx].fit.tailClipped,
+            };
+          }
+          // else: no variant was scorable — fall through and behave as today
+          // with the first track (chosen/alignment stay at their defaults).
+        }
+
+        const persisted = await persistGeneratedAudio(chosen.url);
+
+        // Reuse the vocalEndSec already fetched while scoring; otherwise fetch
+        // it fresh for the chosen (first) track, same as today. Best-effort: on
+        // any failure we omit vocalEndSec and the client falls back to
+        // duration-based timing.
+        let vocalEndSec: number | null = chosenVocalEndSec;
+        if (vocalEndSec === null && chosen.audioId) {
+          try {
+            const aligned = await sunoGetTimestampedLyrics(all.taskId, chosen.audioId);
+            if (aligned.vocalEndSec > 0) vocalEndSec = aligned.vocalEndSec;
+            console.log(`[GEN-MUSIC] vocalEndSec=${vocalEndSec}`);
+          } catch (err) {
+            console.warn("[music] timestamped-lyrics fetch failed; using duration-based timing:", err);
+          }
+        }
+        // vocalEndSec must be the CHOSEN variant's, minus trimSec (clamped >=0)
+        // — the client uses it for duration locking against the TRIMMED track.
+        if (vocalEndSec !== null && alignment) {
+          vocalEndSec = Math.max(0, vocalEndSec - alignment.trimSec);
+        }
+
+        console.log(`[GEN-MUSIC] url=${persisted.url}`);
+        return NextResponse.json({
+          url: persisted.url,
+          durationMs: chosen.durationMs,
+          title: chosen.title,
+          provider: "suno",
+          stored: persisted.stored,
+          vocalEndSec,
+          ...(alignment ? { alignment } : {}),
+        });
+      }
+
       const result = await sunoGenerateTrack({
-        prompt: mode === "lyrics" ? lyrics! : (prompt ?? style),
-        instrumental: mode === "instrumental",
+        prompt: prompt ?? style,
+        instrumental: true,
         customMode: true,
         style,
         title,
         model,
       });
       const persisted = await persistGeneratedAudio(result.url);
-
-      // For lyric songs, fetch word-level timing so the compositor knows exactly
-      // when singing ends. This lets us trim/fade only the instrumental tail —
-      // never a lyric. Best-effort: on any failure we omit vocalEndSec and the
-      // client falls back to duration-based timing.
-      let vocalEndSec: number | null = null;
-      if (mode === "lyrics" && result.taskId && result.audioId) {
-        try {
-          const aligned = await sunoGetTimestampedLyrics(result.taskId, result.audioId);
-          if (aligned.vocalEndSec > 0) vocalEndSec = aligned.vocalEndSec;
-          console.log(`[GEN-MUSIC] vocalEndSec=${vocalEndSec}`);
-        } catch (err) {
-          console.warn("[music] timestamped-lyrics fetch failed; using duration-based timing:", err);
-        }
-      }
 
       console.log(`[GEN-MUSIC] url=${persisted.url}`);
       return NextResponse.json({
@@ -127,7 +215,7 @@ export async function POST(req: Request) {
         title: result.title,
         provider: "suno",
         stored: persisted.stored,
-        vocalEndSec,
+        vocalEndSec: null,
       });
     } catch (err) {
       console.error("[music] Suno failed, falling back to fal:", err);

@@ -334,6 +334,58 @@ export async function buildUserReferenceSheet(sources: PetPhoto[]): Promise<stri
   }
 }
 
+// ---- Owner reference sheet (together flow) ---------------------------------
+// Same 2x2-grid pipeline as buildUserReferenceSheet, but isolates a HUMAN
+// companion rather than a pet. Used to build the owner's likeness reference
+// alongside the pet's, so the two ride the same proven grid pipeline.
+async function removeBackgroundPerson(photo: PetPhoto): Promise<string | null> {
+  const imageUrl = await photoToImageUrl(photo);
+  if (!imageUrl) return null;
+  return editImage({
+    prompt:
+      "Isolate the single person in this photo on a clean white background. Completely remove all background scenery, other people, animals, objects, text, and shadows. Keep their exact face, hair, build, skin tone and clothing identical to the photo — do not restyle, recolour, or redraw them. Center the person, full subject visible, no cropping of the head or body.",
+    imageUrls: [imageUrl],
+    aspect: 'square_hd',
+    quality: 'medium',
+  });
+}
+
+// Builds the owner's 2×2 likeness reference sheet from their uploaded photos.
+// Accepts as few as 1 photo — duplicated to fill the grid, since owners often
+// upload fewer photos than the pet. Returns null on any failure (caller falls
+// back to the first owner photo URL via activeOwnerReference).
+export async function buildOwnerReferenceSheet(sources: PetPhoto[]): Promise<string | null> {
+  const bgRemoved = await Promise.all(sources.map(removeBackgroundPerson));
+  const valid = bgRemoved.filter((u): u is string => u !== null);
+  if (valid.length < 1) return null;
+
+  // Normalize to exactly 4 URLs.
+  let four: string[];
+  if (valid.length >= 4) {
+    four = valid.slice(0, 4);
+  } else if (valid.length === 3) {
+    four = [valid[0], valid[1], valid[2], valid[0]];
+  } else if (valid.length === 2) {
+    four = [valid[0], valid[1], valid[0], valid[1]];
+  } else {
+    // 1
+    four = [valid[0], valid[0], valid[0], valid[0]];
+  }
+
+  try {
+    const res = await fetch('/api/image/grid', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ imageUrls: four }),
+    });
+    if (!res.ok) return null;
+    const json = (await res.json()) as { url?: string | null };
+    return typeof json.url === 'string' ? json.url : null;
+  } catch {
+    return null;
+  }
+}
+
 // ---- Storyboard frame (skill Stage 5.1) ------------------------------------
 // One frame per beat, conditioned on the character sheet so it's the SAME pet.
 
@@ -357,6 +409,7 @@ export async function generateStoryboardFrame(
   userNote?: string,
   priorFrameUrl?: string, // the existing frame — a note-driven re-render EDITS this
   petIdentity?: PetIdentity,
+  owner?: { refUrl: string; name: string }, // together flow — owner likeness reference
 ): Promise<string | null> {
   if (!characterSheet) return null; // no reference => no likeness => fall back to SVG
 
@@ -364,6 +417,14 @@ export async function generateStoryboardFrame(
   const style = artStyles.find((s) => s.id === styleId);
   const format = formats.find((f) => f.id === formatId);
   const note = userNote?.trim();
+
+  // Together flow — the deltas layered onto the pet-only prompt below.
+  const ownerLikenessDelta = owner
+    ? ` Also replicate the exact likeness of ${owner.name}, the human companion, from the additional reference — same face, hair and build. Do not invent a different person.`
+    : '';
+  const noHumansLine = owner
+    ? `The only human in frame is ${owner.name}; the only animal is ${petName} — no other people or animals.`
+    : 'No humans in frame.';
 
   // Caption container + this beat's resolved caption text, baked into the frame —
   // the skill treats every storyboard beat as a card that carries its caption.
@@ -379,11 +440,11 @@ export async function generateStoryboardFrame(
 
   let prompt: string;
   if (editMode) {
-    prompt = `${likenessSentence(petName)}
+    prompt = `${likenessSentence(petName)}${ownerLikenessDelta}
 
 Edit the FIRST reference image. Keep its composition, framing, scene and mood as they are — change ONLY what the family requested: ${note}
 
-Keep ${petName}'s exact likeness (use the second reference). No humans in frame. No imagery of illness, injury, or death. No gravestones, headstones, urns, or taxidermy. No text or watermarks.`;
+Keep ${petName}'s exact likeness (use the second reference)${owner ? ` and ${owner.name}'s exact likeness (use the third reference)` : ''}. ${noHumansLine} No imagery of illness, injury, or death. No gravestones, headstones, urns, or taxidermy. No text or watermarks.`;
   } else {
     // Skill Stage 5.1 prompt: use the theme's short DESCRIPTION (not its
     // standalone imagePrompt — that is a fixed pet-less preview scene and makes
@@ -405,9 +466,11 @@ Keep ${petName}'s exact likeness (use the second reference). No humans in frame.
           `"${beat.caption}"${captionNameSpellCheck}`,
         )
       : captionBlock;
-    prompt = `${likenessSentence(petName)}
+    prompt = `${likenessSentence(petName)}${ownerLikenessDelta}
 ${petIdentityLine ? `\n${petIdentityLine}` : ''}
-${petName} is the clear subject of this frame and must be visibly present within the scene, matching the reference exactly.
+${owner
+  ? `${petName} and ${owner.name} are both the clear subjects of this frame and must be visibly present together within the scene, matching their references exactly.`
+  : `${petName} is the clear subject of this frame and must be visibly present within the scene, matching the reference exactly.`}
 
 Beat #${beat.index + 1}: ${beat.name}.
 Visual: ${beat.visual}.
@@ -415,15 +478,16 @@ ${theme ? `Theme & mood: ${theme.name} — ${theme.desc}` : ''}
 ${format ? `Format context: ${format.name} — ${format.desc}` : ''}
 
 Composition: choose framing for this specific beat — wide for establishing beats, medium for relational beats, medium-wide for active beats. Vary the framing, camera angle, and the pet's pose from one beat to the next so no two frames look alike. Avoid extreme close-ups unless the beat is intimate.
-Lighting: soft, warm, gentle. No humans in frame. No imagery of illness, injury, or death. No gravestones, headstones, urns, or taxidermy. Do not render any page numbers, numbered corners, or counters of any kind.
+Lighting: soft, warm, gentle. ${noHumansLine} No imagery of illness, injury, or death. No gravestones, headstones, urns, or taxidermy. Do not render any page numbers, numbered corners, or counters of any kind.
 ${style ? `Art style: ${style.directive}` : ''}${captionBlockFinal}${note ? `
 
 IMPORTANT — the family reviewed this frame and asked for this specific change. Apply it while keeping ${petName}'s exact likeness from the reference: ${note}` : ''}`;
   }
 
+  const baseImageUrls = editMode && priorFrameUrl ? [priorFrameUrl, characterSheet] : [characterSheet];
   return editImage({
     prompt,
-    imageUrls: editMode && priorFrameUrl ? [priorFrameUrl, characterSheet] : [characterSheet],
+    imageUrls: owner ? [...baseImageUrls, owner.refUrl] : baseImageUrls,
     aspect: falAspect(aspect),
     quality: 'low',
   });
@@ -439,6 +503,7 @@ export async function generateCombinationPreview(
   styleId: ArtStyleId | null,
   formatId: FormatId | null,
   aspect: AspectId,
+  owner?: { refUrl: string; name: string }, // together flow — owner likeness reference
 ): Promise<string | null> {
   if (!characterSheet) return null;
 
@@ -446,18 +511,27 @@ export async function generateCombinationPreview(
   const style = artStyles.find((s) => s.id === styleId);
   const format = formats.find((f) => f.id === formatId);
 
-  const prompt = `${likenessSentence(petName)}
+  const ownerLikenessDelta = owner
+    ? ` Also replicate the exact likeness of ${owner.name}, the human companion, from the additional reference — same face, hair and build. Do not invent a different person.`
+    : '';
+  const noHumansLine = owner
+    ? `The only human in frame is ${owner.name}; the only animal is ${petName} — no other people or animals.`
+    : 'No humans in frame.';
 
-A single representative "first look" frame of ${petName} for a memorial tribute. ${petName} is the clear subject, present in the scene, matching the reference exactly. Warm, gentle and emotionally resonant — it should capture the overall feel of the whole tribute at a glance.
+  const prompt = `${likenessSentence(petName)}${ownerLikenessDelta}
+
+A single representative "first look" frame of ${petName} for a memorial tribute. ${owner
+    ? `${petName} and ${owner.name} are both the clear subjects, present together in the scene, matching their references exactly.`
+    : `${petName} is the clear subject, present in the scene, matching the reference exactly.`} Warm, gentle and emotionally resonant — it should capture the overall feel of the whole tribute at a glance.
 ${theme ? `Theme & mood: ${theme.name} — ${theme.desc}` : ''}
 ${format ? `Tribute format: ${format.name} — ${format.desc}` : ''}
 
-Soft, warm, gentle lighting. No humans in frame. No imagery of illness, injury, or death.
+Soft, warm, gentle lighting. ${noHumansLine} No imagery of illness, injury, or death.
 ${style ? `Art style: ${style.directive}` : ''}`;
 
   return editImage({
     prompt,
-    imageUrls: [characterSheet],
+    imageUrls: owner ? [characterSheet, owner.refUrl] : [characterSheet],
     aspect: falAspect(aspect),
     quality: 'low',
   });
@@ -673,6 +747,7 @@ export async function generateBeatVideo(opts: {
   aspectRatio: AspectId;
   duration?: string;
   userNote?: string;
+  together?: { ownerName: string }; // together flow — forwarded to the beat prompt
 }): Promise<{ requestId: string; endpoint: string } | null> {
   try {
     const res = await fetch('/api/video/beat', {
@@ -692,11 +767,10 @@ export async function generateBeatVideo(opts: {
         imageUrls: opts.imageUrls,
         duration: opts.duration,
         aspectRatio: seedanceAspect(opts.aspectRatio),
-        // Final renders use the full Seedance 2.0 model, not the /fast preview
-        // variant — the tribute is the deliverable, so quality wins over latency.
-        mode: 'standard',
+        mode: 'fast',
         wait: false,
         userNote: opts.userNote,
+        together: opts.together,
         cinematographyBrief: {
           lensMm: opts.brief.lensMm,
           lensCharacter: opts.brief.lensCharacter,

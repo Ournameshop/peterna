@@ -5,7 +5,7 @@ import { RefreshCw } from 'lucide-react';
 import { PALETTE } from '../lib/palette';
 import { Serif, Sans, GateReview } from '../lib/primitives';
 import { generateStoryboardFrame } from '../lib/generation';
-import { useBuilder, usePreviewMode, activeReferenceSheet } from '../state';
+import { useBuilder, usePreviewMode, activeReferenceSheet, activeOwnerReference } from '../state';
 import type { Beat, WordsState, Gender } from '../state';
 import { BeatScene } from '../art';
 import type { StageProps } from './types';
@@ -76,6 +76,8 @@ export default function Storyboard({ onNext, onBack }: StageProps) {
         bodyType: state.petProfile.bodyType,
       } : undefined;
       const referenceSheet = activeReferenceSheet(state);
+      const ownerRef = activeOwnerReference(state);
+      const owner = ownerRef ? { refUrl: ownerRef, name: state.creatorName || 'their person' } : undefined;
       const entries = await Promise.all(
         beats.map(async (beat) => {
           const resolvedBeat = { ...beat, caption: finalBeatCaption(beat, state.words, resolveCtx) };
@@ -93,6 +95,7 @@ export default function Storyboard({ onNext, onBack }: StageProps) {
             undefined,
             undefined,
             petIdentity,
+            owner,
           );
           return [beat.index, url] as const;
         }),
@@ -136,6 +139,8 @@ export default function Storyboard({ onNext, onBack }: StageProps) {
         bodyType: state.petProfile.bodyType,
       } : undefined;
       const rerollReferenceSheet = activeReferenceSheet(state);
+      const rerollOwnerRef = activeOwnerReference(state);
+      const rerollOwner = rerollOwnerRef ? { refUrl: rerollOwnerRef, name: state.creatorName || 'their person' } : undefined;
       const url = await generateStoryboardFrame(
         resolvedBeat,
         rerollReferenceSheet,
@@ -148,6 +153,7 @@ export default function Storyboard({ onNext, onBack }: StageProps) {
         state.gateNotes.storyboard, // user's notes from the corrections box → into the re-render
         state.storyboardImages[beatIdx], // the frame being re-rendered — edited in place when a note is given
         petIdentity,
+        rerollOwner,
       );
       if (url) update({ storyboardImages: { ...state.storyboardImages, [beatIdx]: url } });
     }

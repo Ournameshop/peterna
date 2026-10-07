@@ -120,6 +120,8 @@ export function buildMockState(): BuilderState {
       musicGenerationError: '',
       musicVariants: [{ url: PH, durationMs: 120000, title: 'For Biscuit' }],
       musicVocalEndSec: null,
+      musicTrimSec: null,
+      musicCardExtraMs: null,
       narration: 'off',
       narrationLetter: [],
       subtitles: true,

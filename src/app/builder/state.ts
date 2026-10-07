@@ -23,6 +23,9 @@ import type { StepId } from './steps';
 
 export type { Gender, RelationshipId, AspectId, FormatId, ThemeId, ThemeCategoryId, ArtStyleId, ContainerId, CuratorPickId, DpStyleId, BeatArchetype };
 
+// Who the tribute is about (NEXT_PUBLIC_TOGETHER_FLOW). Chosen on Welcome.
+export type TributeSubject = 'pet' | 'owner_and_pet';
+
 export interface PetPhoto {
   id: string;
   name: string;
@@ -104,6 +107,8 @@ export interface WordsState {
   musicGenerationError: string;
   musicVariants: MusicVariant[];
   musicVocalEndSec: number | null; // active lyric song: when singing ends (seconds) — forwarded to compose for vocal-safe trimming
+  musicTrimSec: number | null;     // from the lyric-alignment fit — forwarded to compose
+  musicCardExtraMs: number | null; // from the lyric-alignment fit — forwarded to compose
   narration: 'off' | string;
   narrationLetter: string[];
   subtitles: boolean;
@@ -112,6 +117,7 @@ export interface WordsState {
 
 export interface BuilderState {
   returningUser: boolean | null;
+  tributeSubject: TributeSubject;             // who the tribute is about — chosen on Welcome (NEXT_PUBLIC_TOGETHER_FLOW)
   petPhotos: PetPhoto[];
   petName: string;
   petNamePronunciation: string;
@@ -131,6 +137,8 @@ export interface BuilderState {
   useOwnReferenceSheet: boolean;
   referenceSheetSources: PetPhoto[];
   userSheetUrl: string | null;
+  ownerPhotos: PetPhoto[];                    // together flow — owner's own photos, mirrors petPhotos
+  ownerSheetUrl: string | null;               // together flow — owner's locked 2x2 likeness reference
   musicIntent: 'lyric' | 'standard' | null;
   lockedDurationSeconds: number | null;
   beatCount: 3 | 8 | 12 | 16;
@@ -177,6 +185,7 @@ export interface BuilderState {
 
 export const initialState: BuilderState = {
   returningUser: null,
+  tributeSubject: 'pet',
   petPhotos: [],
   petName: '',
   petNamePronunciation: '',
@@ -196,6 +205,8 @@ export const initialState: BuilderState = {
   useOwnReferenceSheet: false,
   referenceSheetSources: [],
   userSheetUrl: null,
+  ownerPhotos: [],
+  ownerSheetUrl: null,
   musicIntent: null,
   lockedDurationSeconds: null,
   beatCount: 12,
@@ -244,6 +255,8 @@ export const initialState: BuilderState = {
     musicGenerationError: '',
     musicVariants: [],
     musicVocalEndSec: null,
+    musicTrimSec: null,
+    musicCardExtraMs: null,
     narration: 'off',
     narrationLetter: [],
     subtitles: true,
@@ -271,6 +284,15 @@ export function activeReferenceSheet(state: BuilderState): string | null {
   return state.useOwnReferenceSheet && state.userSheetUrl
     ? state.userSheetUrl
     : state.characterSheetUrl;
+}
+
+// The active owner likeness reference for the together flow. Prefers the
+// locked 2x2 grid built at Gate 1; falls back to the first owner photo with a
+// durable url so generation can proceed even if the sheet build failed. Off
+// (or pet-only) → null, so every downstream call site is a no-op.
+export function activeOwnerReference(state: BuilderState): string | null {
+  if (state.tributeSubject !== 'owner_and_pet') return null;
+  return state.ownerSheetUrl ?? state.ownerPhotos.find(p => !!p.url)?.url ?? null;
 }
 
 export function resetDownstream(state: BuilderState, fromStage: StepId): Partial<BuilderState> {

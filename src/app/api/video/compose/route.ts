@@ -102,6 +102,7 @@ interface ReqBody {
   lockedDurationSeconds?: number | null;
   vocalEndSec?: number | null; // when singing ends (lyric songs) — fade/trim never lands before this
   musicVolumeDb?: number | null; // user-set bed level under narration (dB, clamped) — absent = -18dB default
+  musicStartOffsetSec?: number | null; // from the lyric-alignment intro trim — clamped 0..30
 }
 
 interface Segment {
@@ -262,6 +263,16 @@ export async function POST(req: Request) {
       ? Math.pow(10, Math.min(MUSIC_DB_MAX, Math.max(MUSIC_DB_MIN, body.musicVolumeDb)) / 20)
       : MUSIC_DUCK_VOLUME;
 
+  // Intro trim from the lyric-alignment fit (song↔scene alignment) — seconds
+  // to cut from the start of the music track before it plays.
+  const musicStartOffsetSec =
+    typeof body.musicStartOffsetSec === "number" && Number.isFinite(body.musicStartOffsetSec)
+      ? Math.min(30, Math.max(0, body.musicStartOffsetSec))
+      : 0;
+  const musicOffsetFilter = musicStartOffsetSec > 0
+    ? `atrim=start=${musicStartOffsetSec.toFixed(3)},asetpts=PTS-STARTPTS,`
+    : "";
+
   // eslint-disable-next-line no-console
   console.log(`[COMPOSE-INPUTS] ${JSON.stringify({
     beats: beats.filter((b) => b.videoUrl).map((b) => ({ index: b.index, videoUrl: b.videoUrl })),
@@ -271,6 +282,7 @@ export async function POST(req: Request) {
     narrationUrl: body.narrationUrl ?? null,
     musicUrl: body.musicUrl ?? null,
     musicVolumeDb: body.musicVolumeDb ?? null,
+    musicStartOffsetSec: body.musicStartOffsetSec ?? null,
     aspectRatio,
     perBeatMs: body.perBeatMs ?? null,
   })}`);
@@ -446,7 +458,7 @@ export async function POST(req: Request) {
       // Case A: narration + music, music ducked
       filterParts.push(
         `[${narrationIndex}:a]${NARR_POST},apad=whole_dur=${tLen},atrim=0:${tLen},asetpts=N/SR/TB[na]`,
-        `[${musicIndex}:a]volume=${musicDuckVolume.toFixed(4)}${musicFade},atrim=0:${tLen},asetpts=N/SR/TB[ma]`,
+        `[${musicIndex}:a]${musicOffsetFilter}volume=${musicDuckVolume.toFixed(4)}${musicFade},atrim=0:${tLen},asetpts=N/SR/TB[ma]`,
         `[na][ma]amix=inputs=2:duration=longest:dropout_transition=0:normalize=0[aout]`
       );
     } else if (narrationPath) {
@@ -457,7 +469,7 @@ export async function POST(req: Request) {
     } else if (musicPath) {
       // Case C: music only at full volume, trimmed to video length
       filterParts.push(
-        `[${musicIndex}:a]volume=1.0${musicFade},atrim=0:${tLen},asetpts=N/SR/TB[aout]`
+        `[${musicIndex}:a]${musicOffsetFilter}volume=1.0${musicFade},atrim=0:${tLen},asetpts=N/SR/TB[aout]`
       );
     }
 

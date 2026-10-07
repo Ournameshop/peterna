@@ -3,10 +3,10 @@
 import React from 'react';
 import Image from 'next/image';
 import { PALETTE } from '../lib/palette';
-import { StageShell, Serif, SelectedBadge, SELECTED_BORDER, SELECTED_RING } from '../lib/primitives';
+import { StageShell, Serif, Sans, SelectedBadge, SELECTED_BORDER, SELECTED_RING } from '../lib/primitives';
 import { useBuilder } from '../state';
 import type { StageProps } from '../state';
-import { formats } from '@/lib/peternal-library';
+import { formats, togetherFormatMeta } from '@/lib/peternal-library';
 import type { FormatId } from '@/lib/peternal-library';
 
 // Feather-style line-icon paths, one per format. Rendered monochrome in the
@@ -20,6 +20,7 @@ const ICON_PATHS: Record<FormatId, React.ReactNode> = {
   send_off: <><path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z" /><line x1="16" y1="8" x2="2" y2="22" /><line x1="17.5" y1="15" x2="9" y2="15" /></>,
   postcards: <><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></>,
   forever_young: <><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></>,
+  together_memories: <><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></>,
 };
 
 function FormatIcon({ id }: { id: FormatId }) {
@@ -46,6 +47,33 @@ export default function FormatPick({ onNext, goToStep }: StageProps) {
   function handleSelect(id: FormatId) {
     update({ format: id });
     onNext();
+  }
+
+  // Together flow — format is already locked to 'together_memories' (set on
+  // CuratorsPicks); this is a read-only confirmation, not a picker.
+  if (state.tributeSubject === 'owner_and_pet') {
+    return (
+      <StageShell
+        eyebrow="Direction — 3.2"
+        title="Life Together"
+        lede={togetherFormatMeta.desc}
+        onBack={() => goToStep('curators')}
+        onNext={onNext}
+        canNext
+      >
+        <div style={{ maxWidth: 620, padding: '28px 26px', border: SELECTED_BORDER, borderRadius: 4, background: PALETTE.boneSoft, boxShadow: SELECTED_RING }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, color: PALETTE.brassDeep }}>
+            <FormatIcon id={togetherFormatMeta.id} />
+            <Serif style={{ fontSize: 20, color: PALETTE.espresso }}>{togetherFormatMeta.name}</Serif>
+          </div>
+          <Serif italic style={{ fontSize: 15, color: PALETTE.mute, lineHeight: 1.5, marginBottom: 18 }}>{togetherFormatMeta.desc}</Serif>
+          <Sans style={{ fontSize: 13, letterSpacing: '0.06em', textTransform: 'uppercase', color: PALETTE.brassDeep, marginBottom: 8 }}>The arc</Sans>
+          <Serif italic style={{ fontSize: 15, color: PALETTE.espressoSoft, lineHeight: 1.7 }}>
+            Home → The Door Greeting → The Beach → Play → The Quiet Walk → Farewell → Together, Always
+          </Serif>
+        </div>
+      </StageShell>
+    );
   }
 
   return (

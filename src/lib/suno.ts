@@ -45,6 +45,16 @@ export interface SunoGeneratedTrack {
   audioId: string;       // the specific track id — needed to fetch timestamped lyrics
 }
 
+// One track from a sunoGenerateTrackAll() call — same shape as SunoGeneratedTrack
+// minus taskId, which is shared across all tracks of one generation and returned
+// alongside the array instead.
+export interface SunoGeneratedTrackItem {
+  url: string;
+  durationMs: number;
+  title?: string;
+  audioId: string;
+}
+
 // One word of a generated song, with precise sung timing (seconds).
 export interface SunoAlignedWord {
   word: string;
@@ -67,12 +77,9 @@ export async function sunoGenerateInstrumental(
   });
 }
 
-export async function sunoGenerateTrack(
-  opts: SunoGenerateTrackOptions
-): Promise<SunoGeneratedTrack> {
-  const key = process.env.SUNO_API_KEY;
-  if (!key) throw new Error("SUNO_API_KEY not configured");
-
+// Builds the /generate request body shared by sunoGenerateTrack and
+// sunoGenerateTrackAll. Pure — same validation, same field order, every call.
+function buildSunoPayload(opts: SunoGenerateTrackOptions): Record<string, unknown> {
   const prompt = opts.prompt.trim();
   if (!prompt) throw new Error("Suno prompt is required");
 
@@ -98,6 +105,16 @@ export async function sunoGenerateTrack(
     if (opts.title?.trim()) payload.title = opts.title.trim();
   }
 
+  return payload;
+}
+
+// Submits a generation job and polls record-info until it's done. Shared by
+// sunoGenerateTrack and sunoGenerateTrackAll — returns every track Suno made
+// (sunoData is an array, normally 2 variants) so callers decide how many to use.
+async function sunoSubmitAndPoll(
+  payload: Record<string, unknown>,
+  key: string
+): Promise<{ status: string; sunoData: SunoTrack[]; taskId: string }> {
   // Submit generation job
   const genRes = await fetch(`${SUNO_BASE}/api/v1/generate`, {
     method: "POST",
@@ -167,26 +184,66 @@ export async function sunoGenerateTrack(
     // does here, because we send a placeholder callBackUrl and poll instead.
     // The finished audio is in sunoData either way.
     if (status === "SUCCESS" || status === "CALLBACK_EXCEPTION") {
-      const track = (pollData.data?.response?.sunoData ?? []).find(
-        (t) => t?.audioUrl
-      );
-      if (!track) {
-        throw new Error(`Suno finished (${status}) but returned no audio URL`);
-      }
-      const durSec = Number(track.duration);
-      return {
-        url: track.audioUrl,
-        durationMs:
-          Number.isFinite(durSec) && durSec > 0 ? Math.round(durSec * 1000) : 0,
-        title: track.title,
-        taskId,
-        audioId: track.id ?? "",
-      };
+      return { status, sunoData: pollData.data?.response?.sunoData ?? [], taskId };
     }
     // PENDING / TEXT_SUCCESS / FIRST_SUCCESS — keep polling.
   }
 
   throw new Error("Suno generation timed out after 4.5 minutes");
+}
+
+export async function sunoGenerateTrack(
+  opts: SunoGenerateTrackOptions
+): Promise<SunoGeneratedTrack> {
+  const key = process.env.SUNO_API_KEY;
+  if (!key) throw new Error("SUNO_API_KEY not configured");
+
+  const payload = buildSunoPayload(opts);
+  const { status, sunoData, taskId } = await sunoSubmitAndPoll(payload, key);
+
+  const track = sunoData.find((t) => t?.audioUrl);
+  if (!track) {
+    throw new Error(`Suno finished (${status}) but returned no audio URL`);
+  }
+  const durSec = Number(track.duration);
+  return {
+    url: track.audioUrl,
+    durationMs:
+      Number.isFinite(durSec) && durSec > 0 ? Math.round(durSec * 1000) : 0,
+    title: track.title,
+    taskId,
+    audioId: track.id ?? "",
+  };
+}
+
+// Same generation as sunoGenerateTrack, but returns EVERY track Suno produced
+// (sunoData normally holds 2 variants) instead of just the first. Lets a caller
+// score each variant — e.g. against the fixed beat grid — and pick the best fit.
+export async function sunoGenerateTrackAll(
+  opts: SunoGenerateTrackOptions
+): Promise<{ tracks: SunoGeneratedTrackItem[]; taskId: string }> {
+  const key = process.env.SUNO_API_KEY;
+  if (!key) throw new Error("SUNO_API_KEY not configured");
+
+  const payload = buildSunoPayload(opts);
+  const { status, sunoData, taskId } = await sunoSubmitAndPoll(payload, key);
+
+  const tracks = sunoData
+    .filter((t) => t?.audioUrl)
+    .map((t) => {
+      const durSec = Number(t.duration);
+      return {
+        url: t.audioUrl,
+        durationMs:
+          Number.isFinite(durSec) && durSec > 0 ? Math.round(durSec * 1000) : 0,
+        title: t.title,
+        audioId: t.id ?? "",
+      };
+    });
+  if (tracks.length === 0) {
+    throw new Error(`Suno finished (${status}) but returned no audio URL`);
+  }
+  return { tracks, taskId };
 }
 
 interface SunoAlignedLyricsResponse {

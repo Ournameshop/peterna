@@ -13,7 +13,8 @@ export type FormatId =
   | 'greatest_hits'
   | 'send_off'
   | 'postcards'
-  | 'forever_young';
+  | 'forever_young'
+  | 'together_memories';
 
 export type ThemeCategoryId =
   | 'healing_and_peace'
@@ -418,6 +419,18 @@ export const formats: readonly Format[] = [
       'A cinematic photoreal dreamlike image representing a forever-young tribute – imagined alternate scenes where the pet is still adventuring, 3:2 landscape. A soft layered composition with a slight dream-overlay feel: in the foreground a warm-toned dog mid-run through a wildflower field with golden hour light streaming, slightly out-of-focus translucent ghost-layers of the same dog at three other life moments overlaid like soft film double-exposures – one chasing a butterfly upper-left, one mid-leap toward the sky upper-right, one trotting away into haze along a path. Each ghost layer is at ~30% opacity, creating a feeling of all-possible-futures-at-once. Cinematic photoreal grade with a subtle ethereal lift, soft cinematic depth of field, golden warm color grade with one cool lavender accent for the dream-overlay quality. NO text, NO words. Universal warm-toned dog silhouette repeated across the four layers. Composition: foreground dog at lower-center-left mid-stride, ghost layers fanning upper-right, foreground field of wildflowers leading the eye in. Color palette: warm amber, gold, soft peach, with one accent of pale lavender for the ethereal layers, cream highlights. Mood is hopeful, imaginative, slightly dreamlike – what if they\'re still running. Avoid: identifiable breeds, sad or wistful expressions, dark colors, ghostly horror imagery, harsh edges between overlay layers, digital effects-feeling, clinical lighting. Feel: a parallel timeline where they never stopped running.',
   },
 ] as const;
+
+// The "Owner & Pet — Together" storyline (NEXT_PUBLIC_TOGETHER_FLOW). Deliberately
+// NOT added to the `formats` array above — FormatPick/CuratorsPicks must never
+// offer it to pet-only users. Everything downstream that keys off state.format
+// (beatsheet, prompts, cinematography, persistence) works unmodified because the
+// id is a real member of FormatId.
+export const TOGETHER_FORMAT_ID = 'together_memories' as const;
+export const togetherFormatMeta = {
+  id: TOGETHER_FORMAT_ID,
+  name: 'Life Together',
+  desc: 'You and your pet, side by side — recreating the memories you shared.',
+} as const;
 
 // ============================================================================
 // THEME CATEGORIES

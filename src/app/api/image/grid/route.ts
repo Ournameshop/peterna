@@ -67,7 +67,10 @@ function runFfmpeg(args: string[]): Promise<void> {
 }
 
 export async function POST(req: Request) {
-  if (process.env.NEXT_PUBLIC_OWN_REFERENCE_SHEET !== "1" || process.env.OWN_REFERENCE_SHEET_API !== "1") {
+  // Dev bypass: the together flow's owner sheet needs this route locally, where
+  // the runtime flag isn't set. Production gating is unchanged.
+  const devBypass = process.env.NODE_ENV === "development";
+  if (!devBypass && (process.env.NEXT_PUBLIC_OWN_REFERENCE_SHEET !== "1" || process.env.OWN_REFERENCE_SHEET_API !== "1")) {
     return NextResponse.json({ error: "feature disabled" }, { status: 404 });
   }
 
@@ -132,7 +135,12 @@ export async function POST(req: Request) {
     tmpFiles.push(outPath);
 
     const buffer = fs.readFileSync(outPath);
-    const url = await store(buffer, "image/png", "grid", "png");
+    let url = await store(buffer, "image/png", "grid", "png");
+    // No S3 (local dev): hand back the grid inline so the sheet still works.
+    // fal accepts data: URIs in image_urls, and nothing durable exists locally.
+    if (!url && process.env.NODE_ENV === "development") {
+      url = `data:image/png;base64,${buffer.toString("base64")}`;
+    }
     return NextResponse.json({ url });
   } catch (err) {
     const message = err instanceof Error ? err.message : "unknown error";

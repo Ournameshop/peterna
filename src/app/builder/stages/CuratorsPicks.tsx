@@ -7,7 +7,7 @@ import { PALETTE } from '../lib/palette';
 import { StageShell, PathCard, Tag, Serif, Sans, SelectedBadge, SELECTED_BORDER, SELECTED_RING } from '../lib/primitives';
 import { useBuilder } from '../state';
 import type { StageProps } from '../state';
-import { formats, themes, artStyles, themeCategories } from '@/lib/peternal-library';
+import { formats, themes, artStyles, themeCategories, TOGETHER_FORMAT_ID, togetherFormatMeta } from '@/lib/peternal-library';
 import { orderCuratorsPicks, defaultThemeCategoryFor, defaultStyleFor } from '@/lib/peternal-resolvers';
 
 export default function CuratorsPicks({ onNext, onBack, goToStep }: StageProps) {
@@ -26,6 +26,17 @@ export default function CuratorsPicks({ onNext, onBack, goToStep }: StageProps) 
     update({
       pickType: 'custom',
       curatorsPick: null,
+      themeCategory: defaultThemeCategoryFor(relationship),
+      style: defaultStyleFor(relationship),
+    });
+    onNext();
+  }
+
+  function handleTogetherContinue() {
+    update({
+      pickType: 'custom',
+      curatorsPick: null,
+      format: TOGETHER_FORMAT_ID,
       themeCategory: defaultThemeCategoryFor(relationship),
       style: defaultStyleFor(relationship),
     });
@@ -121,6 +132,28 @@ export default function CuratorsPicks({ onNext, onBack, goToStep }: StageProps) 
               </button>
             );
           })}
+        </div>
+      </StageShell>
+    );
+  }
+
+  if (state.tributeSubject === 'owner_and_pet') {
+    return (
+      <StageShell
+        eyebrow="Direction — 3.1"
+        title="Your story, together"
+        lede="A single storyline, made for the two of you — the moments you shared, side by side."
+        onNext={handleTogetherContinue}
+        onBack={onBack}
+        canNext
+      >
+        <div style={{ maxWidth: 620, padding: '28px 26px', border: `1px solid ${PALETTE.parchmentLight}`, borderRadius: 4, background: PALETTE.boneSoft }}>
+          <Serif style={{ fontSize: 20, color: PALETTE.espresso, marginBottom: 10 }}>{togetherFormatMeta.name}</Serif>
+          <Serif italic style={{ fontSize: 15, color: PALETTE.mute, lineHeight: 1.5, marginBottom: 18 }}>{togetherFormatMeta.desc}</Serif>
+          <Sans style={{ fontSize: 13, letterSpacing: '0.06em', textTransform: 'uppercase', color: PALETTE.brassDeep, marginBottom: 8 }}>The arc</Sans>
+          <Serif italic style={{ fontSize: 15, color: PALETTE.espressoSoft, lineHeight: 1.7 }}>
+            Home → The Door Greeting → The Beach → Play → The Quiet Walk → Farewell → Together, Always
+          </Serif>
         </div>
       </StageShell>
     );

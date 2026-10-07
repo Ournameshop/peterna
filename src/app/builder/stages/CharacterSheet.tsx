@@ -5,7 +5,7 @@ import { Loader2, RotateCcw } from 'lucide-react';
 import { PALETTE } from '../lib/palette';
 import { Eyebrow, Sans, Serif, GateReview, SELECTED_BORDER, SELECTED_RING } from '../lib/primitives';
 import { PetSketch } from '../art';
-import { generateCharacterSheet } from '../lib/generation';
+import { generateCharacterSheet, buildOwnerReferenceSheet } from '../lib/generation';
 import { useBuilder, usePreviewMode } from '../state';
 import type { StageProps } from '../state';
 import ReferenceSheetPicker from './ReferenceSheetPicker';
@@ -35,6 +35,8 @@ export default function CharacterSheet({ onNext, onBack, goToStep }: StageProps)
   const [generating, setGenerating] = useState(true);
   const [selected, setSelected] = useState<string | null>(null);
   const [selectedRefinements, setSelectedRefinements] = useState<string[]>([]);
+  const together = state.tributeSubject === 'owner_and_pet';
+  const [ownerGenerating, setOwnerGenerating] = useState(together);
 
   // Generate the 2x2 likeness reference sheet — conditioned on the user's
   // actual uploaded photos (skill Stage 2.1), so it is genuinely THIS pet.
@@ -53,15 +55,30 @@ export default function CharacterSheet({ onNext, onBack, goToStep }: StageProps)
     setGenerating(false);
   }
 
+  // Together flow — build the owner's likeness sheet on the same proven 2x2
+  // grid pipeline as the pet's, alongside it. Non-blocking on failure:
+  // activeOwnerReference() falls back to the first owner photo URL.
+  async function runOwnerGeneration() {
+    setOwnerGenerating(true);
+    const url = await buildOwnerReferenceSheet(state.ownerPhotos);
+    update({ ownerSheetUrl: url });
+    setOwnerGenerating(false);
+  }
+
   const ranRef = useRef(false);
   useEffect(() => {
     if (ranRef.current) return;
     ranRef.current = true;
     if (previewMode || state.characterSheetUrl) {
       setGenerating(false);
-      return;
+    } else {
+      runGeneration();
     }
-    runGeneration();
+    if (together && !previewMode && !state.ownerSheetUrl) {
+      runOwnerGeneration();
+    } else {
+      setOwnerGenerating(false);
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -153,6 +170,59 @@ export default function CharacterSheet({ onNext, onBack, goToStep }: StageProps)
           </>
         )}
       </div>
+
+      {together && (
+        <div style={{ marginTop: 20, maxWidth: 520, margin: '20px auto 0' }}>
+          <Eyebrow>You, as you&apos;ll appear</Eyebrow>
+          <div
+            style={{
+              marginTop: 10,
+              aspectRatio: '1',
+              background: PALETTE.boneSoft,
+              border: `1px solid ${PALETTE.parchmentLight}`,
+              borderRadius: 4,
+              position: 'relative',
+              overflow: 'hidden',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            {ownerGenerating ? (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+                <Loader2 size={24} color={PALETTE.brass} style={{ animation: 'spin 1.2s linear infinite' }} />
+                <Sans style={{ fontSize: 12, color: PALETTE.mute, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                  rendering you…
+                </Sans>
+              </div>
+            ) : state.ownerSheetUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={state.ownerSheetUrl}
+                alt="You — character reference sheet"
+                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+            ) : (
+              <Sans style={{ fontSize: 12, color: PALETTE.mute }}>Couldn&apos;t render a reference sheet — your photos will still be used.</Sans>
+            )}
+          </div>
+          {!ownerGenerating && (
+            <div style={{ marginTop: 10, display: 'inline-flex', alignItems: 'center' }}>
+              <button
+                onClick={() => runOwnerGeneration()}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  background: 'transparent', border: 'none', color: PALETTE.brassDeep,
+                  fontFamily: 'Inter, sans-serif', fontSize: 13, cursor: 'pointer',
+                  textDecoration: 'underline', textUnderlineOffset: 4,
+                }}
+              >
+                <RotateCcw size={13} /> Rebuild
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {!generating && (
         <>

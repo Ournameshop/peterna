@@ -134,6 +134,10 @@ const CAPTION_VOICE_MAP: Record<FormatId, { label: string; tenseHint: string }> 
     label: 'Captions optional; lyric-fragment style',
     tenseHint: 'lyric-fragment style if used',
   },
+  together_memories: {
+    label: 'Shared voice — "we"',
+    tenseHint: 'warm past tense, first-person plural',
+  },
 };
 
 export function captionVoiceFor(format: FormatId): { label: string; tenseHint: string } {

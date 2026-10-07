@@ -6,7 +6,7 @@ import { PALETTE } from '../lib/palette';
 import { StageShell, Pill, Serif, Sans } from '../lib/primitives';
 import { BeatScene } from '../art';
 import { generateCombinationPreview } from '../lib/generation';
-import { useBuilder, usePreviewMode, activeReferenceSheet } from '../state';
+import { useBuilder, usePreviewMode, activeReferenceSheet, activeOwnerReference } from '../state';
 import type { StageProps } from '../state';
 import { formats, themes, artStyles } from '@/lib/peternal-library';
 
@@ -41,6 +41,8 @@ export default function CombinationPreview({ onNext, onBack, goToStep }: StagePr
     }
     (async () => {
       const referenceSheet = activeReferenceSheet(state);
+      const ownerRef = activeOwnerReference(state);
+      const owner = ownerRef ? { refUrl: ownerRef, name: state.creatorName || 'their person' } : undefined;
       const url = await generateCombinationPreview(
         referenceSheet,
         petName,
@@ -48,6 +50,7 @@ export default function CombinationPreview({ onNext, onBack, goToStep }: StagePr
         state.style,
         state.format,
         state.aspectRatio,
+        owner,
       );
       if (url) update({ combinationPreviewUrl: url });
       setGenerating(false);

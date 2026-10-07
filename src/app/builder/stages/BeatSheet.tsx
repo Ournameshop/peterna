@@ -5,6 +5,7 @@ import { PALETTE } from '../lib/palette';
 import { Serif, Sans, StageShell, ApprovalPills } from '../lib/primitives';
 import { useBuilder, usePreviewMode } from '../state';
 import { generateBeatSheet } from '@/lib/peternal-beatsheet';
+import { generateTogetherBeatSheet } from '@/lib/peternal-together';
 import type { StageProps } from './types';
 import type { Beat } from '../state';
 
@@ -19,16 +20,24 @@ export default function BeatSheet({ onNext, onBack }: StageProps) {
 
   useEffect(() => {
     if (!previewMode && state.beatSheet.length === 0 && state.format && state.theme && state.gender) {
-      const beatSheet = generateBeatSheet({
-        beatCount: state.beatCount,
-        format: state.format,
-        theme: state.theme,
-        gender: state.gender,
-        petName: state.petName,
-        favorites: state.favorites,
-        memoryPromptAnswer: state.memoryPromptAnswer,
-        traits: state.traits,
-      });
+      const beatSheet = state.tributeSubject === 'owner_and_pet'
+        ? generateTogetherBeatSheet({
+            beatCount: state.beatCount,
+            gender: state.gender,
+            petName: state.petName,
+            ownerName: state.creatorName,
+            memoryPromptAnswer: state.memoryPromptAnswer,
+          })
+        : generateBeatSheet({
+            beatCount: state.beatCount,
+            format: state.format,
+            theme: state.theme,
+            gender: state.gender,
+            petName: state.petName,
+            favorites: state.favorites,
+            memoryPromptAnswer: state.memoryPromptAnswer,
+            traits: state.traits,
+          });
       update({ beatSheet });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -7,7 +7,7 @@ import { PALETTE } from '../lib/palette';
 import { Serif, Sans, Eyebrow, PrimaryButton } from '../lib/primitives';
 import { WizardFooterContext } from '../shell/footerSlot';
 import { BeatScene } from '../art';
-import { useBuilder, usePreviewMode, activeReferenceSheet } from '../state';
+import { useBuilder, usePreviewMode, activeReferenceSheet, activeOwnerReference } from '../state';
 import type { StageProps } from './types';
 import { themes } from '@/lib/peternal-library';
 import { generateBeatVideo, pollBeatVideo } from '../lib/generation';
@@ -79,6 +79,9 @@ export default function Generate({ onNext, onBack }: StageProps) {
     // Honor the user's own reference sheet when they built one (was a bug: this
     // stage always used the AI characterSheetUrl, ignoring the user's selection).
     const referenceSheetUrl = activeReferenceSheet(state);
+    const ownerRef = activeOwnerReference(state);
+    const requiresOwner = state.tributeSubject === 'owner_and_pet';
+    const together = ownerRef ? { ownerName: state.creatorName || 'their person' } : undefined;
 
     // Duration math: distribute time evenly across beats, clamped 4–15s.
     // cardsSeconds = 6 (opening + closing) + 2.5s per caption card that has an image.
@@ -99,7 +102,10 @@ export default function Generate({ onNext, onBack }: StageProps) {
         );
       }
 
-      const baseImageUrls: string[] = referenceSheetUrl ? [referenceSheetUrl] : [];
+      const baseImageUrls: string[] = [
+        ...(referenceSheetUrl ? [referenceSheetUrl] : []),
+        ...(ownerRef ? [ownerRef] : []),
+      ];
 
       let completed = Object.keys(state.beatVideos).length;
 
@@ -122,6 +128,10 @@ export default function Generate({ onNext, onBack }: StageProps) {
             const beat = beats[i];
             const brief = briefs[i];
             if (!beat || !brief) return { i, job: null };
+            // Together flow requires the owner reference at generate time — if
+            // it's missing, surface the existing failure path rather than
+            // silently generating a pet-only clip.
+            if (requiresOwner && !ownerRef) return { i, job: null };
 
             const storyboardFrame = state.storyboardImages[i];
             const imageUrls = [
@@ -142,6 +152,7 @@ export default function Generate({ onNext, onBack }: StageProps) {
               style: state.style,
               aspectRatio: state.aspectRatio,
               duration: String(perBeatSeconds),
+              together,
             });
             return { i, job };
           }),
@@ -222,12 +233,24 @@ export default function Generate({ onNext, onBack }: StageProps) {
       setClipField(i, 'showNoteInput', false);
 
       const referenceSheetUrl = activeReferenceSheet(state);
-      const baseImageUrls: string[] = referenceSheetUrl ? [referenceSheetUrl] : [];
+      const ownerRef = activeOwnerReference(state);
+      const baseImageUrls: string[] = [
+        ...(referenceSheetUrl ? [referenceSheetUrl] : []),
+        ...(ownerRef ? [ownerRef] : []),
+      ];
       const storyboardFrame = state.storyboardImages[i];
       const imageUrls = [
         ...(storyboardFrame ? [storyboardFrame] : []),
         ...baseImageUrls,
       ];
+
+      // Together flow requires the owner reference at generate time — if it's
+      // missing, surface the existing failure path (job: null) rather than
+      // silently regenerating a pet-only clip.
+      if (state.tributeSubject === 'owner_and_pet' && !ownerRef) {
+        setClipField(i, 'regenerating', false);
+        return;
+      }
 
       // Same duration formula as the batch run.
       // NOTE: the 6 = 2 cards × 3s must stay in sync with compose route's cardMs default (3000ms).
@@ -253,6 +276,7 @@ export default function Generate({ onNext, onBack }: StageProps) {
         aspectRatio: state.aspectRatio,
         duration: String(perBeatSeconds),
         userNote: note || undefined,
+        together: ownerRef ? { ownerName: state.creatorName || 'their person' } : undefined,
       });
 
       if (!job) {

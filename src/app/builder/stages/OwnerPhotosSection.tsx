@@ -1,16 +1,24 @@
 "use client";
 
+// OwnerPhotosSection — self-contained copy of Photos.tsx's upload machinery
+// (dropzone + link import + retry + grid), operating on state.ownerPhotos
+// instead of state.petPhotos. Rendered as a section inside Photos.tsx when
+// the together flow is active (state.tributeSubject === 'owner_and_pet').
+
 import React, { useEffect, useRef, useState } from 'react';
 import { Upload, Link as LinkIcon, X, RefreshCw, AlertTriangle, Loader2 } from 'lucide-react';
 import { PALETTE } from '../lib/palette';
-import { Serif, Sans, Eyebrow, PrimaryButton, StageShell } from '../lib/primitives';
+import { Serif, Sans, Eyebrow, PrimaryButton } from '../lib/primitives';
 import { useBuilder } from '../state';
-import type { PetPhoto } from '../state';
-import type { StageProps } from './types';
+import type { PetPhoto, BuilderState } from '../state';
 import { normalizeImageUrl } from '../lib/generation';
-import OwnerPhotosSection, { ownerPhotosReady } from './OwnerPhotosSection';
 
-export default function Photos({ onNext, onBack }: StageProps) {
+// At least one owner photo, and every added photo has a durable url.
+export function ownerPhotosReady(state: BuilderState): boolean {
+  return state.ownerPhotos.length > 0 && state.ownerPhotos.every((p) => !!p.url);
+}
+
+export default function OwnerPhotosSection() {
   const { state, update } = useBuilder();
   const [url, setUrl] = useState('');
   const [drag, setDrag] = useState(false);
@@ -18,11 +26,11 @@ export default function Photos({ onNext, onBack }: StageProps) {
   // Monotonic id source — avoids Date.now() (impure during render) for keys/ids.
   const idSeq = useRef(0);
 
-  // Always-current snapshot of petPhotos so async upload callbacks merge into
+  // Always-current snapshot of ownerPhotos so async upload callbacks merge into
   // the latest array (avoids one upload clobbering another's url).
-  const photosRef = useRef(state.petPhotos);
+  const photosRef = useRef(state.ownerPhotos);
   useEffect(() => {
-    photosRef.current = state.petPhotos;
+    photosRef.current = state.ownerPhotos;
   });
 
   // Merge a patch into one photo, keeping photosRef in sync so concurrent
@@ -31,7 +39,7 @@ export default function Photos({ onNext, onBack }: StageProps) {
   function patchPhoto(id: string, patch: Partial<PetPhoto>) {
     const next = photosRef.current.map((p) => (p.id === id ? { ...p, ...patch } : p));
     photosRef.current = next;
-    update({ petPhotos: next });
+    update({ ownerPhotos: next });
   }
 
   // Re-host an uploaded file to durable storage (S3 when configured, else fal),
@@ -85,15 +93,17 @@ export default function Photos({ onNext, onBack }: StageProps) {
     const incoming = Array.from(fileList).filter(f => f && f.type && (f.type.startsWith('image/') || f.name.toLowerCase().endsWith('.heic') || f.name.toLowerCase().endsWith('.heif')));
     if (incoming.length === 0) return;
     const mapped: PetPhoto[] = incoming.map((f, idx) => ({
-      id: `file-${idSeq.current++}`,
-      name: f.name || `photo_${state.petPhotos.length + idx + 1}.jpg`,
+      // Unique across remounts: the ref counter resets to 0 when the section
+      // remounts (back/forward nav) and collided with photos already in state.
+      id: `owner-file-${Date.now().toString(36)}-${idSeq.current++}`,
+      name: f.name || `photo_${state.ownerPhotos.length + idx + 1}.jpg`,
       file: f,
       preview: URL.createObjectURL(f),
       status: 'uploading',
     }));
     const next = [...photosRef.current, ...mapped];
     photosRef.current = next;
-    update({ petPhotos: next });
+    update({ ownerPhotos: next });
     // Upload each in the background; sets a durable `url` (or 'error') when done.
     mapped.forEach((photo, idx) => uploadPhoto(incoming[idx], photo.id));
   };
@@ -112,7 +122,7 @@ export default function Photos({ onNext, onBack }: StageProps) {
     // Normalize Google Drive / Dropbox share links to a directly-fetchable image
     // URL (used for the preview, the downstream AI fetch, and the S3 import).
     const normalized = normalizeImageUrl(url.trim());
-    const id = `url-${idSeq.current++}`;
+    const id = `owner-url-${Date.now().toString(36)}-${idSeq.current++}`;
     const photo: PetPhoto = {
       id,
       name: 'Linked image',
@@ -122,7 +132,7 @@ export default function Photos({ onNext, onBack }: StageProps) {
     };
     const next = [...photosRef.current, photo];
     photosRef.current = next;
-    update({ petPhotos: next });
+    update({ ownerPhotos: next });
     setUrl('');
     // Copy it onto our own storage so it survives resume (not just while the
     // third-party share link lives).
@@ -130,26 +140,24 @@ export default function Photos({ onNext, onBack }: StageProps) {
   };
 
   const remove = (id: string) => {
-    const target = state.petPhotos.find(p => p.id === id);
+    const target = state.ownerPhotos.find(p => p.id === id);
     if (target?.preview) {
       try { URL.revokeObjectURL(target.preview); } catch { /* noop */ }
     }
-    update({ petPhotos: state.petPhotos.filter(p => p.id !== id) });
+    update({ ownerPhotos: state.ownerPhotos.filter(p => p.id !== id) });
   };
 
   return (
-    <StageShell
-      eyebrow="Their likeness"
-      title={<>Add some photos of <em>your pet</em>.</>}
-      lede="A face shot, side profile, full body — anything that shows their personality. More angles help us capture their likeness more accurately."
-      onNext={onNext}
-      onBack={onBack}
-      canNext={
-        state.petPhotos.length > 0 && state.petPhotos.every((p) => !!p.url)
-        && (state.tributeSubject !== 'owner_and_pet' || ownerPhotosReady(state))
-      }
-    >
+    <div style={{ marginTop: 48, paddingTop: 40, borderTop: `1px solid ${PALETTE.parchmentLight}` }}>
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <Eyebrow>Your likeness</Eyebrow>
+      <Serif as="h3" italic style={{ fontSize: 28, lineHeight: 1.15, marginTop: 10, marginBottom: 12, color: PALETTE.espresso }}>
+        Now a few photos of you.
+      </Serif>
+      <Serif style={{ fontSize: 16, color: PALETTE.mute, lineHeight: 1.5, maxWidth: 560, marginBottom: 24 }}>
+        Now a few photos of you — a clear face shot and a full-body shot work best. 2–4 photos is plenty.
+      </Serif>
+
       <input
         ref={fileInputRef}
         type="file"
@@ -162,7 +170,7 @@ export default function Photos({ onNext, onBack }: StageProps) {
       <div
         role="button"
         tabIndex={0}
-        aria-label="Add photos"
+        aria-label="Add photos of you"
         onDragOver={e => { e.preventDefault(); setDrag(true); }}
         onDragLeave={() => setDrag(false)}
         onDrop={e => { e.preventDefault(); setDrag(false); addFiles(e.dataTransfer?.files ?? null); }}
@@ -207,15 +215,15 @@ export default function Photos({ onNext, onBack }: StageProps) {
         Google Drive &amp; Dropbox links must be shared so anyone with the link can view.
       </Sans>
 
-      {state.petPhotos.length > 0 && (
+      {state.ownerPhotos.length > 0 && (
         <div style={{ marginTop: 32 }}>
-          <Eyebrow>{state.petPhotos.length} {state.petPhotos.length === 1 ? 'photo' : 'photos'} added</Eyebrow>
+          <Eyebrow>{state.ownerPhotos.length} {state.ownerPhotos.length === 1 ? 'photo' : 'photos'} added</Eyebrow>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 12, marginTop: 12 }}>
-            {state.petPhotos.map(p => (
+            {state.ownerPhotos.map(p => (
               <div key={p.id} style={{ position: 'relative', aspectRatio: '1', background: `linear-gradient(135deg, ${PALETTE.parchment}, ${PALETTE.parchmentLight})`, borderRadius: 2, overflow: 'hidden', border: p.status === 'error' ? '2px solid #b3402f' : '2px solid transparent' }}>
                 {(p.preview || p.url) ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={p.preview ?? p.url} alt={p.name || 'pet photo'} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', opacity: p.status === 'uploading' || p.status === 'error' ? 0.5 : 1 }} />
+                  <img src={p.preview ?? p.url} alt={p.name || 'your photo'} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', opacity: p.status === 'uploading' || p.status === 'error' ? 0.5 : 1 }} />
                 ) : (
                   <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <Sans style={{ fontSize: 11, color: PALETTE.mute }}>{p.name}</Sans>
@@ -250,25 +258,13 @@ export default function Photos({ onNext, onBack }: StageProps) {
               </div>
             ))}
           </div>
-          {state.petPhotos.some((p) => !p.url || p.status === 'uploading' || p.status === 'error') && (
+          {state.ownerPhotos.some((p) => !p.url || p.status === 'uploading' || p.status === 'error') && (
             <Sans style={{ fontSize: 12, color: '#b3402f', marginTop: 12, fontStyle: 'italic' }}>
               Some photos are still saving or didn&apos;t upload — wait a moment, or retry/remove them before continuing.
             </Sans>
           )}
-          {state.petPhotos.length === 1 && (
-            <Serif italic style={{ marginTop: 18, color: PALETTE.mute, fontSize: 16 }}>
-              If you have any more from a different angle, they&apos;ll help us capture them more accurately. If this is the only one, that&apos;s completely OK.
-            </Serif>
-          )}
         </div>
       )}
-
-      {state.tributeSubject === 'owner_and_pet' && <OwnerPhotosSection />}
-      {state.tributeSubject === 'owner_and_pet' && !ownerPhotosReady(state) && (
-        <Sans style={{ fontSize: 13, color: '#b3402f', marginTop: 20, fontStyle: 'italic' }}>
-          To appear beside them in the video, we need at least one photo of you. Or go back to the beginning and choose &quot;Just my pet&quot;.
-        </Sans>
-      )}
-    </StageShell>
+    </div>
   );
 }
