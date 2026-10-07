@@ -6,6 +6,7 @@
 import { NextResponse } from "next/server";
 import { fal, describeFalError } from "@/lib/fal";
 import { rehost } from "@/lib/server/storage";
+import { toFalInputUrls } from "@/lib/server/provider-input";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -50,19 +51,11 @@ export async function POST(req: Request) {
     );
   }
 
-  // gpt-image-2/edit needs real URLs — upload any data: URIs (the user's
-  // uploaded photo files) to fal storage first.
+  // gpt-image-2/edit needs URLs fal can fetch — data: URIs and local-mode
+  // asset URLs (localhost) are pushed to fal storage first.
   let resolvedUrls: string[];
   try {
-    resolvedUrls = await Promise.all(
-      imageUrls.map(async (u) => {
-        if (!u.startsWith("data:")) return u;
-        const m = u.match(/^data:([^;]+);base64,(.+)$/);
-        if (!m) throw new Error("malformed data URI");
-        const blob = new Blob([Buffer.from(m[2], "base64")], { type: m[1] });
-        return await fal.storage.upload(blob);
-      }),
-    );
+    resolvedUrls = (await toFalInputUrls(imageUrls)) ?? [];
   } catch (err) {
     const { message, status } = describeFalError(err);
     return NextResponse.json({ error: message }, { status });

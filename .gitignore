@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local-mode generated assets (dev durability — never commit media)
+/public/local-assets/

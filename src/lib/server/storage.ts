@@ -55,6 +55,27 @@ export function isLocalMode(): boolean {
   );
 }
 
+/**
+ * If `url` is one of our own local-mode asset URLs, return its path on disk;
+ * otherwise null. Lets server code read a local asset directly instead of
+ * fetching localhost — and lets provider calls (fal/Atlas) be handed bytes,
+ * since they cannot reach a localhost URL.
+ */
+export function localAssetPath(url: string): string | null {
+  if (!isLocalMode() || !url) return null;
+  const base = process.env.LOCAL_ASSET_BASE_URL!.replace(/\/+$/, '');
+  if (!url.startsWith(`${base}/`)) return null;
+  const rel = url.slice(base.length + 1).split('?')[0];
+  // Only the `{kind}/{file}` shape we write; no traversal.
+  if (!/^[a-z0-9_-]+\/[a-z0-9_-]+\.[a-z0-9]+$/i.test(rel)) return null;
+  const dir = process.env.LOCAL_ASSET_DIR!.replace(/\/+$/, '');
+  return `${dir}/${rel}`;
+}
+
+export function contentTypeForExt(ext: string): string {
+  return EXT_CONTENT_TYPE[ext.toLowerCase()] ?? 'application/octet-stream';
+}
+
 async function writeToLocalDisk(buffer: Buffer, key: string, ext: string): Promise<string> {
   const dir = process.env.LOCAL_ASSET_DIR!.replace(/\/+$/, '');
   const base = process.env.LOCAL_ASSET_BASE_URL!.replace(/\/+$/, '');

@@ -9,6 +9,9 @@
 // Polling is split from starting: the app's status route polls every few
 // seconds from the client, so pollAtlasClip does exactly ONE check per call.
 
+import { promises as fs } from "fs";
+import { localAssetPath, contentTypeForExt } from "./storage";
+
 const ATLAS_BASE = (process.env.ATLAS_BASE_URL?.trim() || "https://api.atlascloud.ai/api/v1").replace(/\/$/, "");
 
 export function isAtlasEnabled(): boolean {
@@ -92,6 +95,11 @@ export async function atlasUploadFromSource(source: string, label: string): Prom
     if (!m) throw new Error(`unsupported data URI for ${label}`);
     mime = m[1].toLowerCase();
     bytes = Buffer.from(m[2], "base64");
+  } else if (localAssetPath(source)) {
+    // Our own local-mode asset: read it off disk rather than fetching localhost.
+    const p = localAssetPath(source)!;
+    bytes = await fs.readFile(p);
+    mime = contentTypeForExt(p.split(".").pop() ?? "");
   } else {
     const url = assertAllowedReferenceUrl(source, label);
     // No redirects: an allowed host must not be able to bounce us elsewhere.

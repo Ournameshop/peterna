@@ -22,6 +22,7 @@ import { NextResponse } from "next/server";
 import { fal, describeFalError } from "@/lib/fal";
 import { rehost } from "@/lib/server/storage";
 import { isAtlasEnabled, atlasUploadFromSource, startAtlasClip, atlasReferenceModel } from "@/lib/server/atlas";
+import { toFalInputUrls } from "@/lib/server/provider-input";
 import { buildBeatPrompt } from "@/lib/prompts";
 
 export const runtime = "nodejs";
@@ -117,9 +118,21 @@ export async function POST(req: Request) {
     // Keeping clip audio would fight the continuous bed and cause choppy cuts.
     generate_audio: false,
   };
-  if (body.imageUrls?.length) input.image_urls = body.imageUrls.slice(0, 9);
-  if (body.videoUrls?.length) input.video_urls = body.videoUrls.slice(0, 3);
-  if (body.audioUrls?.length) input.audio_urls = body.audioUrls.slice(0, 3);
+  // Local-mode asset URLs (and data: URIs) are not reachable by fal's workers —
+  // push those to fal storage first; fal.media / S3 URLs pass through as is.
+  try {
+    const [imageUrls, videoUrls, audioUrls] = await Promise.all([
+      toFalInputUrls(body.imageUrls?.slice(0, 9)),
+      toFalInputUrls(body.videoUrls?.slice(0, 3)),
+      toFalInputUrls(body.audioUrls?.slice(0, 3)),
+    ]);
+    if (imageUrls?.length) input.image_urls = imageUrls;
+    if (videoUrls?.length) input.video_urls = videoUrls;
+    if (audioUrls?.length) input.audio_urls = audioUrls;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "reference upload failed";
+    return NextResponse.json({ error: `reference upload failed: ${message}` }, { status: 502 });
+  }
 
   // ATLAS BROKER: same Seedance 2.0 models, different transport. fal's edge
   // declines photoreal HUMAN likeness (422/content) that Atlas passes — the
