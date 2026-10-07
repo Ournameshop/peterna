@@ -36,8 +36,50 @@ async function readBody(res: Response): Promise<{ text: string; json: Record<str
   }
 }
 
-/** Fetch a source (https URL or data: URI) and upload it to Atlas; returns the
- *  Atlas-hosted URL. Cached per source so repeated beats reuse the upload. */
+// Reference sources arrive from the client (beat route body), so the server
+// must NOT fetch arbitrary URLs on their behalf — that is an SSRF hole into
+// the box's private network, with the response then exfiltrated to Atlas.
+// Only https URLs on hosts we hand out ourselves are fetched: fal's CDN, our
+// S3 bucket, and the configured local-asset host. Extend with
+// ATLAS_REF_HOST_ALLOWLIST (comma-separated hostnames) when a new host appears.
+const MAX_REFERENCE_BYTES = 25 * 1024 * 1024;
+
+function allowedReferenceHosts(): string[] {
+  const hosts = new Set<string>(["fal.media"]);
+  const bucket = process.env.S3_BUCKET?.trim();
+  const region = process.env.AWS_REGION?.trim() || "us-east-1";
+  if (bucket) {
+    hosts.add(`${bucket}.s3.${region}.amazonaws.com`);
+    hosts.add(`${bucket}.s3.amazonaws.com`);
+  }
+  const localBase = process.env.LOCAL_ASSET_BASE_URL?.trim();
+  if (localBase) {
+    try { hosts.add(new URL(localBase).hostname); } catch { /* ignore malformed */ }
+  }
+  for (const h of (process.env.ATLAS_REF_HOST_ALLOWLIST ?? "").split(",")) {
+    const t = h.trim().toLowerCase();
+    if (t) hosts.add(t);
+  }
+  return [...hosts];
+}
+
+function assertAllowedReferenceUrl(source: string, label: string): URL {
+  let u: URL;
+  try {
+    u = new URL(source);
+  } catch {
+    throw new Error(`reference ${label}: not a valid URL`);
+  }
+  if (u.protocol !== "https:") throw new Error(`reference ${label}: only https sources are fetched`);
+  const host = u.hostname.toLowerCase();
+  const ok = allowedReferenceHosts().some((a) => host === a || host.endsWith(`.${a}`));
+  if (!ok) throw new Error(`reference ${label}: host ${host} is not an allowed asset host`);
+  return u;
+}
+
+/** Fetch a source (https URL on an allowed asset host, or data: URI) and
+ *  upload it to Atlas; returns the Atlas-hosted URL. Cached per source so
+ *  repeated beats reuse the upload. */
 export async function atlasUploadFromSource(source: string, label: string): Promise<string> {
   const key = process.env.ATLAS_API_KEY!.trim();
   const hit = uploadCache.get(source);
@@ -46,16 +88,22 @@ export async function atlasUploadFromSource(source: string, label: string): Prom
   let bytes: Buffer;
   let mime: string;
   if (source.startsWith("data:")) {
-    const m = source.match(/^data:([^;]+);base64,(.+)$/);
+    const m = source.match(/^data:(image\/[a-z0-9.+-]+);base64,(.+)$/i);
     if (!m) throw new Error(`unsupported data URI for ${label}`);
-    mime = m[1];
+    mime = m[1].toLowerCase();
     bytes = Buffer.from(m[2], "base64");
   } else {
-    const res = await fetch(source, { redirect: "follow" });
+    const url = assertAllowedReferenceUrl(source, label);
+    // No redirects: an allowed host must not be able to bounce us elsewhere.
+    const res = await fetch(url, { redirect: "error" });
     if (!res.ok) throw new Error(`fetch reference ${label} failed: ${res.status}`);
+    const declared = Number(res.headers.get("content-length") || 0);
+    if (declared > MAX_REFERENCE_BYTES) throw new Error(`reference ${label}: too large (${declared} bytes)`);
     bytes = Buffer.from(await res.arrayBuffer());
-    mime = res.headers.get("content-type")?.split(";")[0] || "image/jpeg";
+    mime = res.headers.get("content-type")?.split(";")[0]?.trim().toLowerCase() || "image/jpeg";
+    if (!mime.startsWith("image/")) throw new Error(`reference ${label}: not an image (${mime})`);
   }
+  if (bytes.length > MAX_REFERENCE_BYTES) throw new Error(`reference ${label}: too large (${bytes.length} bytes)`);
 
   const ext = mime.includes("png") ? "png" : mime.includes("webp") ? "webp" : "jpg";
   const form = new FormData();
